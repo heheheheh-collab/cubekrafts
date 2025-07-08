@@ -1,0 +1,28 @@
+// Prisma schema for Cubekrafts
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Inquiry {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String
+  location  String
+  message   String
+  createdAt DateTime @default(now())
+} 
+
+model AuditLog {
+  id         Int      @id @default(autoincrement())
+  action     String   // e.g., 'edit', 'delete'
+  inquiryId  Int
+  admin      String   // username or identifier
+  timestamp  DateTime @default(now())
+  details    String?  // JSON or text with before/after or extra info
+} 

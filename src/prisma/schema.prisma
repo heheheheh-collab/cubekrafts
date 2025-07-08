@@ -1,0 +1,19 @@
+// Prisma schema for Cubekrafts
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env(" v DATABASE_URL")
+}
+
+model Inquiry {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String
+  location  String
+  message   String
+  createdAt DateTime @default(now())
+} 
