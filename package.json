@@ -1,0 +1,31 @@
+{
+  "name": "cubekrafts-server",
+  "version": "1.0.0",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "nodemon src/index.js",
+    "start": "node src/index.js",
+    "prisma": "prisma",
+    "nodemailer": "^6.9.8"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.10.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.0.0",
+    "express-validator": "^7.2.1",
+    "fast-csv": "^4.3.6",
+    "helmet": "^7.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.0",
+    "nodemailer": "^7.0.5",
+    "prisma": "^5.10.2",
+    "@sentry/node": "^7.105.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}
+ 
