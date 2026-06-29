@@ -14,6 +14,50 @@
 - **Scalability ceiling is low by design.** SQLite + single Node process + synchronous SMTP in the request path + `tracesSampleRate: 1.0` will be fine to ~100 concurrent users and start degrading well before 10k. There is no connection pooling story, no horizontal scaling path, no migrations-in-CI, and no real observability beyond `morgan("dev")` and Sentry (which is also mis-wired — see findings).
 - **Overall Health Score: 4.5 / 10.** Justification: code quality and structure are reasonable for an MVP (+), validation and an audit log exist (+), but committed PII/DB, default credentials, no `.gitignore`, a mis-ordered Sentry handler, and the total absence of the marketplace domain model pull it down hard. It is shippable as a lead-capture site; it is **not** a foundation a marketplace can scale on without deliberate re-platforming.
 
+> **Pivot note (2026-06-29):** Cubekrafts has pivoted from prefab housing to **modular furnishings** (modular kitchens, wardrobes, bar units, TV/storage units) — a marketplace + **configurator** play, India, INR. The security findings below remain valid (same backend). Sections 4 (Product–Tech Gaps), 5 (Roadmap), and 6 (Target Stack) have been rewritten for the furnishings vertical. Read the new **"Honest Verdict on the Pivot"** section immediately below first.
+
+---
+
+## 0. Honest Verdict on the Pivot (Technical Lens)
+
+The founder asked for honesty, not reassurance. Here it is.
+
+### Does the current backend serve this pivot?
+
+**No. It is now materially under-scoped — arguably more under-scoped than it was for the prefab comparison site.** The thin Express/Prisma/SQLite backend was *almost* adequate for prefab "Prefab Partners," because that product was fundamentally **listings + filters + lead forms + a client-side calculator**. That is CRUD. SQLite-on-a-box can fake it for a demo, and the existing `Inquiry` table is a (tiny) head start.
+
+The furnishings pivot is a **different class of product**. A credible modular-furniture offering is not listings — it is a **parametric configurator + a structured component catalog + a deterministic pricing engine**, and those three things are tightly coupled:
+
+- **The catalog is a bill-of-materials model, not a product list.** A "wardrobe" is not one SKU; it is carcass + shutters + finish + hardware + internal accessories, each with dimensions, compatibility rules, and its own price. You are modelling a configurable product (think automotive "build your car"), which is genuinely hard data modelling — orders of magnitude beyond the 5-column `Inquiry` table that exists today.
+- **The configurator is real engineering.** Even a 2D room/elevation layout with snapping, module constraints, and live dimension math is weeks of focused frontend work. A 3D/AR preview is a specialist discipline (Three.js / react-three-fiber / model pipelines) most solo founders have never touched.
+- **The pricing engine must be correct, not approximate.** In prefab, a wrong ROI number was a marketing estimate. In furnishings, the configurator price **is the quote the customer expects to pay** — wrong math is a refund, a margin loss, or a lost sale. This needs a server-side, versioned, rules-driven engine, not four constants in React (`App.jsx:271-276`).
+- **It is image- and asset-heavy.** Finishes, textures, swatches, 3D models, render thumbnails — none of which the current stack stores, serves, or CDNs.
+
+Net: of the new product's core, **roughly 0% exists in the backend today.** The `Inquiry`/`AuditLog` schema and the admin CRUD carry over as a lead-capture sidecar, nothing more.
+
+### Solo founder, 90-day fundraise window — realistic?
+
+**Not the full product. A fundable *slice*, yes — barely, and only with ruthless scope discipline.**
+
+Be honest about what "configurator + catalog + pricing engine" means in build-hours. A polished, production version of all three — with 3D, AR, dealer inventory, and a large SKU catalog — is a **multi-engineer, 6–12 month build**. No solo founder ships that in 90 days. Anyone who tells the founder otherwise is selling something.
+
+What a disciplined solo founder *can* do in 90 days, leveraging the existing Lovable frontend and AI-assisted build:
+
+- **One vertical, not four.** Pick **modular wardrobes OR kitchens** — not both, definitely not all four categories. Kitchens are the hardest (corner units, appliances, plumbing constraints); wardrobes are the cleanest first configurator.
+- **2D configurator only.** A constrained 2D elevation/layout builder with snapping and live pricing is achievable. **3D and AR are explicitly OUT** of the 90-day window — they are demo-day eye candy that will eat the entire runway. Show them as a roadmap slide, not a built feature.
+- **A seeded catalog, not a dealer platform.** Founder hand-curates 1–2 product lines. **Dealer self-serve onboarding/inventory is OUT** — it is a whole second product (a B2B SaaS) bolted onto the first.
+- **A correct pricing engine for that one vertical.** This is non-negotiable and where the founder's time should go.
+
+That is a credible, demoable, fundable MVP. It is also **at the absolute limit** of a solo founder's capacity in 90 days, and it assumes the founder can do or AI-assist real frontend engineering (canvas/SVG configurator, state management). If the founder is non-technical or can only do no-code, the configurator+pricing core is **not** solo-buildable to a fundable bar in this window — that scenario needs at least one strong product engineer.
+
+### The single biggest technical risk
+
+**The configurator and the pricing engine are one coupled system, and getting them correct-and-consistent is the hard part — not the UI.** The trap is building a pretty drag-and-drop configurator whose prices are subtly wrong, whose module-compatibility rules leak, or whose catalog model can't represent real products. A wrong price shown in the configurator is a direct revenue/trust failure, and retrofitting a correct, versioned pricing rules engine *after* the UI is built is a painful rewrite. This is where solo timelines die.
+
+### Verdict: 🟡 **YELLOW** (for a solo founder)
+
+**YELLOW, conditional.** Green only if the founder (a) can do or AI-assist genuine frontend engineering, and (b) ruthlessly cuts scope to **one category, 2D-only, seeded catalog, correct pricing**. It turns **RED** if scope stays at "configurator for all four categories with 3D/AR and dealer onboarding" on a solo, 90-day clock — that is not solo-buildable and chasing it will burn the runway with nothing demoable. The build complexity is **materially higher** than the prefab comparison site, which was mostly listings + forms.
+
 ---
 
 ## 1. Architecture Assessment
@@ -89,20 +133,29 @@
 
 ---
 
-## 4. Product–Tech Gaps (from lead-capture form to real marketplace)
+## 4. Product–Tech Gaps (modular furnishings: from lead form to configurator marketplace)
 
-The product vision is a prefab-housing **comparison/consultation marketplace**: requirements intake, company filtering, comparisons, quote requests, ratings, expert recs, cost estimator. **Almost none of this exists in the backend.** Today's backend = a single `Inquiry` table behind a contact form. The ROI calculator (`App.jsx:267-356`) is **client-side only** with hardcoded constants and is not the "cost estimator engine" the product needs.
+The new product is a **modular furnishings marketplace + configurator** (modular kitchens, wardrobes, bar units, TV/storage units), India, INR. The core experience is: a customer configures a piece of furniture in a room/elevation layout, sees a **live, correct price** as they swap modules/materials/finishes, and converts that configuration into a quote, a measurement/site visit, and an order. **Essentially none of this exists in the backend** — today it is a single `Inquiry` table behind a contact form, and the ROI calculator (`App.jsx:267-356`) is client-side with four hardcoded constants. The gaps, in dependency order:
 
-To become a real marketplace you need:
+1. **A configurable-product (bill-of-materials) catalog — this is the foundation and the hard part.** Not a flat product list. A configurable item (e.g. a wardrobe) decomposes into **carcass + shutters/fronts + finish/laminate + hardware + internal accessories**, each with dimensions, a price contribution, and **compatibility/constraint rules** (which shutter fits which carcass, which finish is available on which front, min/max dimensions). Entities needed: `Category`, `ModuleType`, `Component` (carcass/shutter/hardware/accessory), `Finish/Material`, `CompatibilityRule`, `PriceRule`, `Configuration` (a saved customer build = a list of chosen components + dimensions), `Dealer`, `User` (customer/dealer/admin), `Quote`, `Order`, `SiteVisit`. This data model is the project's spine; get it wrong and everything above it leaks. **Effort: L.**
 
-1. **Domain model that doesn't exist yet.** Core entities: `Manufacturer/Company`, `Product/ModuleType`, `Specification`, `Quote`, `QuoteRequest`, `Review/Rating`, `User` (buyer + admin + manufacturer roles), `Project/Requirement`. This is the foundation — everything else hangs off it.
-2. **Manufacturer onboarding / CRM.** Self-serve company profiles, verification/KYC, catalog management, lead routing, a manufacturer-facing portal. Currently zero.
-3. **Search & filtering infrastructure.** Comparison/filtering at scale needs faceted search (location, price band, module type, lead time, certifications). SQLite `contains` LIKE scans (`inquiries.js:78-86`) won't cut it. Target: Postgres full-text first, Typesense/Meilisearch/Elastic later.
-4. **Quote workflow.** Buyer requirement → matched manufacturers → structured quote responses → comparison view → acceptance → handoff. State machine + notifications. None exists.
-5. **Payments.** Lead fees / subscription / commission (Razorpay or Stripe for India), invoicing, GST handling. None exists.
-6. **Notifications / email at scale.** Replace synchronous nodemailer with a transactional provider (Resend/SES/Postmark) behind a **job queue** (BullMQ/Redis) for retries and decoupling from the request path.
-7. **Analytics.** Funnel tracking (intake → comparison → quote → conversion), manufacturer performance, marketplace liquidity metrics. Today there is nothing beyond raw inquiry rows.
-8. **Cost-estimator engine.** Move estimation server-side, data-driven (per-manufacturer pricing, regional cost indices, material/labour inputs), versioned and auditable — not four hardcoded constants in React.
+2. **Pricing engine — server-side, deterministic, versioned.** The configurator price *is the quote*, so it must be correct to the rupee and reproducible. Price = f(modules, dimensions, material/finish, hardware, dealer markup, GST). This must live on the server (not the client — clients can be tampered with and constants drift), be **rules-driven and version-stamped** (so a saved quote re-prices identically), and emit an itemized breakdown. This is the single highest-value, highest-risk backend component. **Effort: L.**
+
+3. **The configurator itself (frontend, but backend-coupled).** A **2D** room/elevation layout builder: place modules on a wall, snap to a grid, enforce dimension and compatibility constraints, call the pricing engine live. This is real frontend engineering (canvas/SVG + constraint state). **3D preview** (react-three-fiber / Three.js) and **AR preview** (WebXR / model-viewer / `<model-viewer>` + USDZ/GLB) are a separate, specialist tier — **roadmap, not MVP.** **Effort: L for 2D; XL/specialist for 3D+AR.**
+
+4. **Media storage + CDN.** Furnishings are image-heavy: finish swatches, textures, product photos, 3D model files (GLB/USDZ), render thumbnails. Current stack stores nothing. Need object storage (S3/Cloudflare R2/Supabase Storage) + CDN + an image-transform pipeline (thumbnails, WebP). **Effort: M.**
+
+5. **Search & filter on a large SKU catalog.** Browsing/filtering by category, dimensions, finish family, price band, dealer, lead time. SQLite `contains` LIKE scans (`inquiries.js:78-86`) collapse on a real component catalog. Postgres FTS + `pg_trgm`/GIN first; **Typesense/Meilisearch** when the SKU count and faceting grow. **Effort: M.**
+
+6. **Design-to-quote workflow.** Saved `Configuration` → generated itemized quote (PDF, GST-compliant) → measurement/site-visit scheduling → revised quote → order. A state machine with notifications. The **measurement/site-visit scheduling** step is specific to furnishings (installed product) and gates conversion. **Effort: M.**
+
+7. **Dealer/inventory catalog management.** Dealers manage their catalog, finishes, pricing markup, stock/lead-times, and receive routed leads. This is effectively a **second product (B2B SaaS)** layered on the marketplace — large, and a prime candidate to defer. **Effort: L.**
+
+8. **Payments + GST.** Booking/advance payments and full orders via **Razorpay** (India-native, UPI), GST-compliant invoicing, dealer payouts/commission. **Effort: M.**
+
+9. **Notifications / email + jobs.** Replace synchronous nodemailer (`inquiries.js:60`) with a transactional provider (Resend/SES) behind a **job queue** (BullMQ/Redis) for quote PDFs, visit reminders, retries. **Effort: M.**
+
+10. **Analytics.** Funnel: configure → save → quote → visit → order, plus configurator drop-off (which step loses customers) and per-dealer conversion. **Effort: S.**
 
 ---
 
@@ -120,44 +173,58 @@ Effort: **S** ≤ 2 days · **M** ≤ 1–2 weeks · **L** ≥ 2 weeks.
 | Fix Sentry handler ordering / upgrade wiring; lower `tracesSampleRate` to ~0.1 | **S** | Restores error visibility before scaling (S8). |
 | Audit-log CSV exports; CSV-injection escaping | **S** | PII egress accountability + Excel-injection fix (S11, S12). |
 
-### P1 — Make it productionizable (Weeks 3–8)
+### P1 — Foundation for the configurator MVP (Weeks 3–8)
+This is the platform + the data spine the configurator and pricing engine sit on. Scope assumes **one category (wardrobes), 2D, seeded catalog** per the Honest Verdict.
 | Item | Effort | Business reason |
 |------|--------|-----------------|
-| Migrate SQLite → managed **Postgres** (Neon/Supabase/RDS); single Prisma client singleton; `prisma migrate deploy` in CI | **M** | Removes the hard scaling ceiling and write-contention risk; enables multi-instance. |
-| Move email to async **job queue** (BullMQ + Redis) + transactional provider | **M** | Decouples SMTP from request latency; adds retries/deliverability. |
-| Real **User/role model** + sessions; httpOnly cookie auth; logout/revocation | **M** | Foundation for manufacturer + buyer + admin roles (S9, S10). |
-| Structured logging, `/health` endpoint, uptime + error alerting | **S** | Operability — know when prod breaks before customers do. |
-| CI pipeline: lint, test scaffold, migration check, build | **S** | Prevents the next committed-DB-class mistake. |
-| Split repos / clean monorepo: separate backend from the stray Vite frontend; delete duplicate `src/prisma/schema.prisma` | **S** | Removes schema-drift and deploy confusion. |
+| Migrate SQLite → managed **Postgres** (Neon/Supabase/RDS); single Prisma client singleton; `prisma migrate deploy` in CI | **M** | SQLite cannot model/serve a configurable catalog at scale; Postgres FTS/JSON is needed for the catalog and pricing rules. Highest-leverage move. |
+| **Configurable-product catalog data model** (Category, ModuleType, Component, Finish, CompatibilityRule, Configuration) + admin seeding | **L** | The spine of the entire product (Gap 4.1). Nothing — configurator, pricing, quote — works without it. |
+| **Server-side pricing engine** (rules-driven, versioned, itemized breakdown) + API | **L** | The configurator price *is* the quote; wrong/unversioned pricing = refunds and lost trust. The biggest technical risk (Gap 4.2). |
+| **Object storage + CDN** (S3/R2/Supabase Storage) + image-transform pipeline | **M** | Furnishings are media-heavy (swatches, textures, photos); the API has no asset story today (Gap 4.4). |
+| Real **User/role model** (customer/dealer/admin) + sessions; httpOnly cookie auth | **M** | Saved configurations, quotes, and dealer access all need real accounts (S9, S10). |
+| Move email to async **job queue** (BullMQ + Redis) + transactional provider | **S** | Decouples quote/visit emails from the request path; adds retries/deliverability. |
+| Structured logging, `/health` endpoint, uptime + error alerting; CI (lint/test/migration check) | **S** | Operability before paying customers configure live; prevents the next committed-DB mistake. |
+| Clean repo: separate backend from the stray Vite frontend; delete duplicate `src/prisma/schema.prisma` | **S** | Removes schema-drift and deploy confusion. |
 
-### P2 — Build the marketplace (Weeks 9–13 and beyond)
+### P2 — Configurator, quote-to-order, and go-to-market (Weeks 9–13)
 | Item | Effort | Business reason |
 |------|--------|-----------------|
-| Marketplace domain model (Manufacturer, Product, Quote, Review, Requirement) + APIs | **L** | This is the actual product; without it Cubekrafts is a contact form. |
-| Manufacturer onboarding + portal (catalog, verification, lead routing) | **L** | Supply side of the marketplace; no manufacturers = no marketplace. |
-| Quote-request workflow (state machine + notifications) | **L** | The core monetizable transaction. |
-| Faceted search/filter infra (Postgres FTS → Typesense/Meilisearch) | **M** | Comparison UX at scale; the headline feature. |
-| Server-side cost-estimator engine (data-driven, versioned) | **M** | Differentiator + lead-quality driver; replaces hardcoded client calc. |
-| Payments (Razorpay/Stripe) + GST/invoicing | **M** | Revenue. |
-| Analytics/funnel instrumentation | **S** | Measure marketplace liquidity and conversion to steer the business. |
+| **2D configurator** (room/elevation layout, snapping, constraint enforcement, live pricing calls) | **L** | The headline product experience; what makes this a configurator marketplace, not a catalog. |
+| **Design-to-quote workflow**: save Configuration → itemized GST quote PDF → measurement/site-visit scheduling → order | **M** | The conversion path and the monetizable transaction; site-visit scheduling is specific to installed furnishings (Gap 4.6). |
+| **Search/filter on the SKU catalog** (Postgres FTS + `pg_trgm` → Typesense later) | **M** | Browse/discovery for a real component catalog; LIKE scans don't scale (Gap 4.5). |
+| **Payments + GST invoicing** (Razorpay, UPI, advance/booking) | **M** | Revenue; India-native rails. |
+| Analytics / configurator-funnel instrumentation (configure→save→quote→visit→order, drop-off) | **S** | Find where customers abandon the configurator and where dealers convert (Gap 4.10). |
+
+### P3 — Deferred (post-fundraise / requires a team) — explicitly OUT of the 90-day solo window
+| Item | Effort | Why deferred |
+|------|--------|-------------|
+| **3D + AR preview** (react-three-fiber / Three.js / WebXR, GLB/USDZ model pipeline) | **XL / specialist** | Demo-day eye candy that eats the entire solo runway; show as a roadmap slide, not a built feature. |
+| **Dealer self-serve onboarding + inventory/catalog management portal** | **L** | Effectively a second B2B SaaS product; seed catalog by hand first (Gap 4.7). |
+| **Additional categories** (kitchens, bar units, TV/storage) | **L each** | Kitchens especially are the hardest (corner units, appliances, plumbing constraints); win one vertical first. |
 
 ---
 
-## 6. Recommended Target Stack & Migration Path
+## 6. Recommended Target Stack & Migration Path (modular furnishings configurator)
 
 | Layer | Today | Target | Migration path |
 |-------|-------|--------|----------------|
-| **DB** | SQLite file (`prisma/dev.db`) | **Postgres** (managed: Neon / Supabase / AWS RDS) | Prisma already abstracts this. Change `provider` to `postgresql`, regenerate migrations, dump+import data. Do during P1; SQLite→Postgres is the single highest-leverage move. |
-| **ORM** | Prisma 5 | Prisma (keep) — consolidate to one client singleton | Delete duplicate schema; one `prisma/` dir; `migrate deploy` in CI. |
-| **Hosting** | Single Node process, manual | Containerized API on **Render/Railway/Fly.io** (early) → **ECS/Fargate or k8s** (scale); LB + ≥2 instances | Containerize; externalize state (Postgres + Redis) so instances are stateless. |
-| **Auth** | Hand-rolled JWT, plaintext pw, localStorage | Real users + roles; httpOnly cookies; consider **Clerk/Auth0/Supabase Auth** to avoid building auth | Introduce `User` table in P1; adopt managed auth as roles multiply (buyer/manufacturer/admin). |
-| **Search** | SQLite LIKE scan | **Postgres FTS** first → **Typesense/Meilisearch** at catalog scale | Add when the comparison feature ships (P2). |
-| **Jobs/Email** | Synchronous nodemailer | **BullMQ + Redis**, transactional email (Resend/SES) | P1. |
-| **Observability** | morgan + mis-wired Sentry | Fixed Sentry + structured logs + metrics/alerts | Fix Sentry in P0; add metrics in P1. |
-| **Frontend** | Lovable (Vite/React/shadcn/TS) + stray admin SPA here | Keep Lovable for marketing/intake; build proper buyer + manufacturer + admin frontends against the new API | Decouple admin SPA from backend repo (P1). |
+| **DB** | SQLite file (`prisma/dev.db`) | **Postgres** (managed: Neon / Supabase / RDS). Use relational tables for the catalog + JSONB for flexible spec/option blobs and saved configurations | Prisma abstracts the swap. SQLite cannot model a configurable BOM catalog or serve faceted search; Postgres is mandatory, not optional, for this product. P1. |
+| **ORM** | Prisma 5 | Prisma (keep) — one client singleton | Delete duplicate schema; one `prisma/`; `migrate deploy` in CI. |
+| **Pricing engine** | 4 constants in React (`App.jsx:271-276`) | **Server-side rules engine**, version-stamped, itemized output. Start as plain TypeScript service over Postgres rules tables (no exotic infra needed) | Build in P1; never let price logic live on the client again. |
+| **Media / assets** | None | **Object storage + CDN**: Cloudflare R2 or S3 + CloudFront, or Supabase Storage; image transforms (thumbnails/WebP) via the CDN or a service like imgproxy | New capability (P1). Image-heavy product — provision early. |
+| **3D / AR (deferred)** | None | **react-three-fiber / Three.js** for 3D; **`<model-viewer>` / WebXR** with **GLB (Android/web) + USDZ (iOS)** for AR. Asset pipeline to author/optimize models | P3 only — specialist work; out of the 90-day solo window. |
+| **Search** | SQLite LIKE scan | **Postgres FTS + `pg_trgm`/GIN** first → **Typesense / Meilisearch** as SKU count and faceting grow | Postgres FTS in P2; dedicated search engine when catalog scales. |
+| **Hosting** | Single Node process, manual | Containerized API on **Render/Railway/Fly.io** (early) → ECS/Fargate or k8s (scale); LB + ≥2 instances | Containerize; externalize state (Postgres + Redis + object storage) so instances are stateless. |
+| **Auth** | Hand-rolled JWT, plaintext pw, localStorage | Real users + roles (customer/dealer/admin); httpOnly cookies; **Supabase Auth / Clerk** to avoid building auth (and it pairs naturally if Supabase is used for DB+storage) | Introduce `User` model in P1; adopt managed auth as dealer/customer roles arrive. |
+| **Jobs/Email** | Synchronous nodemailer (`inquiries.js:60`) | **BullMQ + Redis**, transactional email (Resend/SES) — quote PDFs, visit reminders | P1. |
+| **Payments** | None | **Razorpay** (India-native, UPI), GST invoicing, dealer payouts | P2. |
+| **Observability** | morgan + Sentry (now guarded) | Sentry (fixed in P0) + structured logs + metrics/alerts | Metrics in P1. |
+| **Frontend** | Lovable (Vite/React/shadcn/TS) + stray admin SPA here | Keep Lovable for marketing/catalog/intake; the **configurator** is a custom React app (canvas/SVG + r3f later) against the new API; separate admin/dealer surfaces | Decouple admin SPA from backend repo (P1); build configurator as its own app (P2). |
+
+> **Stack consolidation note:** for a solo founder, **Supabase** (Postgres + Auth + Storage in one) plus **Razorpay** + **Resend** is the lowest-operational-overhead path and removes several integration tasks from the 90-day critical path. The pricing engine and configurator are the parts no platform gives you for free — that is where the founder's scarce engineering time must go.
 
 ---
 
 ## Bottom Line
 
-The code is a **clean, well-intentioned MVP** that does one thing — capture leads — reasonably well, and shows good instincts (validation, audit log, graceful shutdown). But it is **not a marketplace**, and it ships with **three Critical security issues that are exploitable today**, the worst being a live customer-PII database committed to git with no `.gitignore` to stop the next leak. **Fix the P0 security items this week** (days of effort, existential downside), **re-platform to Postgres + async jobs in the next two months**, and **only then** start building the actual marketplace domain model — because right now that domain model doesn't exist in a single line of backend code.
+The code is a **clean, well-intentioned MVP** that does one thing — capture leads — reasonably well, and shows good instincts (validation, audit log, graceful shutdown). But after the furnishings pivot it is **materially under-scoped**: a modular-furniture configurator marketplace needs a configurable bill-of-materials catalog, a correct server-side pricing engine, a 2D configurator, and media/CDN infra — **roughly none of which exists.** This is a **harder build than the prefab comparison site**, which was mostly listings + forms. **Fix the P0 security items this week** (days of effort, existential downside), then **re-platform to Postgres + storage + a versioned pricing engine** as the spine. For a solo founder on a 90-day clock the realistic, fundable target is **one category (wardrobes), 2D-only, seeded catalog, correct pricing** — with 3D/AR and dealer onboarding explicitly deferred. **Technical feasibility for a solo founder: 🟡 YELLOW**, conditional on that scope discipline; it turns RED if the founder tries to build all four categories with 3D/AR and dealer self-serve in the window. The single biggest technical risk is the **tightly-coupled configurator + pricing engine**: a pretty configurator that shows wrong prices is a direct revenue-and-trust failure, and bolting a correct pricing rules engine on afterward is a painful rewrite.
