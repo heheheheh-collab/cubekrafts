@@ -1,116 +1,93 @@
-# Cubekrafts / Prefab Partners — Manufacturer Target List
-### Cold-outreach starting list for supply-side seeding
-*Prepared: 29 Jun 2026 · For: Founder-led outreach · Source: public web research (websites, IndiaMART/TradeIndia/Justdial, company sites)*
+# Cubekrafts / Prefab Partners — Modular Furnishing Supplier Target List
+### Cold-outreach starting list for supply-side seeding (modular kitchens & wardrobes)
+*Rewritten: 29 Jun 2026 · For: Founder-led outreach · Source: public web research (company sites, IndiaMART/TradeIndia/Justdial)*
 
-> **How to read this list:** Every company below was found via public web search and is real/verifiable. Where a phone or email is not publicly confirmed, the field is left **blank on purpose — do not invent contact details.** The fastest verified contact channel is the company website's contact page or their IndiaMART/Justdial listing; pull the exact phone/email from there at the moment of outreach (numbers change). **🟢 ANCHOR** = larger/credibility-logo target (sign even at ₹0 for trust). **⚡ SME** = quick-win, lead-hungry SME — hit these first.
+> **How to read this list:** Every company below is a real, verifiable modular kitchen / wardrobe maker or dealer found via public web search. Where a phone or email is **not publicly confirmed, the field is left blank on purpose — do not invent contact details.** Pull the current phone/email from each company's website contact page or IndiaMART/Justdial listing at the moment of outreach. **🟢 ANCHOR** = larger/credibility brand (sign even at ₹0 for trust). **⚡ SME** = lead-hungry local dealer/fabricator — hit these first.
+>
+> **Geography note:** these are metro-anchored (Bengaluru/Pune/Hyderabad/Delhi-NCR) because that's where named dealers are easiest to verify online. Per the GTM playbook, use them as your *recruitment universe* and run cheap *demand* in the tier-2/satellite belts (Mysuru, Nashik, Indore, Vizag, etc.). Most of these dealers already serve those satellite areas.
 
 ---
 
 ## How to work this list
 
-**Daily cadence (founder, solo):** ~10 fresh outreaches/day + follow-ups on prior days = ~50 new touches/week. At 30% reply and ~50% of repliers listing, this list (~45 companies) plus a second research pass gets you to 25-30 listed in ~4 weeks.
+**Daily cadence (founder, solo):** ~10 fresh outreaches/day + follow-ups = ~50 touches/week. At ~30% reply and ~50% list rate, this list plus a Justdial/IndiaMART mining pass gets you to 20-25 listed in ~4 weeks.
 
 **Order of attack:**
-1. **Day 1-3 — ⚡ SMEs in your launch metros first.** They are lead-starved, decide fast, and need no committee. Get 3+ live per metro to hit the liquidity rule.
-2. **Day 3-7 — 🟢 Anchors.** Slower yes, but their logo de-risks the platform for everyone else. Worth pursuing in parallel; don't block on them.
-3. **Day 7+ — National players** for breadth once metros have minimum inventory.
+1. **Day 1-3 — ⚡ SME local dealers/fabricators first.** Lead-starved, decide fast, no committee. Get 3+ live per launch city for liquidity.
+2. **Day 3-7 — 🟢 Anchors** for credibility logos; pursue in parallel, don't block on them.
+3. **Day 7+ — broaden** via the directory mining URLs once each city has minimum inventory.
 
-**Before each outreach:** open the company's website/IndiaMART listing, confirm they still operate + serve the metro, grab the current phone/email, then send the WhatsApp + email script from the GTM playbook (section 2).
+**Before each outreach:** open the company site / IndiaMART listing, confirm they make kitchens/wardrobes and serve the area, grab the current phone/email, then send the WhatsApp + email script from GTM section 2.
 
-**Logging responses:** use the CRM schema below in a Google Sheet. Update `status` and `last_touch` after every touch. Move every reply into the follow-up sequence (Day 0/2/4/7/12/20). Color-code: green = listed, yellow = in conversation, red = no/dead.
+**Logging responses:** use the CRM schema below in a Google Sheet. Update `status` + `last_touch` every touch; run every reply through the Day 0/2/4/7/12/20 follow-up sequence. Color: green = listed, yellow = in conversation, red = no/dead.
 
 **CRM table schema (paste into a sheet — header row):**
 
 | company | city | product | contact | channel | status | last_touch | notes |
 |---|---|---|---|---|---|---|---|
-| _Company name_ | _Metro/region_ | _What they make_ | _Phone/email once verified_ | _Website / IndiaMART / Justdial URL_ | _new / contacted / replied / listed / paid / dead_ | _YYYY-MM-DD_ | _free notes_ |
+| _Name_ | _City/region_ | _kitchens / wardrobes / both_ | _Phone/email once verified_ | _Website / IndiaMART / Justdial URL_ | _new / contacted / replied / listed / paid / dead_ | _YYYY-MM-DD_ | _free notes_ |
 
 `status` values: `new` → `contacted` → `replied` → `listed` → `paid` (or `dead`).
 
 ---
 
-## DELHI–NCR
-
-| # | Company | Type | Product | Website / Channel |
-|---|---|---|---|---|
-| 1 | **Industrial Foams Pvt. Ltd.** ⚡ | SME | PUF panels, prefab houses, porta cabins, prefab warehouses/sheds | https://www.industrialfoams.com/gurgaon/ |
-| 2 | **Grekonin** ⚡ | SME | Roof sandwich PUF panels, portable cabins, insulated panels | https://www.grekonin.com/puf-panel.html |
-| 3 | **Omkar Prefab System** ⚡ | SME | Portable cabins, guard cabins, PUF prefab house, modular portable house | https://www.omkarprefabsystem.com/portable-cabins.html |
-| 4 | **Nakron Infra Pvt. Ltd.** ⚡ | SME | All-type prefab buildings, PUF insulated panels, cold storage | https://www.nakron.in/puf-panels-delhi-ncr.php |
-| 5 | **Vishay Porta Cabin** ⚡ | SME | PUF panels, prefab containers, porta cabins (multi-city) | https://www.vishayportacabin.com/new-delhi/puf-panels/ |
-| 6 | **Cactus Profiles Pvt. Ltd.** ⚡ | SME | PUF roofing panels, prefab structures | https://www.cactusprofiles.com/puf-roofing-panels-in-delhi-ncr/ |
-| 7 | **Rajat Fabrication** ⚡ | SME | PUF panel houses, prefab dealers | https://rajatfabrication.com/puf-panel/ |
-| 8 | **Solvabuild** ⚡ | SME | Portable cabins, porta cabins NCR | https://www.solvabuild.com/portable-cabins-in-delhi/ |
-| — | _Justdial PUF/portacabin cluster (Delhi)_ | source | Many additional SMEs to mine | https://www.justdial.com/Delhi/Prefabricated-Puf-Panel-Manufacturers/nct-12124529 |
-
 ## BENGALURU
 
 | # | Company | Type | Product | Website / Channel |
 |---|---|---|---|---|
-| 9 | **NEC Prefabs (Nagarjuna Prefabs)** ⚡ | SME | Portable homes/cabins, prefab & modular houses, farmhouse containers (also Hyderabad) | https://necprefabs.com/ |
-| 10 | **AAKS Architecture (prefabstructure.com)** ⚡ | SME | Prefab modular buildings/structures | https://www.prefabstructure.com/prefab-modular-building-manufacturers-in-bengaluru/ |
-| 11 | **DTH & Consulting Services** ⚡ | SME | Prefabricated structures | https://www.dthprefab.in/bangalore/index.html |
-| 12 | **Mathru Krupa Enterprises (MK Sai Suraksha)** ⚡ | SME | Modular prefab houses, portable house, luxury container house | https://www.mksaisuraksha.com/prefabricated-house.html |
-| 13 | **Zjell Homes** ⚡ | SME | Luxury/energy-efficient modular prefab homes | https://www.zjellhomes.com/prefab-house/bangalore |
-| 14 | **Industrial Foams (Bangalore)** ⚡ | SME | Prefab container houses, modular homes | https://www.industrialfoams.com/bangalore/prefab-houses/ |
-| — | _IndiaMART modular buildings (Bengaluru)_ | source | Additional SMEs to mine | https://dir.indiamart.com/bengaluru/modular-buildings.html |
-| — | _TradeIndia prefab houses (Bengaluru)_ | source | Additional SMEs to mine | https://www.tradeindia.com/bengaluru/prefabricated-houses-city-183339.html |
+| 1 | **Interwood** ⚡ | SME (factory-direct) | Modular wardrobes & kitchens, factory-direct | https://interwood.in/modular-wardrobe-manufacturer-bangalore.php |
+| 2 | **Spacedra Interiors** ⚡ | SME | Modular kitchen & wardrobe (wooden) manufacturer | https://www.spacedrainterior.com/kitchen-wardrobe.html |
+| 3 | **Vibgyor Interiors** ⚡ | SME | Modular wardrobe & kitchen manufacturer | https://www.vibgyorinteriors.com/Modular-Wardrobe-Manufacturers-in-Bangalore.html |
+| 4 | **Welltuch Furnitures Pvt. Ltd. (modularfurniturebangalore.com)** ⚡ | SME | Modular wardrobe & kitchen manufacturer/supplier | https://www.modularfurniturebangalore.com/products.html |
+| 5 | **Elements Kitchen** ⚡ | SME | Modular kitchens & wardrobes | https://www.elements4kitchens.com/modular-wardrobes-bangalore.php |
+| 6 | **Shreekarni Interiors** ⚡ | SME | Custom modular wardrobes & kitchens | https://www.shreekarniinteriors.com/modular-wardrobe-manufacturer-marthahalli.html |
+| 7 | **Karvi Interio** 🟢 | Anchor (regional) | Stainless-steel modular kitchen cabinets & wardrobes; runs cost calculator | https://karviinterio.com/modular-wardrobes-manufacturers-in-bangalore/ |
+| 8 | **Lecco Cucina** 🟢 | Anchor (brand) | Affordable modular kitchen & wardrobe brand | https://leccocucina.com/affordable-kitchen-wardrobe-designs-bengaluru/ |
+| — | _IndiaMART modular wardrobe (Bengaluru)_ | source | Many additional SME dealers to mine | https://dir.indiamart.com/bengaluru/modular-wardrobe.html |
 
 ## PUNE / MUMBAI
 
 | # | Company | Type | Product | Website / Channel |
 |---|---|---|---|---|
-| 15 | **Con Air Garage Equipments** ⚡ | SME | Container prefab homes, office containers, container farmhouses, porta cabins | https://www.congarageequipments.com/prefabricated-house.html |
-| 16 | **Shree Balaji Porta Cabin Pvt. Ltd.** ⚡ | SME | Portable cabins, prefab steel bunk houses, office containers, container homes | https://www.shreebalajiportacabin.in/container-homes.html |
-| 17 | **Vishay Porta Cabin (Pune)** ⚡ | SME | Prefab containers, porta cabins | https://www.vishayportacabin.com/pune/prefab-container/ |
-| 18 | **Moducon Structures** ⚡ | SME | Container homes (stacked-steel living spaces), Bhosari Pune | https://www.aajjo.com/product/prefabricated-container-homes |
-| 19 | **Rhodium Industrial Technologies** ⚡ | SME | Prefab container homes (Pune) | https://www.aajjo.com/product/prefab-container-home-in-pune-rhodium-industrial-technologies |
-| 20 | **Portable Cabin Pune** ⚡ | SME | Container farmhouses, container homes | https://www.portablecabinpune.com/container-farm-house.php |
-| — | _IndiaMART container homes (Pune)_ | source | Additional SMEs to mine | https://dir.indiamart.com/pune/container-homes.html |
-| — | _ExportersIndia prefab houses (Pune)_ | source | Additional SMEs to mine | https://www.exportersindia.com/pune/prefabricated-houses.htm |
+| 9 | **Mr. Kitchen** ⚡ | SME | Modular kitchens & wardrobes (Pune) | https://www.mrkitchen.co.in/modular-wardrobe-manufacturers-in-pune.php |
+| 10 | **SLE Pune (WoodMac)** ⚡ | SME (in-house mfg) | In-house modular kitchen & wardrobe manufacturer, 3D design, site visits | https://slepune.com/woodmac-modular-kitchen-wardrobe-manufacturer/ |
+| — | _McCoy Mart — Pune modular wardrobe makers_ | source | Vetted list of additional Pune SME makers | https://mccoymart.com/pro/pune/modular-wardrobe-manufacturers/ |
 
 ## HYDERABAD
 
 | # | Company | Type | Product | Website / Channel |
 |---|---|---|---|---|
-| 21 | **NEC Prefabs (Hyderabad)** ⚡ | SME | Porta cabins, prefab/modular houses, farmhouse & office containers | https://necprefabs.com/prefab-houses/ |
-| 22 | **INNBOX Modular Prefab** ⚡ | SME | Portable cabins, prefab houses, PUF panels, bunkhouse cabins (est. 2018) | https://www.innboxprefab.in/ |
-| 23 | **MODULI** 🟢 | Anchor (regional) | Prefab modular homes, offices, restaurants, schools (backed by NCL promoters) | https://moduli.in/ |
-| 24 | **A N Portable Cabins Industry** ⚡ | SME | Portable cabins, modular/prefab houses (Suraram, Hyderabad) | https://www.anportablescabins.com/ |
-| 25 | **Best Prefab Houses** ⚡ | SME | Portable/prefab/modular farmhouses | https://bestprefabhouses.com/hyderabad/about.html |
-| — | _IndiaMART prefab cabins (Hyderabad)_ | source | Additional SMEs to mine | https://dir.indiamart.com/hyderabad/prefabricated-portable-cabin.html |
+| 11 | **VM Modular** 🟢 | Anchor (regional, premium) | Premium residential interiors, modular kitchens & wardrobes | https://www.vmmodular.com/ |
+| — | _IndiaMART kitchen-wardrobe (Hyderabad)_ | source | Multiple SME manufacturers/dealers to mine | https://dir.indiamart.com/hyderabad/kitchen-wardrobe.html?biz=10 |
 
-## NATIONAL ANCHORS (credibility logos — pursue in parallel, expect slower yes)
+## DELHI–NCR
 
 | # | Company | Type | Product | Website / Channel |
 |---|---|---|---|---|
-| 26 | **EPACK Prefab Technologies Ltd.** 🟢 | Anchor (national, listed) | PEBs, prefab modular structures, sandwich panels, site accommodation (Greater Noida HQ; serves Bengaluru etc.) | https://www.epack.in/ |
-| 27 | **Everest Industries Ltd.** 🟢 | Anchor (national, listed) | Prefab sheds, portable offices, modular blocks, PEB steel buildings (90+ yrs) | (public co. — find contact via corporate site / NSE listing) |
-| 28 | **Loom Crafts Prefab** 🟢 | Anchor (national premium) | Luxury prefab modular homes, villas, cottages; experience centers in Mumbai & Pune | https://www.loomcraftsprefab.com/ |
-| 29 | **Interarch Building Products** 🟢 | Anchor (national, listed) | Pre-engineered & prefab building systems | (public co. — find contact via corporate site) |
-| 30 | **PEBS Pennar / Pennar Industries** 🟢 | Anchor (national) | Pre-engineered & prefab building systems | (corporate site) |
-| 31 | **Kirby Building Systems India** 🟢 | Anchor (national) | PEB / prefab steel building systems | (corporate site) |
-| 32 | **Tata BlueScope Steel** 🟢 | Anchor (national) | PEB / steel building systems | (corporate site) |
+| 12 | **Modular Kitchen DSI** ⚡ | SME | Modular kitchens & wardrobes, 12+ yrs, custom 3D | https://modularkitchendsi.com/modular-wardrobes/ |
+| 13 | **Wudley Modulars** ⚡ | SME | Modular kitchen, wardrobe, LCD/TV panel, office furniture — manufacturer & dealer | https://www.wudleymodularkitchens.com/ |
+| 14 | **Regalo Kitchens** 🟢 | Anchor (regional brand) | Modular kitchens, 1000+ NCR customers | https://www.regalokitchens.com/ |
+| 15 | **Delhi Modular Kitchen & Interiors** ⚡ | SME | Modular kitchen & interiors, Delhi NCR & pan-India | https://delhimodularkitchen.com/contact-modular-kitchen-company-delhi-india/ |
+| — | _TradeIndia — modular kitchen furniture (national)_ | source | Manufacturers/suppliers/dealers directory to mine across cities | https://www.tradeindia.com/manufacturers/modular-kitchen-furniture.html |
 
 ---
 
-## Verified-company count & first 5 to contact
+## Verified-supplier count & first 5 to contact
 
-**Verified, named companies compiled: 32** (25 metro-specific SMEs/regional + 7 national anchors), grouped across all 4 launch metros plus national. An additional **8 directory/source URLs** (IndiaMART / TradeIndia / Justdial / ExportersIndia category pages) are included as mining sources to quickly extend the list past 50 when the founder needs more — each of those pages lists dozens of additional SMEs.
+**Verified, named companies compiled: 15** (11 SME local dealers/fabricators + 4 regional anchor brands) across all 4 metro recruitment hubs, plus **5 directory/source URLs** (IndiaMART / TradeIndia / McCoy Mart) that each list dozens of additional SME makers to extend past 40-50 quickly. Pune/Hyderabad have fewer *individually named, verifiable* sites in public results, so lean on the IndiaMART/McCoy directory pages there to round out inventory.
 
-**Top 5 to contact first (⚡ lead-hungry SMEs, one per metro + a multi-city operator — fastest path to liquidity):**
-1. **NEC Prefabs** — covers both Bengaluru AND Hyderabad (one signup, two-metro inventory) — https://necprefabs.com/
-2. **Industrial Foams Pvt. Ltd.** — multi-city (Delhi-NCR + Bengaluru), broad product range — https://www.industrialfoams.com/
-3. **Shree Balaji Porta Cabin Pvt. Ltd.** (Pune) — established container/cabin maker — https://www.shreebalajiportacabin.in/
-4. **INNBOX Modular Prefab** (Hyderabad) — active SME, clear product fit — https://www.innboxprefab.in/
-5. **Zjell Homes** (Bengaluru) — modern modular homes, strong web presence, good anchor-adjacent profile — https://www.zjellhomes.com/
+**Top 5 to contact first (⚡ lead-hungry, factory-direct SMEs — fastest path to liquidity + on-message for the price wedge):**
+1. **Interwood (Bengaluru)** — explicitly "factory-direct," perfect fit for the 20-30%-cheaper-than-Livspace positioning — https://interwood.in/
+2. **SLE Pune / WoodMac (Pune)** — in-house manufacturing + 3D design + site visits, ready to take leads — https://slepune.com/
+3. **Modular Kitchen DSI (Delhi-NCR)** — 12+ yrs, custom 3D, kitchens+wardrobes — https://modularkitchendsi.com/
+4. **Wudley Modulars (Delhi-NCR)** — manufacturer AND dealer, broad product range — https://www.wudleymodularkitchens.com/
+5. **Spacedra Interiors (Bengaluru)** — established kitchen+wardrobe maker, needs distribution — https://www.spacedrainterior.com/
 
 ---
 
 ## Sources
-- [NEC Prefabs](https://necprefabs.com/) · [Industrial Foams](https://www.industrialfoams.com/) · [DTH Prefab](https://www.dthprefab.in/) · [AAKS / prefabstructure.com](https://www.prefabstructure.com/) · [MK Sai Suraksha](https://www.mksaisuraksha.com/) · [Zjell Homes](https://www.zjellhomes.com/)
-- [Grekonin](https://www.grekonin.com/puf-panel.html) · [Omkar Prefab](https://www.omkarprefabsystem.com/portable-cabins.html) · [Nakron Infra](https://www.nakron.in/) · [Vishay Porta Cabin](https://www.vishayportacabin.com/) · [Cactus Profiles](https://www.cactusprofiles.com/) · [Rajat Fabrication](https://rajatfabrication.com/) · [Solvabuild](https://www.solvabuild.com/)
-- [Con Air Garage Equipments](https://www.congarageequipments.com/) · [Shree Balaji Porta Cabin](https://www.shreebalajiportacabin.in/) · [Moducon (aajjo)](https://www.aajjo.com/product/prefabricated-container-homes) · [Rhodium Industrial](https://www.aajjo.com/product/prefab-container-home-in-pune-rhodium-industrial-technologies) · [Portable Cabin Pune](https://www.portablecabinpune.com/)
-- [INNBOX Modular Prefab](https://www.innboxprefab.in/) · [MODULI](https://moduli.in/) · [A N Portable Cabins](https://www.anportablescabins.com/) · [Best Prefab Houses](https://bestprefabhouses.com/hyderabad/about.html)
-- [EPACK Prefab](https://www.epack.in/) · [Loom Crafts Prefab](https://www.loomcraftsprefab.com/) · [Metaltree — Top 10 Prefab Companies India](https://www.metaltree.in/top-10-prefabricated-building-companies-in-india/)
-- Mining sources: [IndiaMART Bengaluru modular](https://dir.indiamart.com/bengaluru/modular-buildings.html) · [IndiaMART Pune container](https://dir.indiamart.com/pune/container-homes.html) · [IndiaMART Hyderabad cabins](https://dir.indiamart.com/hyderabad/prefabricated-portable-cabin.html) · [TradeIndia Bengaluru](https://www.tradeindia.com/bengaluru/prefabricated-houses-city-183339.html) · [Justdial Delhi PUF](https://www.justdial.com/Delhi/Prefabricated-Puf-Panel-Manufacturers/nct-12124529) · [ExportersIndia Pune](https://www.exportersindia.com/pune/prefabricated-houses.htm)
+- [Interwood](https://interwood.in/modular-wardrobe-manufacturer-bangalore.php) · [Spacedra Interiors](https://www.spacedrainterior.com/kitchen-wardrobe.html) · [Vibgyor Interiors](https://www.vibgyorinteriors.com/Modular-Wardrobe-Manufacturers-in-Bangalore.html) · [Welltuch / modularfurniturebangalore](https://www.modularfurniturebangalore.com/products.html) · [Elements Kitchen](https://www.elements4kitchens.com/modular-wardrobes-bangalore.php) · [Shreekarni Interiors](https://www.shreekarniinteriors.com/modular-wardrobe-manufacturer-marthahalli.html) · [Karvi Interio](https://karviinterio.com/) · [Lecco Cucina](https://leccocucina.com/affordable-kitchen-wardrobe-designs-bengaluru/)
+- [Mr. Kitchen (Pune)](https://www.mrkitchen.co.in/modular-wardrobe-manufacturers-in-pune.php) · [SLE Pune / WoodMac](https://slepune.com/woodmac-modular-kitchen-wardrobe-manufacturer/) · [McCoy Mart Pune list](https://mccoymart.com/pro/pune/modular-wardrobe-manufacturers/)
+- [VM Modular (Hyderabad)](https://www.vmmodular.com/) · [IndiaMART Hyderabad kitchen-wardrobe](https://dir.indiamart.com/hyderabad/kitchen-wardrobe.html?biz=10)
+- [Modular Kitchen DSI](https://modularkitchendsi.com/modular-wardrobes/) · [Wudley Modulars](https://www.wudleymodularkitchens.com/) · [Regalo Kitchens](https://www.regalokitchens.com/) · [Delhi Modular Kitchen](https://delhimodularkitchen.com/contact-modular-kitchen-company-delhi-india/)
+- Mining: [IndiaMART Bengaluru wardrobe](https://dir.indiamart.com/bengaluru/modular-wardrobe.html) · [TradeIndia modular kitchen furniture](https://www.tradeindia.com/manufacturers/modular-kitchen-furniture.html)
