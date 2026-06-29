@@ -14,49 +14,59 @@
 - **Scalability ceiling is low by design.** SQLite + single Node process + synchronous SMTP in the request path + `tracesSampleRate: 1.0` will be fine to ~100 concurrent users and start degrading well before 10k. There is no connection pooling story, no horizontal scaling path, no migrations-in-CI, and no real observability beyond `morgan("dev")` and Sentry (which is also mis-wired — see findings).
 - **Overall Health Score: 4.5 / 10.** Justification: code quality and structure are reasonable for an MVP (+), validation and an audit log exist (+), but committed PII/DB, default credentials, no `.gitignore`, a mis-ordered Sentry handler, and the total absence of the marketplace domain model pull it down hard. It is shippable as a lead-capture site; it is **not** a foundation a marketplace can scale on without deliberate re-platforming.
 
-> **Pivot note (2026-06-29):** Cubekrafts has pivoted from prefab housing to **modular furnishings** (modular kitchens, wardrobes, bar units, TV/storage units) — a marketplace + **configurator** play, India, INR. The security findings below remain valid (same backend). Sections 4 (Product–Tech Gaps), 5 (Roadmap), and 6 (Target Stack) have been rewritten for the furnishings vertical. Read the new **"Honest Verdict on the Pivot"** section immediately below first.
+> **Shape change (2026-06-29, supersedes prior pivot):** Cubekrafts is now a **vertical B2B SaaS for local modular-kitchen dealers** — *"the quoting & catalog operating system."* Dealer signs up → builds a catalog (modules, finishes, hardware tiers) → generates accurate customer quotes in minutes via a **server-side versioned pricing engine** → manages incoming leads. **Multi-tenant SaaS.** The consumer marketplace is demoted to an emergent *Act 2* reusing the same catalog/pricing data. India, INR. This is **B2B, not B2C** — the consumer 3D/AR/2D configurator is **fully out of scope.** Security findings below remain valid (same backend). Section 0 (Honest Verdict), 4 (Product–Tech Gaps), 5 (Roadmap), and 6 (Target Stack) are rewritten for the dealer-SaaS shape.
 
 ---
 
-## 0. Honest Verdict on the Pivot (Technical Lens)
+## 0. Honest Verdict on the Dealer-SaaS Shape (Technical Lens)
 
-The founder asked for honesty, not reassurance. Here it is.
+The founder asked for honesty, not reassurance, and explicitly asked me **not** to just agree with the COO's framing. So I'll be precise about what's right and what's wrong in the pitch.
 
-### Does the current backend serve this pivot?
+### Is the COO's core claim true — that this shape is MORE solo-buildable?
 
-**No. It is now materially under-scoped — arguably more under-scoped than it was for the prefab comparison site.** The thin Express/Prisma/SQLite backend was *almost* adequate for prefab "Prefab Partners," because that product was fundamentally **listings + filters + lead forms + a client-side calculator**. That is CRUD. SQLite-on-a-box can fake it for a demo, and the existing `Inquiry` table is a (tiny) head start.
+**Yes, on balance — but for a different reason than stated, and with one part of the claim that is wrong.**
 
-The furnishings pivot is a **different class of product**. A credible modular-furniture offering is not listings — it is a **parametric configurator + a structured component catalog + a deterministic pricing engine**, and those three things are tightly coupled:
+The pitch is: "the scary consumer configurator is gone, and the pricing engine becomes the bounded core, so it's easier." Two halves:
 
-- **The catalog is a bill-of-materials model, not a product list.** A "wardrobe" is not one SKU; it is carcass + shutters + finish + hardware + internal accessories, each with dimensions, compatibility rules, and its own price. You are modelling a configurable product (think automotive "build your car"), which is genuinely hard data modelling — orders of magnitude beyond the 5-column `Inquiry` table that exists today.
-- **The configurator is real engineering.** Even a 2D room/elevation layout with snapping, module constraints, and live dimension math is weeks of focused frontend work. A 3D/AR preview is a specialist discipline (Three.js / react-three-fiber / model pipelines) most solo founders have never touched.
-- **The pricing engine must be correct, not approximate.** In prefab, a wrong ROI number was a marketing estimate. In furnishings, the configurator price **is the quote the customer expects to pay** — wrong math is a refund, a margin loss, or a lost sale. This needs a server-side, versioned, rules-driven engine, not four constants in React (`App.jsx:271-276`).
-- **It is image- and asset-heavy.** Finishes, textures, swatches, 3D models, render thumbnails — none of which the current stack stores, serves, or CDNs.
+- **Half that's TRUE and is the real win:** killing the consumer-facing **2D/3D/AR configurator** removes the single largest, riskiest *frontend* effort from the prior plan. That configurator was weeks of specialist canvas/WebGL state-machine work, and it was the thing a solo founder was least likely to ship well. Replacing it with a **B2B form-driven catalog + quote builder** — boring CRUD-heavy screens a solo founder (AI-assisted) can absolutely build — is a genuine, large reduction in build risk. **This is the strongest argument for the pivot and it holds.**
+- **Half that's MISLEADING:** "the pricing engine becomes the bounded core" does **not** mean the pricing engine gets *easier*. It gets **harder in one specific way**: in B2C you (the founder) authored one pricing ruleset and could hand-tune it. In B2B SaaS, **every dealer authors their own catalog and pricing rules**, so the engine must be fully **data-driven, per-tenant, and configurable by non-technical dealers** — you can no longer hardcode anything. The correctness bar is also higher: a dealer's whole business runs on these quotes, and a wrong number in front of *their* customer is a churned account, not one lost sale. So the pricing engine is correctly identified as the core product, but it is **not** a simplification of the #1 risk — it is the same risk, now load-bearing.
 
-Net: of the new product's core, **roughly 0% exists in the backend today.** The `Inquiry`/`AuditLog` schema and the admin CRUD carry over as a lead-capture sidecar, nothing more.
+And the pivot introduces a **brand-new risk that did not exist in B2C**: **multi-tenant data isolation.** One shared database holding many competing dealers' catalogs, pricing, margins, and customer leads. A single missing `tenantId` filter on a query leaks one dealer's margins/customers to another — a fatal trust failure for a B2B SaaS and a contractual/legal liability. The current code has **zero** tenancy concept.
+
+**Net comparison (B2B dealer-SaaS vs B2C marketplace):** **Easier overall**, with a different risk shape. You remove ~one large specialist frontend (the configurator) and add ~one medium-but-pervasive backend discipline (multi-tenancy). For a *solo* founder that trade is favorable, because the removed work was the kind solo founders fail at, and the added work is a well-trodden pattern with known guardrails. **Verdict: genuinely easier to build than the B2C marketplace — but not "easy," and the COO is wrong that the pricing engine becomes simple.**
+
+### Does the current backend serve this shape?
+
+**Still no — roughly 0% of the dealer-SaaS core exists.** But the *gap is now CRUD-and-rules, not graphics.* The existing Express/Prisma stack is an appropriate starting point (it was over-matched by the consumer configurator; it is well-matched by a B2B SaaS). What carries over: the auth scaffold (needs real users/roles), the `Inquiry` table (becomes the per-dealer **lead inbox**), the audit log, and the now-applied P0 security hardening. What's missing: tenancy, the dealer catalog model, the versioned pricing/BOM engine, quote generation/PDF, and notifications. All of it is buildable by a competent solo founder; none of it requires a specialist discipline (unlike WebGL).
 
 ### Solo founder, 90-day fundraise window — realistic?
 
-**Not the full product. A fundable *slice*, yes — barely, and only with ruthless scope discipline.**
+**Yes — this is the first shape where I'd say a credible MVP is realistically solo-buildable in 90 days**, provided scope is held to the Minimum Lovable Version below.
 
-Be honest about what "configurator + catalog + pricing engine" means in build-hours. A polished, production version of all three — with 3D, AR, dealer inventory, and a large SKU catalog — is a **multi-engineer, 6–12 month build**. No solo founder ships that in 90 days. Anyone who tells the founder otherwise is selling something.
+**Minimum Lovable Version (the demo that funds the round):**
+1. **One dealer, multi-tenant-ready from day one** (tenancy in the schema even if you only onboard one design partner — retrofitting tenancy later is the trap; see below).
+2. **Catalog builder:** dealer defines modules (base/wall/tall units), finishes/laminates, and hardware tiers, each with a price. Form-driven CRUD. No graphics.
+3. **Quote builder + versioned pricing engine:** dealer assembles a kitchen from their catalog, the server computes an itemized, GST-aware quote in seconds, every quote stores the **pricing-rule version** it was computed against so it re-prices identically forever.
+4. **Quote output:** branded PDF + shareable link to send the customer over **WhatsApp**.
+5. **Lead inbox:** incoming customer inquiries land per-dealer (reuse/extend the `Inquiry` table, scoped by tenant).
 
-What a disciplined solo founder *can* do in 90 days, leveraging the existing Lovable frontend and AI-assisted build:
+That is a tight, demoable, *fundable* product — and it's genuinely lovable to a dealer who today quotes on paper or Excel and loses days. **3D/AR and the consumer marketplace are explicitly OUT** (Act 2, roadmap slide).
 
-- **One vertical, not four.** Pick **modular wardrobes OR kitchens** — not both, definitely not all four categories. Kitchens are the hardest (corner units, appliances, plumbing constraints); wardrobes are the cleanest first configurator.
-- **2D configurator only.** A constrained 2D elevation/layout builder with snapping and live pricing is achievable. **3D and AR are explicitly OUT** of the 90-day window — they are demo-day eye candy that will eat the entire runway. Show them as a roadmap slide, not a built feature.
-- **A seeded catalog, not a dealer platform.** Founder hand-curates 1–2 product lines. **Dealer self-serve onboarding/inventory is OUT** — it is a whole second product (a B2B SaaS) bolted onto the first.
-- **A correct pricing engine for that one vertical.** This is non-negotiable and where the founder's time should go.
+What still makes it *hard* (don't let anyone call it trivial): the pricing engine must be correct to the rupee across dealer-defined rules, and tenant isolation must be airtight. Both are achievable solo, but both are unforgiving of shortcuts.
 
-That is a credible, demoable, fundable MVP. It is also **at the absolute limit** of a solo founder's capacity in 90 days, and it assumes the founder can do or AI-assist real frontend engineering (canvas/SVG configurator, state management). If the founder is non-technical or can only do no-code, the configurator+pricing core is **not** solo-buildable to a fundable bar in this window — that scenario needs at least one strong product engineer.
+### The biggest technical trap
 
-### The single biggest technical risk
+Ranked, because the founder asked specifically:
 
-**The configurator and the pricing engine are one coupled system, and getting them correct-and-consistent is the hard part — not the UI.** The trap is building a pretty drag-and-drop configurator whose prices are subtly wrong, whose module-compatibility rules leak, or whose catalog model can't represent real products. A wrong price shown in the configurator is a direct revenue/trust failure, and retrofitting a correct, versioned pricing rules engine *after* the UI is built is a painful rewrite. This is where solo timelines die.
+1. **Pricing-engine correctness + versioning (highest).** Still the #1 risk, now per-tenant. A dealer's business runs on these numbers. The trap is a quote that's subtly wrong, or a quote that **re-prices differently after the dealer edits their catalog** (an already-sent quote must be immutable). Mitigation: server-side, data-driven rules, every quote stamped with an immutable pricing-version snapshot, from day one.
+2. **Multi-tenant isolation (close second, and the *new* trap).** A leaked `tenantId` filter exposes one dealer's margins/customers to a competitor. The fatal mistake is **retrofitting tenancy** after building single-tenant — it touches every query and every table. Mitigation: `tenantId` on every table and a **enforced-at-the-data-layer** scoping (Prisma middleware/extension, or Postgres Row-Level Security) from the first migration, not bolted on.
+3. **Dealer catalog data migration/onboarding (real but lower).** Dealers arrive with messy Excel price lists; importing and modelling them is fiddly and is often the true adoption blocker. Mitigation: for the MVP, onboard 1–2 design-partner dealers by hand; don't build a generic importer yet.
 
-### Verdict: 🟡 **YELLOW** (for a solo founder)
+### Verdict: 🟢 **GREEN** (for a solo founder) — conditional, leaning green
 
-**YELLOW, conditional.** Green only if the founder (a) can do or AI-assist genuine frontend engineering, and (b) ruthlessly cuts scope to **one category, 2D-only, seeded catalog, correct pricing**. It turns **RED** if scope stays at "configurator for all four categories with 3D/AR and dealer onboarding" on a solo, 90-day clock — that is not solo-buildable and chasing it will burn the runway with nothing demoable. The build complexity is **materially higher** than the prefab comparison site, which was mostly listings + forms.
+**GREEN, conditional.** This is the first of the three shapes I can call solo-buildable in the 90-day window, *if* the founder (a) holds to the Minimum Lovable Version, (b) builds tenancy and pricing-version stamping in from the first migration rather than retrofitting, and (c) onboards dealers by hand instead of building a generic catalog importer. It slips to **YELLOW** if scope creeps (multiple dealer tiers, a real self-serve importer, marketplace Act 2 pulled forward) and to **RED** only if tenancy is deferred and later retrofitted under deadline pressure.
+
+**Is it genuinely easier or harder than the B2C marketplace? Genuinely EASIER.** You delete the specialist consumer configurator (the part most likely to sink a solo founder) and replace it with form-driven B2B CRUD. You add multi-tenancy — real work, but a standard, well-documented pattern with guardrails (RLS / query-scoping). The pricing engine is *not* easier, but it's now the focused core rather than one of several hard things competing for attention, which is a better shape to build solo. The COO's instinct is right; the framing that "the pricing engine becomes simple" is wrong — it becomes central.
 
 ---
 
@@ -133,29 +143,31 @@ That is a credible, demoable, fundable MVP. It is also **at the absolute limit**
 
 ---
 
-## 4. Product–Tech Gaps (modular furnishings: from lead form to configurator marketplace)
+## 4. Product–Tech Gaps (multi-tenant dealer SaaS: "the quoting & catalog OS")
 
-The new product is a **modular furnishings marketplace + configurator** (modular kitchens, wardrobes, bar units, TV/storage units), India, INR. The core experience is: a customer configures a piece of furniture in a room/elevation layout, sees a **live, correct price** as they swap modules/materials/finishes, and converts that configuration into a quote, a measurement/site visit, and an order. **Essentially none of this exists in the backend** — today it is a single `Inquiry` table behind a contact form, and the ROI calculator (`App.jsx:267-356`) is client-side with four hardcoded constants. The gaps, in dependency order:
+The product is a **multi-tenant B2B SaaS for local modular-kitchen dealers**: a dealer signs up, builds their own catalog (modules, finishes, hardware tiers), generates accurate itemized customer quotes in minutes via a server-side versioned pricing engine, and manages incoming leads. India, INR. **Consumer-facing 3D/AR/2D configurator is fully out of scope** — the front door is the *dealer's* app, not a consumer's. **Essentially none of the dealer-SaaS core exists** today; the `Inquiry`/`AuditLog` tables and admin CRUD carry over (the `Inquiry` table becomes the per-dealer lead inbox), and the P0 security fixes apply. The ROI calculator (`App.jsx:267-356`) is irrelevant to this shape. Gaps, in dependency order:
 
-1. **A configurable-product (bill-of-materials) catalog — this is the foundation and the hard part.** Not a flat product list. A configurable item (e.g. a wardrobe) decomposes into **carcass + shutters/fronts + finish/laminate + hardware + internal accessories**, each with dimensions, a price contribution, and **compatibility/constraint rules** (which shutter fits which carcass, which finish is available on which front, min/max dimensions). Entities needed: `Category`, `ModuleType`, `Component` (carcass/shutter/hardware/accessory), `Finish/Material`, `CompatibilityRule`, `PriceRule`, `Configuration` (a saved customer build = a list of chosen components + dimensions), `Dealer`, `User` (customer/dealer/admin), `Quote`, `Order`, `SiteVisit`. This data model is the project's spine; get it wrong and everything above it leaks. **Effort: L.**
+1. **Multi-tenancy — the foundation, and a NEW concern this shape introduces.** One database serving many competing dealers. Every domain table needs a `tenantId` (dealer/org) column, and scoping must be **enforced at the data layer** — via Prisma middleware/client-extension that injects the tenant filter on every query, and/or **Postgres Row-Level Security** — not left to per-route discipline. A single missing filter leaks one dealer's margins, pricing, and customer list to a competitor: a fatal B2B trust/legal failure. **This must exist from the first migration; retrofitting it later touches every table and query (see §0 trap #2). Effort: M (but pervasive).**
 
-2. **Pricing engine — server-side, deterministic, versioned.** The configurator price *is the quote*, so it must be correct to the rupee and reproducible. Price = f(modules, dimensions, material/finish, hardware, dealer markup, GST). This must live on the server (not the client — clients can be tampered with and constants drift), be **rules-driven and version-stamped** (so a saved quote re-prices identically), and emit an itemized breakdown. This is the single highest-value, highest-risk backend component. **Effort: L.**
+2. **Dealer catalog data model (bill-of-materials).** Per-tenant catalog: `Tenant/Dealer`, `ModuleType` (base/wall/tall/corner units), `Finish/Laminate`, `HardwareTier` (e.g. economy/standard/premium hinges & channels), `CatalogItem`/`Component` with dimensions and a price contribution, and `CompatibilityRule` (which finish/hardware applies to which module). Less exotic than the B2C consumer configurator's model because the **dealer**, not a consumer, assembles it through forms — but still the spine; get it wrong and pricing and quotes leak. **Effort: L.**
 
-3. **The configurator itself (frontend, but backend-coupled).** A **2D** room/elevation layout builder: place modules on a wall, snap to a grid, enforce dimension and compatibility constraints, call the pricing engine live. This is real frontend engineering (canvas/SVG + constraint state). **3D preview** (react-three-fiber / Three.js) and **AR preview** (WebXR / model-viewer / `<model-viewer>` + USDZ/GLB) are a separate, specialist tier — **roadmap, not MVP.** **Effort: L for 2D; XL/specialist for 3D+AR.**
+3. **Server-side versioned pricing/BOM engine — THE core product, not a bolt-on.** Computes an itemized, GST-aware quote from a dealer-assembled kitchen: price = f(modules, dimensions/running-feet, finish, hardware tier, dealer margin, taxes). Must be **fully data-driven per tenant** (no hardcoded constants — every dealer authors their own rules), **version-stamped** so an already-sent quote re-prices identically forever even after the dealer edits their catalog, and emit a line-item breakdown. Highest value, highest risk (see §0 trap #1). Architecturally simple to host (a TypeScript service over Postgres rules tables); the difficulty is correctness and immutability, not infrastructure. **Effort: L.**
 
-4. **Media storage + CDN.** Furnishings are image-heavy: finish swatches, textures, product photos, 3D model files (GLB/USDZ), render thumbnails. Current stack stores nothing. Need object storage (S3/Cloudflare R2/Supabase Storage) + CDN + an image-transform pipeline (thumbnails, WebP). **Effort: M.**
+4. **Quote generation, PDF, and share.** Turn a computed quote into a **branded PDF** and a **shareable link** the dealer sends the customer. Quote lifecycle: draft → sent → accepted/revised, each quote immutably tied to its pricing-version snapshot. PDF rendering (e.g. a HTML-to-PDF service / Puppeteer / a hosted API). **Effort: M.**
 
-5. **Search & filter on a large SKU catalog.** Browsing/filtering by category, dimensions, finish family, price band, dealer, lead time. SQLite `contains` LIKE scans (`inquiries.js:78-86`) collapse on a real component catalog. Postgres FTS + `pg_trgm`/GIN first; **Typesense/Meilisearch** when the SKU count and faceting grow. **Effort: M.**
+5. **Lead inbox (per dealer).** Reuse and extend the existing `Inquiry` table, scoped by `tenantId`: incoming customer inquiries land in the owning dealer's inbox with status tracking (new/contacted/quoted/won/lost) and link to quotes. This is the lowest-cost gap because the table and admin list already exist. **Effort: S.**
 
-6. **Design-to-quote workflow.** Saved `Configuration` → generated itemized quote (PDF, GST-compliant) → measurement/site-visit scheduling → revised quote → order. A state machine with notifications. The **measurement/site-visit scheduling** step is specific to furnishings (installed product) and gates conversion. **Effort: M.**
+6. **WhatsApp / notification integration.** Indian dealers live on WhatsApp; sending the quote link/PDF via WhatsApp (WhatsApp Business Cloud API, or a provider like Gupshup/AiSensy/Twilio) is a core adoption driver, not a nice-to-have. Plus transactional email (Resend/SES) for quotes and lead alerts, behind a **job queue** (BullMQ/Redis) so sends don't block requests. **Effort: M.**
 
-7. **Dealer/inventory catalog management.** Dealers manage their catalog, finishes, pricing markup, stock/lead-times, and receive routed leads. This is effectively a **second product (B2B SaaS)** layered on the marketplace — large, and a prime candidate to defer. **Effort: L.**
+7. **Auth, roles & tenant membership.** Real users with **per-dealer org membership** and roles (owner/staff). Dealer self-signup, invite teammates, role-scoped access. Replaces the single hardcoded admin. Pairs naturally with a managed provider (Supabase Auth / Clerk). **Effort: M.**
 
-8. **Payments + GST.** Booking/advance payments and full orders via **Razorpay** (India-native, UPI), GST-compliant invoicing, dealer payouts/commission. **Effort: M.**
+8. **Billing / subscriptions (SaaS revenue).** Per-dealer subscription (Razorpay subscriptions / UPI mandates), plan tiers, GST invoicing. Can be a thin manual layer for the MVP (invoice design-partner dealers by hand) and hardened post-fundraise. **Effort: M (S if manual for MVP).**
 
-9. **Notifications / email + jobs.** Replace synchronous nodemailer (`inquiries.js:60`) with a transactional provider (Resend/SES) behind a **job queue** (BullMQ/Redis) for quote PDFs, visit reminders, retries. **Effort: M.**
+9. **Catalog import / onboarding.** Dealers arrive with messy Excel price lists; a generic importer is fiddly and often the true adoption blocker. **Defer** — onboard 1–2 design-partner dealers by hand for the MVP (see §0 trap #3). **Effort: L (deferred).**
 
-10. **Analytics.** Funnel: configure → save → quote → visit → order, plus configurator drop-off (which step loses customers) and per-dealer conversion. **Effort: S.**
+10. **Analytics.** Per-tenant: quotes created → sent → accepted (win rate), time-to-quote, catalog usage. Steers the SaaS and the sales pitch. **Effort: S.**
+
+> **Note — consumer 3D/AR is fully OUT of scope.** No consumer configurator, no 3D (react-three-fiber/Three.js), no AR (WebXR/model-viewer), no consumer marketplace in the MVP. The marketplace is **Act 2**, an emergent layer that *reuses the same dealer catalog + pricing data* once enough dealers are on the platform — explicitly post-fundraise.
 
 ---
 
@@ -173,55 +185,57 @@ Effort: **S** ≤ 2 days · **M** ≤ 1–2 weeks · **L** ≥ 2 weeks.
 | Fix Sentry handler ordering / upgrade wiring; lower `tracesSampleRate` to ~0.1 | **S** | Restores error visibility before scaling (S8). |
 | Audit-log CSV exports; CSV-injection escaping | **S** | PII egress accountability + Excel-injection fix (S11, S12). |
 
-### P1 — Foundation for the configurator MVP (Weeks 3–8)
-This is the platform + the data spine the configurator and pricing engine sit on. Scope assumes **one category (wardrobes), 2D, seeded catalog** per the Honest Verdict.
+### P1 — Multi-tenant foundation + the pricing core (Weeks 3–8)
+The platform + data spine + the engine that *is* the product. Scope assumes the **Minimum Lovable Version** from §0 (one design-partner dealer, kitchens, hand-seeded catalog).
 | Item | Effort | Business reason |
 |------|--------|-----------------|
-| Migrate SQLite → managed **Postgres** (Neon/Supabase/RDS); single Prisma client singleton; `prisma migrate deploy` in CI | **M** | SQLite cannot model/serve a configurable catalog at scale; Postgres FTS/JSON is needed for the catalog and pricing rules. Highest-leverage move. |
-| **Configurable-product catalog data model** (Category, ModuleType, Component, Finish, CompatibilityRule, Configuration) + admin seeding | **L** | The spine of the entire product (Gap 4.1). Nothing — configurator, pricing, quote — works without it. |
-| **Server-side pricing engine** (rules-driven, versioned, itemized breakdown) + API | **L** | The configurator price *is* the quote; wrong/unversioned pricing = refunds and lost trust. The biggest technical risk (Gap 4.2). |
-| **Object storage + CDN** (S3/R2/Supabase Storage) + image-transform pipeline | **M** | Furnishings are media-heavy (swatches, textures, photos); the API has no asset story today (Gap 4.4). |
-| Real **User/role model** (customer/dealer/admin) + sessions; httpOnly cookie auth | **M** | Saved configurations, quotes, and dealer access all need real accounts (S9, S10). |
-| Move email to async **job queue** (BullMQ + Redis) + transactional provider | **S** | Decouples quote/visit emails from the request path; adds retries/deliverability. |
-| Structured logging, `/health` endpoint, uptime + error alerting; CI (lint/test/migration check) | **S** | Operability before paying customers configure live; prevents the next committed-DB mistake. |
+| Migrate SQLite → managed **Postgres** (Supabase/Neon/RDS); single Prisma client singleton; `prisma migrate deploy` in CI | **M** | SQLite cannot serve a multi-tenant SaaS (single-writer lock, no RLS, no horizontal scale). Postgres is mandatory and unlocks tenancy + RLS. Highest-leverage move. |
+| **Multi-tenancy from the first migration:** `tenantId` on every table + data-layer enforcement (Prisma client-extension and/or Postgres **RLS**) | **M** | The new, pervasive risk (Gap 4.1, §0 trap #2). A leaked tenant filter exposes a dealer's margins/customers to a competitor. Must NOT be retrofitted. |
+| **Dealer catalog data model** (Tenant, ModuleType, Finish, HardwareTier, CatalogItem, CompatibilityRule) + admin seeding | **L** | The spine (Gap 4.2). Pricing and quotes hang off it. |
+| **Server-side versioned pricing/BOM engine** + API (data-driven per tenant, version-stamped, itemized) | **L** | THE core product and #1 risk (Gap 4.3, §0 trap #1). A wrong or non-reproducible quote churns a dealer account. |
+| **Auth + tenant membership & roles** (dealer self-signup, owner/staff, invite); httpOnly cookies — consider Supabase Auth/Clerk | **M** | Real per-dealer accounts replace the single hardcoded admin (Gap 4.7; S9, S10). |
+| Structured logging, `/health` endpoint, uptime + error alerting; CI (lint/test/migration check) | **S** | Operability before paying dealers quote live; prevents the next committed-DB mistake. |
 | Clean repo: separate backend from the stray Vite frontend; delete duplicate `src/prisma/schema.prisma` | **S** | Removes schema-drift and deploy confusion. |
 
-### P2 — Configurator, quote-to-order, and go-to-market (Weeks 9–13)
+### P2 — Quote output, leads, and dealer go-to-market (Weeks 9–13)
 | Item | Effort | Business reason |
 |------|--------|-----------------|
-| **2D configurator** (room/elevation layout, snapping, constraint enforcement, live pricing calls) | **L** | The headline product experience; what makes this a configurator marketplace, not a catalog. |
-| **Design-to-quote workflow**: save Configuration → itemized GST quote PDF → measurement/site-visit scheduling → order | **M** | The conversion path and the monetizable transaction; site-visit scheduling is specific to installed furnishings (Gap 4.6). |
-| **Search/filter on the SKU catalog** (Postgres FTS + `pg_trgm` → Typesense later) | **M** | Browse/discovery for a real component catalog; LIKE scans don't scale (Gap 4.5). |
-| **Payments + GST invoicing** (Razorpay, UPI, advance/booking) | **M** | Revenue; India-native rails. |
-| Analytics / configurator-funnel instrumentation (configure→save→quote→visit→order, drop-off) | **S** | Find where customers abandon the configurator and where dealers convert (Gap 4.10). |
+| **Quote generation → branded PDF → shareable link** (immutable, tied to pricing-version snapshot) | **M** | The dealer's deliverable to *their* customer; the visible value of the product (Gap 4.4). |
+| **WhatsApp send** (WhatsApp Business Cloud API / Gupshup / AiSensy) + transactional email via **job queue** (BullMQ/Redis) | **M** | Indian dealers run on WhatsApp; sending quotes there is a core adoption driver, not a nice-to-have (Gap 4.6). |
+| **Lead inbox per dealer** (extend `Inquiry` table, tenant-scoped, status pipeline new→quoted→won/lost) | **S** | Lowest-cost gap — table + admin list already exist; closes the loop from lead to quote (Gap 4.5). |
+| **Subscription billing** (Razorpay subscriptions/UPI mandate, GST invoice) — thin/manual for MVP | **M** (S if manual) | SaaS revenue; can invoice design partners by hand initially (Gap 4.8). |
+| Per-tenant analytics (quotes created→sent→accepted, win rate, time-to-quote) | **S** | Steers the product and the sales pitch (Gap 4.10). |
 
 ### P3 — Deferred (post-fundraise / requires a team) — explicitly OUT of the 90-day solo window
 | Item | Effort | Why deferred |
 |------|--------|-------------|
-| **3D + AR preview** (react-three-fiber / Three.js / WebXR, GLB/USDZ model pipeline) | **XL / specialist** | Demo-day eye candy that eats the entire solo runway; show as a roadmap slide, not a built feature. |
-| **Dealer self-serve onboarding + inventory/catalog management portal** | **L** | Effectively a second B2B SaaS product; seed catalog by hand first (Gap 4.7). |
-| **Additional categories** (kitchens, bar units, TV/storage) | **L each** | Kitchens especially are the hardest (corner units, appliances, plumbing constraints); win one vertical first. |
+| **Consumer marketplace (Act 2)** reusing dealer catalog + pricing data | **L** | Only credible once enough dealers are on the platform; emergent layer, not the wedge. |
+| **Consumer 3D / AR / 2D configurator** (react-three-fiber / Three.js / WebXR, GLB/USDZ) | **XL / specialist** | Fully out of scope for the B2B shape; specialist work that sinks solo timelines. |
+| **Generic catalog importer** (dealer Excel → structured catalog) | **L** | Fiddly and often the real adoption blocker; onboard 1–2 dealers by hand first (Gap 4.9, §0 trap #3). |
+| **Additional verticals** (wardrobes, bar/TV/storage units) | **L each** | Win modular kitchens first; the catalog/pricing model generalizes later. |
 
 ---
 
-## 6. Recommended Target Stack & Migration Path (modular furnishings configurator)
+## 6. Recommended Target Stack & Migration Path (multi-tenant dealer SaaS)
 
 | Layer | Today | Target | Migration path |
 |-------|-------|--------|----------------|
-| **DB** | SQLite file (`prisma/dev.db`) | **Postgres** (managed: Neon / Supabase / RDS). Use relational tables for the catalog + JSONB for flexible spec/option blobs and saved configurations | Prisma abstracts the swap. SQLite cannot model a configurable BOM catalog or serve faceted search; Postgres is mandatory, not optional, for this product. P1. |
-| **ORM** | Prisma 5 | Prisma (keep) — one client singleton | Delete duplicate schema; one `prisma/`; `migrate deploy` in CI. |
-| **Pricing engine** | 4 constants in React (`App.jsx:271-276`) | **Server-side rules engine**, version-stamped, itemized output. Start as plain TypeScript service over Postgres rules tables (no exotic infra needed) | Build in P1; never let price logic live on the client again. |
-| **Media / assets** | None | **Object storage + CDN**: Cloudflare R2 or S3 + CloudFront, or Supabase Storage; image transforms (thumbnails/WebP) via the CDN or a service like imgproxy | New capability (P1). Image-heavy product — provision early. |
-| **3D / AR (deferred)** | None | **react-three-fiber / Three.js** for 3D; **`<model-viewer>` / WebXR** with **GLB (Android/web) + USDZ (iOS)** for AR. Asset pipeline to author/optimize models | P3 only — specialist work; out of the 90-day solo window. |
-| **Search** | SQLite LIKE scan | **Postgres FTS + `pg_trgm`/GIN** first → **Typesense / Meilisearch** as SKU count and faceting grow | Postgres FTS in P2; dedicated search engine when catalog scales. |
-| **Hosting** | Single Node process, manual | Containerized API on **Render/Railway/Fly.io** (early) → ECS/Fargate or k8s (scale); LB + ≥2 instances | Containerize; externalize state (Postgres + Redis + object storage) so instances are stateless. |
-| **Auth** | Hand-rolled JWT, plaintext pw, localStorage | Real users + roles (customer/dealer/admin); httpOnly cookies; **Supabase Auth / Clerk** to avoid building auth (and it pairs naturally if Supabase is used for DB+storage) | Introduce `User` model in P1; adopt managed auth as dealer/customer roles arrive. |
-| **Jobs/Email** | Synchronous nodemailer (`inquiries.js:60`) | **BullMQ + Redis**, transactional email (Resend/SES) — quote PDFs, visit reminders | P1. |
-| **Payments** | None | **Razorpay** (India-native, UPI), GST invoicing, dealer payouts | P2. |
+| **DB** | SQLite file (`prisma/dev.db`) | **Postgres** (managed: Supabase / Neon / RDS). Relational catalog tables + JSONB for flexible per-dealer rule blobs; **Row-Level Security** for tenant isolation | Prisma abstracts the swap. SQLite has no RLS, single-writer lock, no horizontal scale — non-viable for multi-tenant SaaS. Mandatory, P1. |
+| **Multi-tenancy** | None | `tenantId` on every table + **enforced scoping**: Prisma client-extension/middleware that injects the filter, and/or Postgres **RLS** as a backstop | Bake into the **first** migration. Retrofitting is the trap (§0). P1. |
+| **ORM** | Prisma 5 | Prisma (keep) — one client singleton, tenant-scoping extension | Delete duplicate schema; one `prisma/`; `migrate deploy` in CI. |
+| **Pricing engine** | 4 constants in React (`App.jsx:271-276`) | **Server-side, per-tenant, data-driven rules engine**, version-stamped, itemized output. Plain TypeScript service over Postgres rules tables — no exotic infra | Build in P1; price logic never on the client; every quote stores its rule-version snapshot. |
+| **Auth** | Hand-rolled JWT, plaintext pw, localStorage | Users + **org/tenant membership** + roles (owner/staff); dealer self-signup; httpOnly cookies; **Supabase Auth / Clerk** | Introduce User/Membership model in P1; managed provider avoids building auth + pairs with Supabase DB. |
+| **Quote PDF / share** | None | HTML-to-PDF (Puppeteer / a hosted PDF API); signed shareable links | P2. |
+| **Notifications** | Synchronous nodemailer (`inquiries.js:60`) | **WhatsApp Business Cloud API** (or Gupshup/AiSensy) + transactional email (Resend/SES), behind **BullMQ + Redis** | P2; WhatsApp is the adoption channel for Indian dealers. |
+| **Search** | SQLite LIKE scan | **Postgres FTS + `pg_trgm`/GIN** (per-tenant catalog is small; a dedicated engine is rarely needed at this scale) | P2 if/when needed. |
+| **Hosting** | Single Node process, manual | Containerized API on **Render/Railway/Fly.io**; LB + ≥2 instances as dealers grow | Containerize; externalize state (Postgres + Redis) so instances are stateless. |
+| **Billing** | None | **Razorpay subscriptions / UPI mandates**, GST invoicing | P2 (manual invoicing acceptable for MVP design partners). |
+| **Media / assets** | None | Object storage + CDN (Supabase Storage / R2) for catalog photos & dealer logos | Modest need (no 3D models in this shape); P2. |
+| **3D / AR** | None | **Out of scope** for the B2B shape | Not on the roadmap; consumer-only, post-fundraise at the earliest. |
 | **Observability** | morgan + Sentry (now guarded) | Sentry (fixed in P0) + structured logs + metrics/alerts | Metrics in P1. |
-| **Frontend** | Lovable (Vite/React/shadcn/TS) + stray admin SPA here | Keep Lovable for marketing/catalog/intake; the **configurator** is a custom React app (canvas/SVG + r3f later) against the new API; separate admin/dealer surfaces | Decouple admin SPA from backend repo (P1); build configurator as its own app (P2). |
+| **Frontend** | Lovable (Vite/React/shadcn/TS) + stray admin SPA here | The **dealer app** (catalog builder + quote builder + lead inbox) is form-driven React against the new API — well within Lovable/AI-assisted reach | Build the dealer app as the primary surface; decouple from backend repo (P1). |
 
-> **Stack consolidation note:** for a solo founder, **Supabase** (Postgres + Auth + Storage in one) plus **Razorpay** + **Resend** is the lowest-operational-overhead path and removes several integration tasks from the 90-day critical path. The pricing engine and configurator are the parts no platform gives you for free — that is where the founder's scarce engineering time must go.
+> **Stack consolidation note:** for a solo founder, **Supabase** (Postgres + RLS + Auth + Storage in one) plus **Razorpay** + a **WhatsApp provider** (Gupshup/AiSensy) + **Resend** is the lowest-operational-overhead path and removes several integration tasks from the 90-day critical path. Supabase RLS is especially valuable here: it gives tenant isolation a database-enforced backstop, so a missed application-layer filter doesn't automatically become a data leak. The **versioned pricing engine is the one piece no platform gives you for free** — that is where the founder's scarce engineering time must go.
 
 ---
 
