@@ -98,3 +98,64 @@ npm run build            # production build -> client/dist, serve with any stati
   sign in can create additional accounts — there's no public self-signup.
   The `npm run create-user -- <username> <password>` CLI script still works
   too, e.g. for bootstrapping the very first account or resetting a password.
+- The price list can also be (re)imported from inside the app: click
+  **Import CSV** once signed in (`/import-csv`) and upload the file. This
+  means you don't need shell/SCP access to wherever the server ends up
+  deployed — the CLI script and the in-app upload both call the same
+  importer (`server/src/import-logic.js`).
+
+## Deploying with a custom domain (e.g. abg1992.com via GoDaddy)
+
+This app is two separate deployables — a static frontend and a Node API —
+so it needs two hosts. GoDaddy stays as your domain registrar/DNS host the
+whole time; you're just adding DNS records there that point at wherever
+each piece ends up running.
+
+### 1. Backend (Render, free/cheap tier with persistent disk)
+
+1. Push this repo to GitHub (already done) and sign up at render.com.
+2. **New > Web Service**, connect the `heheheheh-collab/cubekrafts` repo.
+3. Set **Root Directory** to `jaguar-nrp-search/server`.
+4. Build command: `npm install`. Start command: `npm start`.
+5. Add a **Disk** (Render dashboard > your service > Disks), mount path
+   e.g. `/data`, 1GB is plenty.
+6. Environment variables (Render dashboard > Environment):
+   - `JWT_SECRET` — a random value, e.g. output of `openssl rand -hex 32`
+   - `DATABASE_PATH` — `/data/jaguar-nrp.db` (must be under the disk's mount path)
+   - `CLIENT_ORIGIN` — `https://abg1992.com` (your future frontend URL)
+   - `COOKIE_SECURE` — `true`
+   - Render sets `PORT` automatically; the app already reads it.
+7. Deploy. Once it's live, sign in isn't possible yet (no users exist) —
+   use Render's **Shell** tab to run `npm run create-user -- <username> <password>`
+   once, or temporarily allow the CLI approach; after that, use the in-app
+   **Create user** and **Import CSV** pages for everything else.
+8. Render gives you a `*.onrender.com` URL — note it, you'll point a
+   subdomain at it next.
+9. In Render, go to your service > **Settings > Custom Domains**, add
+   `api.abg1992.com`. Render will show you a DNS target (a `CNAME` value).
+10. In GoDaddy's DNS panel for `abg1992.com`, add:
+    - Type `CNAME`, Name `api`, Value: whatever Render showed you.
+
+(Railway works the same way — a service with a volume, env vars, and a
+custom domain with a CNAME target it gives you.)
+
+### 2. Frontend (Vercel)
+
+1. In Vercel, **Add New Project**, import `heheheheh-collab/cubekrafts`.
+2. Set **Root Directory** to `jaguar-nrp-search/client`. Vercel auto-detects
+   Vite (build command `npm run build`, output `dist`).
+3. Add environment variable `VITE_API_URL` = `https://api.abg1992.com`
+   (must match the backend's `CLIENT_ORIGIN` from step 1, and must be set
+   *before* the first deploy since Vite bakes it in at build time).
+4. Deploy.
+5. In the Vercel project, **Settings > Domains**, add `abg1992.com` (and
+   optionally `www.abg1992.com`). Vercel will show you the exact records
+   to add.
+6. In GoDaddy's DNS panel, add the records Vercel gave you — typically:
+   - Type `A`, Name `@`, Value `76.76.21.21` (Vercel's apex IP — use
+     whatever Vercel's dashboard actually shows you, it can change)
+   - Type `CNAME`, Name `www`, Value `cname.vercel-dns.com`
+
+DNS changes can take anywhere from a few minutes to a few hours to
+propagate. Once both domains resolve, `https://abg1992.com` is your search
+UI and it talks to `https://api.abg1992.com` for data.

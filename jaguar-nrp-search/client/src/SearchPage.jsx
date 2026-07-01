@@ -71,6 +71,7 @@ export default function SearchPage({ username, onLoggedOut }) {
         <h1>Jaguar NRP Listing</h1>
         <div className="header-right">
           <span>Signed in as {username}</span>
+          <Link to="/import-csv" className="logout-btn">Import CSV</Link>
           <Link to="/create-user" className="logout-btn">Create user</Link>
           <button onClick={handleLogout} className="logout-btn">Logout</button>
         </div>

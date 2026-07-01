@@ -4,6 +4,7 @@ import { apiRequest } from "./api";
 import LoginPage from "./LoginPage.jsx";
 import SearchPage from "./SearchPage.jsx";
 import CreateUserPage from "./CreateUserPage.jsx";
+import ImportCsvPage from "./ImportCsvPage.jsx";
 
 export default function App() {
   const [username, setUsername] = useState(null);
@@ -22,16 +23,13 @@ export default function App() {
     return <LoginPage onLoggedIn={setUsername} />;
   }
 
+  const onLoggedOut = () => setUsername(null);
+
   return (
     <Routes>
-      <Route
-        path="/"
-        element={<SearchPage username={username} onLoggedOut={() => setUsername(null)} />}
-      />
-      <Route
-        path="/create-user"
-        element={<CreateUserPage onLoggedOut={() => setUsername(null)} />}
-      />
+      <Route path="/" element={<SearchPage username={username} onLoggedOut={onLoggedOut} />} />
+      <Route path="/create-user" element={<CreateUserPage onLoggedOut={onLoggedOut} />} />
+      <Route path="/import-csv" element={<ImportCsvPage onLoggedOut={onLoggedOut} />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

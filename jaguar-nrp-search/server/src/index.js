@@ -7,6 +7,7 @@ import rateLimit from "express-rate-limit";
 import "./db.js";
 import authRouter from "./routes/auth.js";
 import productsRouter from "./routes/products.js";
+import adminRouter from "./routes/admin.js";
 
 dotenv.config();
 
@@ -39,6 +40,7 @@ app.get("/", (req, res) => {
 
 app.use("/api/auth", authRouter);
 app.use("/api/products", productsRouter);
+app.use("/api/admin", adminRouter);
 
 app.use((req, res) => {
   res.status(404).json({ error: "Not found" });
