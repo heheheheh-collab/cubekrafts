@@ -108,7 +108,6 @@ export default function SearchPage({ username, onLoggedOut }) {
                   <th>Range</th>
                   <th>Color</th>
                   <th>Unit</th>
-                  <th>SDP</th>
                   <th>NRP</th>
                   <th>Price</th>
                 </tr>
@@ -121,7 +120,6 @@ export default function SearchPage({ username, onLoggedOut }) {
                     <td>{p.rangeCode}</td>
                     <td>{p.colorCode}</td>
                     <td>{p.unitCode}</td>
-                    <td>{p.sdp?.toLocaleString()}</td>
                     <td>{p.nrp?.toLocaleString()}</td>
                     <td>{p.price?.toLocaleString()}</td>
                   </tr>

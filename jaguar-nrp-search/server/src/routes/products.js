@@ -33,7 +33,7 @@ router.get("/", (req, res) => {
   const total = db.prepare(`SELECT COUNT(*) AS count FROM products ${where}`).get(params).count;
   const products = db
     .prepare(
-      `SELECT item_code AS itemCode, item_name AS itemName, sdp, nrp, price,
+      `SELECT item_code AS itemCode, item_name AS itemName, nrp, price,
               unit_code AS unitCode, range_code AS rangeCode, color_code AS colorCode
        FROM products
        ${where}

@@ -28,9 +28,14 @@ run this on.
 - `helmet` security headers, CORS locked to a single configured origin
 - The CSV / SQLite database are git-ignored (`server/data/`, `.env`) so
   pricing data and secrets never reach the public repo
-- `<meta name="robots" content="noindex, nofollow">` on the frontend so
-  search engines won't index/crawl the pricing pages if it's ever deployed
-  to a public URL
+- Not discoverable via search engines: `<meta name="robots" content="noindex, nofollow">`
+  in the frontend HTML, a `client/public/robots.txt` disallowing all
+  crawlers, and an `X-Robots-Tag: noindex, nofollow` header on every API
+  response. The site is never linked to from anywhere public, so in
+  practice it's only reachable by whoever you give the URL to, and it's
+  behind the login wall regardless.
+- SDP (dealer price) is intentionally never sent to the frontend — the
+  `/api/products` response only includes NRP and Price, not SDP
 
 For production use behind a real domain, put this behind HTTPS (e.g. a
 reverse proxy / platform load balancer) and set `COOKIE_SECURE=true` so the
