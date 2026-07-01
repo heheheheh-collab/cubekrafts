@@ -1,0 +1,14 @@
+node_modules/
+.env
+.env.*
+!.env.example
+
+# The database contains real Jaguar NRP pricing data and must never be committed.
+server/data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+client/dist/
+*.log
