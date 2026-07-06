@@ -85,3 +85,40 @@ Allocation: 2 slots by score, 1 slot exploration (random among eligible newer de
 ---
 
 *v1 is deliberately boring: fairness + activation gates + caps. Boring is what you can defend to a dealer on a phone call — "everyone in your city gets an equal shot, and nobody gets buried." The clever stuff earns its complexity only once real volume exists.*
+
+---
+
+## 5. Leakage defense — enforcing the 1% won-deal fee (v1 shipped)
+
+The won-fee runs on self-reporting; a dealer can mark "Lost" and close offline. Defense-in-depth, cheapest layer first:
+
+```mermaid
+flowchart LR
+    A[Lead routed] --> B[+30d / +60d follow-up\nauto-queued]
+    B --> C{Homeowner says}
+    C -- "hired dealer X" --> D{Lead stage = Won?}
+    D -- no --> E[🚩 anomaly flag\nhired-but-not-Won]
+    D -- yes --> F[✅ clean]
+    C -- review link --> G[Token review page]
+    G -- did_hire = true --> D
+    H[Stats sweep] --> I[🚩 suspicious-loss-pattern\n≥3 leads, 0 won, all lost/stale]
+    H --> J[🚩 quick-loss-after-quote\nLost <24h after quote shared]
+```
+
+**Layer 1 — homeowner as source of truth:** 30/60-day follow-up queue in admin (WhatsApp deep-link, outcome recorded). The homeowner has no reason to lie; a "hired" answer against a non-Won lead auto-flags.
+**Layer 2 — make Won valuable:** dealer Reputation card (kitchens delivered · avg rating · review count) + wins feed v2 allocation priority. Hiding a win costs future leads + public reputation — worth more than 1%.
+**Layer 3 — money-flow capture (post-raise):** escrow/payment-protection, EMI, hardware procurement. Deals become visible by construction. This is the terminal fix; requires payments partner + capital.
+**Layer 4 — detection nets:** anomaly flags panel in admin (hired-but-not-Won, did_hire-review mismatch, suspicious-loss-pattern, quick-loss-after-quote). Consequence is commercial, not legal: flagged gaming → suspension from allocation (stated in pilot agreement).
+
+## 6. Lead-credit monetization (approved direction)
+
+Scarcity preserved (configurable cap, default 3) — you cannot sell exclusivity if you broadcast. Free during pilots; switch on when a cohort is activated:
+
+| Tier | Price (proposed) | What it buys |
+|---|---|---|
+| Starter (free) | ₹0 | 5 shared leads/month — the hook stays free |
+| Shared lead | ₹99–199/lead | Standard allocation (up to cap dealers) |
+| Exclusive lead | ₹399–599/lead | Allocated to 1 dealer only |
+| Won-deal fee | 1% of deal | Kept as aligned upside, policed by §5 |
+
+Revenue floor = lead credits (upfront, enforceable). Upside = won-fee + (post-raise) procurement margin/financing take. Validate price points with the first 10 pilots before hard-coding.
