@@ -1,7 +1,7 @@
 # Cubekrafts — Pilot Launch Kit (Top-5 Dealer Onboarding)
 
 **Prepared by:** COO · **For:** Tarun (founder-led sales) · **Goal:** 5 pilots → the free→paid conversion number that decides GREEN
-**The product is live:** dealer app + public homeowner lead form + WhatsApp quote sharing + 1% won-deal fee display.
+**The product is LIVE at https://cubekraft-dealer-suite.lovable.app** — dealer app + public homeowner lead form (/get-quotes) + design catalog (/catalog) + WhatsApp quote sharing + 1% won-deal fee display.
 **Tenant isolation verified** at the database level (see §6) — you can safely put competing dealers on the platform.
 
 ---
