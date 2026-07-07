@@ -2,13 +2,14 @@
 
 **Prepared by:** COO · **For:** Tarun (founder-led sales) · **Goal:** 5 pilots → the free→paid conversion number that decides GREEN
 **The product is LIVE at https://cubekrafts.com** (also cubekraft-dealer-suite.lovable.app) — dealer app + public homeowner lead form (/get-quotes) + design catalog (/catalog) + WhatsApp quote sharing + 1% won-deal fee display.
+**Scope (founder decision, Jul 2026):** the platform is **category-agnostic — everything modular** (kitchens, wardrobes, bar units, TV units, storage, office). GTM still LEADS with kitchens (highest search volume + ticket), but pitch dealers on their full modular range — most prospects below make 2-3 categories.
 **Tenant isolation verified** at the database level (see §6) — you can safely put competing dealers on the platform.
 
 ---
 
 ## 1. The pilot offer (memorize this — it's money-in first)
 
-> "I run Cubekrafts. Homeowners in your city ask us for kitchen quotes — I'll route those enquiries to you **free**. You'll also get our quoting tool: your catalog and rates go in once, then any enquiry becomes a professional GST quote in about two minutes, shareable straight to the customer's WhatsApp. No subscription, no charges. If a lead we bring you turns into a sale, we take 1% of the deal — you pay only when you win. Can I set your catalog up for you this week? Takes 20 minutes on a call."
+> "I run Cubekrafts. Homeowners in your city ask us for kitchen and wardrobe quotes — I'll route those enquiries to you **free**. You'll also get our quoting tool: your catalog and rates go in once — kitchens, wardrobes, TV units, whatever you make — and any enquiry becomes a professional GST quote in about two minutes, shareable straight to the customer's WhatsApp. No subscription, no charges. If a lead we bring you turns into a sale, we take 1% of the deal — you pay only when you win. Can I set your catalog up for you this week? Takes 20 minutes on a call."
 
 Why this works (from the council): you're a **revenue source, not a cost**. Never open with the software; open with the leads.
 
