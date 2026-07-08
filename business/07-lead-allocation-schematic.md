@@ -110,7 +110,7 @@ flowchart LR
 **Layer 3 — money-flow capture (post-raise):** escrow/payment-protection, EMI, hardware procurement. Deals become visible by construction. This is the terminal fix; requires payments partner + capital.
 **Layer 4 — detection nets:** anomaly flags panel in admin (hired-but-not-Won, did_hire-review mismatch, suspicious-loss-pattern, quick-loss-after-quote). Consequence is commercial, not legal: flagged gaming → suspension from allocation (stated in pilot agreement).
 
-## 6. Lead-credit monetization (approved direction)
+## 6. Lead-credit monetization — SUPERSEDED by `08-revenue-model-v2.md` (approved & shipped Jul 2026)
 
 Scarcity preserved (configurable cap, default 3) — you cannot sell exclusivity if you broadcast. Free during pilots; switch on when a cohort is activated:
 
