@@ -65,3 +65,11 @@ Procurement margin, financing/EMI take-rate, escrow/payment-protection — the l
 
 ## 6. Validate with pilots before hard-coding forever
 Price points are hypotheses. The pilot cohort must confirm: Pro conversion ≥30–40% of activated dealers, shared-lead sell-through ≥60%, and zero churn attributable to the success fee. Adjust ₹ numbers on evidence, not vibes.
+
+## 7. Lead quality system (the guarantee, operationalized)
+
+Paying dealers make lead quality the product. Shipped alongside v2 pricing:
+- **Form qualification:** Indian-mobile validation, required timeline question ("within 1 month" → "just exploring"), honeypot + per-IP rate limiting.
+- **Report-lead → credit-back workflow:** dealer reports (wrong number / never enquired / duplicate) → admin review queue → approved reports auto-refund every charged dealer via `credit_ledger` ('junk_lead_refund'); ≥2 dealers reporting the same lead = auto-approved + anomaly flag.
+- **Founder-verification mode (default ON for pilots):** every homeowner request is called/WhatsApped by the founder before routing; routed leads carry a "Verified by Cubekrafts ✓" badge. The premium claim no incumbent makes. Scale path: OTP verification once an SMS provider is integrated (post-pilot).
+- **Quality metrics in admin:** junk rate, timeline mix, per-city junk rate. Target: <5% approved-junk rate; a city above 10% pauses paid routing until fixed.
