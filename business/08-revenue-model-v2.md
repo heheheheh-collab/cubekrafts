@@ -73,3 +73,14 @@ Paying dealers make lead quality the product. Shipped alongside v2 pricing:
 - **Report-lead → credit-back workflow:** dealer reports (wrong number / never enquired / duplicate) → admin review queue → approved reports auto-refund every charged dealer via `credit_ledger` ('junk_lead_refund'); ≥2 dealers reporting the same lead = auto-approved + anomaly flag.
 - **Founder-verification mode (default ON for pilots):** every homeowner request is called/WhatsApped by the founder before routing; routed leads carry a "Verified by Cubekrafts ✓" badge. The premium claim no incumbent makes. Scale path: OTP verification once an SMS provider is integrated (post-pilot).
 - **Quality metrics in admin:** junk rate, timeline mix, per-city junk rate. Target: <5% approved-junk rate; a city above 10% pauses paid routing until fixed.
+
+## 8. Junk-refund mechanics (FAQ: "what exactly is credited back?")
+
+The unit of account is the **lead credit**, never cash. Every routed lead consumes 1 credit regardless of source (intro grant, Pro monthly bundle, pay-as-you-go purchase, admin grant). An approved junk report restores **+1 credit** (`junk_lead_refund` ledger row) to every charged dealer:
+- **Pro subscriber:** one of the 8 monthly credits is restored → ₹999 always buys 8 *usable* leads. The subscription fee itself is never refunded — it bought the bundle + perks; the per-lead unit is what's guaranteed.
+- **Pay-as-you-go:** the purchased credit is restored; no cash moves, no payment reversals.
+- **Pilot window:** nothing consumed → nothing to refund; the report still feeds quality metrics.
+
+Guarantee phrasing: **"a junk lead never counts against what you paid for."**
+
+Fine print (current state): credits do not expire (ledger-sum balance), so refunds are always redeemable — post-pilot, consider a rollover cap (~2× monthly allowance). Exclusive leads are not yet ledger-wired; when shipped, price at **3 credits** so refund logic carries over unchanged.
