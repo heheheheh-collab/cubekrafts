@@ -84,3 +84,10 @@ The unit of account is the **lead credit**, never cash. Every routed lead consum
 Guarantee phrasing: **"a junk lead never counts against what you paid for."**
 
 Fine print (current state): credits do not expire (ledger-sum balance), so refunds are always redeemable — post-pilot, consider a rollover cap (~2× monthly allowance). Exclusive leads are not yet ledger-wired; when shipped, price at **3 credits** so refund logic carries over unchanged.
+
+## 9. Dual quoting modes (sq-ft & per-module) — shipped
+
+The trade quotes two ways; the tool now supports both, mixed within one quote:
+- **Per sq ft** (default): rate × area × finish × hardware — dimension-led dealers.
+- **Per module**: fixed unit price × quantity (nos.) × finish × hardware — fabricators who price discrete carcass units (e.g., "600mm base unit ₹8,500 × 2").
+Mechanics: `pricing_mode` lives on each catalog module (dealer Settings toggle presets new modules); quote lines snapshot mode + quantity; the printed quote renders "12 sq ft" or "2 nos." per line with the effective rate so every line multiplies exactly. Existing sq-ft data untouched. Sales note: this widens the ICP — per-module fabricators were previously a forced fit.
