@@ -7,7 +7,7 @@ import { dirname } from 'node:path';
 import { randomBytes } from 'node:crypto';
 
 export function openDb(file) {
-  mkdirSync(dirname(file), { recursive: true });
+  try { mkdirSync(dirname(file), { recursive: true }); } catch { /* dir may already exist / be a mount */ }
   let data = { secret: null, users: [], results: [] };
   if (existsSync(file)) {
     try {
@@ -19,9 +19,18 @@ export function openDb(file) {
   if (!data.secret) data.secret = randomBytes(32).toString('hex');
 
   let saveTimer = null;
+  let warned = false;
   const save = () => {
     clearTimeout(saveTimer);
-    saveTimer = setTimeout(() => writeFileSync(file, JSON.stringify(data, null, 2)), 50);
+    saveTimer = setTimeout(() => {
+      // A failed write (e.g. a read-only mount) must never crash the server —
+      // log once and keep running in memory.
+      try {
+        writeFileSync(file, JSON.stringify(data, null, 2));
+      } catch (err) {
+        if (!warned) { console.error(`coldtrail: could not persist DB to ${file}: ${err.message}`); warned = true; }
+      }
+    }, 50);
   };
   save();
 
