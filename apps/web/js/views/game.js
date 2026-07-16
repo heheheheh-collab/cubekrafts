@@ -31,14 +31,34 @@ export async function renderGame(layout, sessionId) {
     ${state.mode !== 'solo' ? ` · invite code <b>${esc(state.code)}</b>` : ''}
     <span id="banner-msg"></span>
   </div>
-  <div class="desk">
+  <div class="desk m-doc">
     <nav class="desk-col doc-list" id="doc-list"></nav>
     <main class="desk-col doc-view" id="doc-view"></main>
     <aside class="rail">
       <div class="rail-tabs" id="rail-tabs"></div>
       <div class="rail-body" id="rail-body"></div>
     </aside>
-  </div>`);
+  </div>
+  <nav class="mobile-nav" id="mobile-nav">
+    <button data-mview="files"><span class="mn-ico">🗂️</span>Files</button>
+    <button data-mview="doc" class="active"><span class="mn-ico">📄</span>Case</button>
+    <button data-mview="tools"><span class="mn-ico">🔍</span>Tools</button>
+  </nav>`);
+
+  // On phones only one panel shows at a time; the bottom nav switches between
+  // the file list, the reading pane and the investigation rail.
+  function setMobileView(v) {
+    const desk = document.querySelector('.desk');
+    if (!desk) return;
+    desk.classList.remove('m-files', 'm-doc', 'm-tools');
+    desk.classList.add(`m-${v}`);
+    for (const b of document.querySelectorAll('#mobile-nav [data-mview]')) {
+      b.classList.toggle('active', b.dataset.mview === v);
+    }
+  }
+  for (const b of document.querySelectorAll('#mobile-nav [data-mview]')) {
+    b.onclick = () => setMobileView(b.dataset.mview);
+  }
 
   // ------------------------------------------------------------ doc list ----
   const GROUPS = [
@@ -84,6 +104,7 @@ export async function renderGame(layout, sessionId) {
   function openDoc(docId) {
     activeDocId = docId;
     interrogating = null;
+    setMobileView('doc'); // tapping a file jumps to the reading pane on phones
     if (!readDocs.has(docId)) {
       readDocs.add(docId);
       api('POST', `/api/sessions/${sessionId}/read`, { docId }).catch(() => {});
@@ -398,6 +419,7 @@ export async function renderGame(layout, sessionId) {
   function openInterrogation(suspectId) {
     interrogating = suspectId;
     activeDocId = null;
+    setMobileView('doc'); // the interview renders in the reading pane
     drawDocList();
     const s = suspects.find((x) => x.charId === suspectId);
     const citable = docs.filter((d) => ['call_logs', 'witness_statement'].includes(d.kind));

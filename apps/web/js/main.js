@@ -6,6 +6,7 @@ import { renderAuth } from './views/auth.js';
 import { renderHome } from './views/home.js';
 import { renderLobby } from './views/lobby.js';
 import { renderGame } from './views/game.js';
+import { showTutorial, shouldAutoShow } from './views/tutorial.js';
 
 function layout(inner, { bare = false } = {}) {
   const app = el('app');
@@ -14,12 +15,15 @@ function layout(inner, { bare = false } = {}) {
     <header class="topbar">
       <a class="brand" href="#/home">COLD TRAIL<small>procedural case files</small></a>
       <div class="spacer"></div>
-      ${auth.user ? `<span class="muted">Det. ${esc(auth.user.handle)}</span>
+      ${auth.user ? `<button id="help" class="ghost">How to play</button>
+      <span class="muted whoami">Det. ${esc(auth.user.handle)}</span>
       <button id="logout">Sign out</button>` : ''}
     </header>
     ${inner}`;
   const out = el('logout');
   if (out) out.onclick = () => { auth.clear(); closeStream(); location.hash = '#/login'; };
+  const help = el('help');
+  if (help) help.onclick = () => showTutorial(true);
 }
 
 async function route() {
@@ -34,7 +38,9 @@ async function route() {
     if (page === 'login') return renderAuth(layout);
     if (page === 'lobby' && arg) return await renderLobby(layout, arg);
     if (page === 'game' && arg) return await renderGame(layout, arg);
-    return await renderHome(layout);
+    const home = await renderHome(layout);
+    if (shouldAutoShow()) setTimeout(() => showTutorial(), 350); // first-run welcome
+    return home;
   } catch (err) {
     layout(`<div class="center-wrap"><div class="case-card">
       <h1>DEAD END</h1>
