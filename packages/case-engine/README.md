@@ -46,6 +46,15 @@ solveCase(c.documents).solved; // true, by construction
 - The hidden ground truth never leaks into any visible document.
 - Generation converges in a handful of attempts (~1.7 avg), fast enough to bank thousands of cases offline.
 
+## Gated evidence (v0.2)
+
+Beyond the open casefile, `caseData.gated` carries server-only content that the game releases through player actions, all derived from the same ground truth:
+
+- **Financial records** per suspect and the victim's **estate & insurance file** (warrant-gated) — motive-corroborating transactions woven into six weeks of noise.
+- **Lab results** — wiped-tumbler prints, footwear comparisons against real shoe sizes, device extractions (the killer's phone is scrubbed; secret-holders' deleted texts survive), and the weapon-recovery dive at the dump site.
+- **Interrogation content** — per-suspect alibi/victim answers, killer deflections and the lawyer-up line, and full secret confessions for red herrings. Which confrontations "bite" is decided by the solver's proven contradictions, so interrogation can never leak beyond what the evidence supports.
+- **CCTV** — a public camera index plus `cctvPull(caseData, cameraId, from, to)` that renders identified sightings from the hidden timeline on demand.
+
 ## Current scope vs. the plan
 
-This is the Phase 1 vertical slice: one crime type (blunt-force homicide at the victim's home), one evening window, rookie + detective tiers, and the six MVP evidence types. The plan's remaining evidence systems (interrogation, warrants, lab credits, CCTV, financial records), higher tiers, more crime types/settings, and the LLM prose-polish pass layer on top of the same canon structure.
+This is the Phase 1 vertical slice plus the Phase 4 depth systems (interrogation, warrants, lab credits, CCTV, financials): one crime type (blunt-force homicide at the victim's home), one evening window, rookie + detective tiers. More crime types/settings, higher tiers, and the LLM prose-polish pass layer on top of the same canon structure.

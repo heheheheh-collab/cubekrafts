@@ -9,6 +9,7 @@ import { generateMap } from './gen/map.js';
 import { generateCast } from './gen/cast.js';
 import { generateTimeline } from './gen/timeline.js';
 import { projectEvidence } from './gen/evidence.js';
+import { projectGated } from './gen/gated.js';
 import { solveCase } from './solver.js';
 import { fmtTime } from './time.js';
 
@@ -50,9 +51,13 @@ function finalize(seed, tier, attempts, built, report) {
   const motive = MOTIVES[killer.motiveId];
   const sceneName = map.locations.find((l) => l.id === timeline.scene).name;
   const street = sceneName.split(', ')[1] || sceneName;
+  const gated = projectGated(createRng(`${seed}#gated`), map, cast, skeleton, timeline);
+  // Camera index is public knowledge — players see WHERE cameras are on the
+  // map; the footage itself is pulled per-request in game.
+  documents.find((d) => d.kind === 'map').payload.cameras = gated.cameras;
 
   return {
-    engine: 'coldtrail-case-engine@0.1.0',
+    engine: 'coldtrail-case-engine@0.2.0',
     id: `CT-${hash(String(seed))}`,
     seed: String(seed),
     tier,
@@ -92,9 +97,11 @@ function finalize(seed, tier, attempts, built, report) {
         isCompeting: !!c.isCompeting,
         secret: c.secret?.id || null,
         motiveId: c.motiveId || null,
+        shoeSize: c.shoeSize ?? null,
         claimedSegments: c.claimedSegments || null,
       })),
     },
+    gated,
     meta: { attempts, solverReport: report },
   };
 }

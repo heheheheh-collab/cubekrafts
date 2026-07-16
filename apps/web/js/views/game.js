@@ -19,6 +19,9 @@ export async function renderGame(layout, sessionId) {
   let railTab = 'suspects';
   let readDocs = new Set(state.me?.readDocs || []);
   const localBoard = {}; // versus keeps notes client-side only
+  let inv = state.inv || { labCredits: 0, docs: [], pendingLab: [], transcript: [], warrants: [] };
+  let interrogating = null; // suspectId when the interview room is open
+  const allDocs = () => [...docs, ...inv.docs];
 
   const modeLabel = { solo: 'SOLO', coop: 'CO-OP SQUAD', versus: 'VERSUS RACE' }[state.mode];
 
@@ -46,6 +49,10 @@ export async function renderGame(layout, sessionId) {
 
   function shortTitle(d) {
     if (d.kind === 'witness_statement') return d.title.replace('Witness Statement — ', '');
+    if (d.kind === 'financial_records') return d.title.replace('Financial Records (Warrant) — ', '$ ');
+    if (d.kind === 'lab_report') return d.title.replace('Lab Report — ', '🧪 ');
+    if (d.kind === 'cctv_footage') return d.title.replace('CCTV Pull — ', '📹 ');
+    if (d.kind === 'estate_file') return '§ Estate & insurance file';
     return { briefing: 'Case briefing', crime_scene: 'Crime scene', autopsy: 'Autopsy report', call_logs: 'Call records', background_checks: 'Background checks', map: 'Area map' }[d.kind] || d.title;
   }
 
@@ -55,15 +62,19 @@ export async function renderGame(layout, sessionId) {
       const others = state.players.filter((p) => p.id !== auth.user.id && p.readDocs?.includes(docId));
       return others.length ? `<span class="who">${others.map((p) => esc(initials(p.name))).join(' ')}</span>` : '';
     };
-    el('doc-list').innerHTML = GROUPS.map(([label, match]) => `
-      <div class="doc-group">${label}</div>
-      ${docs.filter(match).map((d) => `
+    const item = (d) => `
         <button class="doc-item ${d.id === activeDocId ? 'active' : ''}" data-doc="${d.id}">
           <span class="read">${readDocs.has(d.id) ? '✓' : '·'}</span>
           <span>${esc(shortTitle(d))}</span>
           ${whoRead(d.id)}
-        </button>`).join('')}
-    `).join('');
+        </button>`;
+    el('doc-list').innerHTML = GROUPS.map(([label, match]) => `
+      <div class="doc-group">${label}</div>
+      ${docs.filter(match).map(item).join('')}
+    `).join('') + (inv.docs.length ? `
+      <div class="doc-group">INVESTIGATION</div>
+      ${inv.docs.map(item).join('')}` : '')
+      + (inv.pendingLab.length ? `<div class="doc-group" style="color:var(--amber)">⧗ ${inv.pendingLab.length} lab result${inv.pendingLab.length > 1 ? 's' : ''} pending…</div>` : '');
     for (const btn of el('doc-list').querySelectorAll('[data-doc]')) {
       btn.onclick = () => openDoc(btn.dataset.doc);
     }
@@ -72,12 +83,14 @@ export async function renderGame(layout, sessionId) {
   // ---------------------------------------------------------- doc viewer ----
   function openDoc(docId) {
     activeDocId = docId;
+    interrogating = null;
     if (!readDocs.has(docId)) {
       readDocs.add(docId);
       api('POST', `/api/sessions/${sessionId}/read`, { docId }).catch(() => {});
     }
     drawDocList();
-    const d = docs.find((x) => x.id === docId);
+    const d = allDocs().find((x) => x.id === docId);
+    if (!d) return;
     el('doc-view').innerHTML = `<article class="paper">
       <div class="stamp">${esc(c.town)} P.D. · case ${esc(c.id)} · confidential</div>
       <h2>${esc(d.title)}</h2>
@@ -124,9 +137,16 @@ export async function renderGame(layout, sessionId) {
         ${r.motiveId ? '⚑ ' : ''}${esc(r.motiveNote)}</div>`).join('')}`;
     }
     if (d.kind === 'map') {
+      const cams = d.payload.cameras || [];
       return `${prosePara(d.prose)}
         <canvas id="mapcanvas" width="760" height="760"></canvas>
-        <div class="map-readout" id="map-readout">Click two points to measure travel time.</div>`;
+        <div class="map-readout" id="map-readout">Click two points to measure travel time.</div>
+        ${cams.length ? `<div class="subidx">CCTV coverage: ${cams.map((cm) => esc(cm.label)).join(' · ')} — pull footage from the ACTIONS panel.</div>` : ''}`;
+    }
+    if (d.kind === 'financial_records') {
+      return `${prosePara(d.prose)}
+        <table><thead><tr><th>Date</th><th>Description</th><th>Amount</th></tr></thead>
+        <tbody>${d.payload.rows.map((r) => `<tr><td>${esc(r.date)}</td><td>${esc(r.desc)}</td><td>${esc(r.amount)}</td></tr>`).join('')}</tbody></table>`;
     }
     return prosePara(d.prose || '');
   }
@@ -225,8 +245,8 @@ export async function renderGame(layout, sessionId) {
 
   // ------------------------------------------------------------ right rail ----
   function drawRailTabs() {
-    const tabs = [['suspects', 'SUSPECTS']];
-    if (state.mode === 'coop') tabs.push(['chat', 'SQUAD CHAT']);
+    const tabs = [['suspects', 'SUSPECTS'], ['actions', 'ACTIONS']];
+    if (state.mode === 'coop') tabs.push(['chat', 'CHAT']);
     tabs.push(['accuse', 'ACCUSE']);
     if (state.debrief) tabs.push(['debrief', 'DEBRIEF']);
     el('rail-tabs').innerHTML = tabs.map(([id, label]) => `<button data-tab="${id}" class="${railTab === id ? 'active' : ''}">${label}</button>`).join('');
@@ -238,9 +258,91 @@ export async function renderGame(layout, sessionId) {
   function drawRail() {
     drawRailTabs();
     if (railTab === 'suspects') drawSuspects();
+    else if (railTab === 'actions') drawActions();
     else if (railTab === 'chat') drawChat();
     else if (railTab === 'accuse') drawAccuse();
     else if (railTab === 'debrief') drawDebrief();
+  }
+
+  // -- actions: warrants, lab, cctv --
+  function drawActions() {
+    const cams = mapDoc.payload.cameras || [];
+    const locs = mapDoc.payload.locations;
+    const slots = [];
+    for (let w = 990; w <= 1530; w += 30) slots.push(w);
+    const citable = docs.filter((d) => ['background_checks', 'call_logs', 'witness_statement'].includes(d.kind));
+    el('rail-body').innerHTML = `
+      <div class="actions">
+        <div class="lab-credits">🧪 LAB CREDITS: <b>${inv.labCredits}</b>${inv.pendingLab.length ? ` · ⧗ ${inv.pendingLab.length} pending` : ''}</div>
+
+        <h4 class="act-h">WARRANT REQUEST</h4>
+        <p class="muted">The judge grants warrants on documented motive or a lie you can prove — not hunches.</p>
+        <label>Target</label>
+        <select id="wr-target">
+          <option value="estate">The victim’s estate & insurance file</option>
+          ${suspects.map((s) => `<option value="${esc(s.charId)}">${esc(s.name)} — financial records</option>`).join('')}
+        </select>
+        <label>Grounds (cite a document)</label>
+        <select id="wr-grounds">${citable.map((d) => `<option value="${esc(d.id)}">${esc(shortTitle(d))}</option>`).join('')}</select>
+        <button class="primary" id="wr-go">Petition the judge</button>
+        <div id="wr-out" class="act-out"></div>
+
+        <h4 class="act-h">FORENSICS LAB</h4>
+        <label>Analysis</label>
+        <select id="lab-type">
+          <option value="tumbler">Latent prints — the second tumbler</option>
+          <option value="shoeprint">Footwear comparison vs. a suspect</option>
+          <option value="phone">Device extraction — a suspect’s phone</option>
+          <option value="weapon_search">Evidence search at a location</option>
+        </select>
+        <div id="lab-extra"></div>
+        <button class="primary" id="lab-go">Send to the lab (1 credit)</button>
+        <div id="lab-out" class="act-out"></div>
+
+        <h4 class="act-h">CCTV PULL</h4>
+        <label>Camera</label>
+        <select id="cctv-cam">${cams.map((cm) => `<option value="${esc(cm.id)}">${esc(cm.label)}</option>`).join('')}</select>
+        <label>Window</label>
+        <select id="cctv-win">${slots.map((w) => `<option value="${w}">${fmtTime(w)} – ${fmtTime(w + 30)}</option>`).join('')}</select>
+        <button class="primary" id="cctv-go">Pull footage</button>
+        <div id="cctv-out" class="act-out"></div>
+      </div>`;
+
+    const labExtra = () => {
+      const t = el('lab-type').value;
+      if (t === 'shoeprint' || t === 'phone') {
+        el('lab-extra').innerHTML = `<label>Suspect</label><select id="lab-suspect">${suspects.map((s) => `<option value="${esc(s.charId)}">${esc(s.name)}</option>`).join('')}</select>`;
+      } else if (t === 'weapon_search') {
+        el('lab-extra').innerHTML = `<label>Location</label><select id="lab-loc">${locs.filter((l) => l.kind !== 'home').map((l) => `<option value="${esc(l.id)}">${esc(l.name)}</option>`).join('')}</select>`;
+      } else el('lab-extra').innerHTML = '';
+    };
+    el('lab-type').onchange = labExtra;
+    labExtra();
+
+    el('wr-go').onclick = async () => {
+      try {
+        const r = await api('POST', `/api/sessions/${sessionId}/warrant`, { target: el('wr-target').value, groundsDocId: el('wr-grounds').value });
+        el('wr-out').innerHTML = `<div class="verdict ${r.granted ? 'good' : 'bad'}">${esc(r.judge)}</div>`;
+      } catch (err) { el('wr-out').innerHTML = `<div class="verdict bad">${esc(err.message)}</div>`; }
+    };
+    el('lab-go').onclick = async () => {
+      try {
+        const body = { type: el('lab-type').value };
+        if (el('lab-suspect')) body.suspectId = el('lab-suspect').value;
+        if (el('lab-loc')) body.locId = el('lab-loc').value;
+        const r = await api('POST', `/api/sessions/${sessionId}/lab`, body);
+        inv.labCredits = r.labCredits;
+        drawRail(); // refresh the credits counter first — it re-renders the panel
+        el('lab-out').innerHTML = '<div class="verdict good">Sent. The lab will file its report shortly — watch the sidebar.</div>';
+      } catch (err) { el('lab-out').innerHTML = `<div class="verdict bad">${esc(err.message)}</div>`; }
+    };
+    el('cctv-go').onclick = async () => {
+      try {
+        const r = await api('POST', `/api/sessions/${sessionId}/cctv`, { cameraId: el('cctv-cam').value, windowStart: Number(el('cctv-win').value) });
+        el('cctv-out').innerHTML = '<div class="verdict good">Footage pulled — filed under INVESTIGATION.</div>';
+        if (!inv.docs.some((d) => d.id === r.doc.id)) { inv.docs.push(r.doc); drawDocList(); }
+      } catch (err) { el('cctv-out').innerHTML = `<div class="verdict bad">${esc(err.message)}</div>`; }
+    };
   }
 
   // -- suspects board (shared in solo/coop, local in versus) --
@@ -263,8 +365,12 @@ export async function renderGame(layout, sessionId) {
           <button data-status="prime" class="${b.status === 'prime' ? 'sel-prime' : ''}">PRIME</button>
         </div>
         <textarea data-k="note" placeholder="notes…">${esc(b.note)}</textarea>
+        <button data-interrogate="${s.charId}" style="width:100%;margin-top:6px">🗣 Interrogate</button>
       </div>`;
     }).join('');
+    for (const b of el('rail-body').querySelectorAll('[data-interrogate]')) {
+      b.onclick = () => openInterrogation(b.dataset.interrogate);
+    }
 
     for (const card of el('rail-body').querySelectorAll('[data-sus]')) {
       const sid = card.dataset.sus;
@@ -286,6 +392,55 @@ export async function renderGame(layout, sessionId) {
     if (state.mode !== 'versus') {
       api('POST', `/api/sessions/${sessionId}/board`, { suspectId, patch }).catch(() => {});
     }
+  }
+
+  // -- interrogation room (renders in the reading pane) --
+  function openInterrogation(suspectId) {
+    interrogating = suspectId;
+    activeDocId = null;
+    drawDocList();
+    const s = suspects.find((x) => x.charId === suspectId);
+    const citable = docs.filter((d) => ['call_logs', 'witness_statement'].includes(d.kind));
+    el('doc-view').innerHTML = `<article class="paper interrogation">
+      <div class="stamp">${esc(c.town)} P.D. · interview room 2 · recording</div>
+      <h2>INTERROGATION — ${esc(s.name)}</h2>
+      <p class="muted-ink">${esc(s.relationship)} · ${esc(s.occupation)}. Confrontations only bite when the cited record actually contradicts their story — press with nothing and they stonewall; press the guilty too hard and they call a lawyer.</p>
+      <div id="iq-log">${transcriptHtml(suspectId)}</div>
+      <div class="iq-controls">
+        <button id="iq-alibi">“Walk me through your evening.”</button>
+        <button id="iq-victim">“How were things with the victim?”</button>
+        <div class="iq-confront">
+          <select id="iq-evidence">${citable.map((d) => `<option value="${esc(d.id)}">${esc(shortTitle(d))}</option>`).join('')}</select>
+          <button id="iq-go" class="primary">Confront with it</button>
+        </div>
+      </div>
+    </article>`;
+    const ask = async (body) => {
+      try {
+        const { entry } = await api('POST', `/api/sessions/${sessionId}/interrogate`, { suspectId, ...body });
+        if (!inv.transcript.some((t) => t.at === entry.at && t.a === entry.a)) inv.transcript.push(entry);
+        el('iq-log').innerHTML = transcriptHtml(suspectId);
+      } catch (err) {
+        el('iq-log').insertAdjacentHTML('beforeend', `<div class="verdict bad">${esc(err.message)}</div>`);
+      }
+    };
+    el('iq-alibi').onclick = () => ask({ question: 'alibi' });
+    el('iq-victim').onclick = () => ask({ question: 'victim' });
+    el('iq-go').onclick = () => ask({ question: 'confront', evidenceDocId: el('iq-evidence').value });
+  }
+
+  function transcriptHtml(suspectId) {
+    const rows = inv.transcript.filter((t) => t.suspectId === suspectId);
+    if (!rows.length) return '<p class="muted-ink">The suspect sits down. Your move, detective.</p>';
+    return rows.map((t) => `
+      <div class="qa">
+        <div class="qa-q">Det. ${esc(t.byName)}: ${esc(t.q)}</div>
+        <div class="qa-a">${esc(t.suspectName)}: ${esc(t.a)}
+          ${t.outcome === 'evasive' ? '<span class="tag red">evasive</span>' : ''}
+          ${t.outcome === 'lawyered_up' ? '<span class="tag red">lawyered up</span>' : ''}
+          ${t.outcome === 'confessed_secret' ? '<span class="tag green">broke — secret out</span>' : ''}
+        </div>
+      </div>`).join('');
   }
 
   // -- chat --
@@ -411,6 +566,26 @@ export async function renderGame(layout, sessionId) {
   openStream(sessionId, {
     players: (players) => { state.players = players; drawDocList(); },
     chat: (msg) => { if (railTab === 'chat') appendChat(msg); },
+    unlock: ({ doc, labCredits }) => {
+      if (labCredits !== undefined) inv.labCredits = labCredits;
+      if (!inv.docs.some((d) => d.id === doc.id)) inv.docs.push(doc);
+      inv.pendingLab = inv.pendingLab.filter((p) => `doc_${p.id}` !== doc.id);
+      drawDocList();
+      const msg = el('banner-msg');
+      if (msg) msg.innerHTML = ` · <span class="tag amber">NEW: ${esc(doc.title).slice(0, 60)}</span>`;
+      const lc = document.querySelector('.lab-credits b');
+      if (lc) lc.textContent = inv.labCredits;
+    },
+    lab_pending: ({ pending, labCredits }) => {
+      inv.labCredits = labCredits;
+      if (!inv.pendingLab.some((p) => p.id === pending.id)) inv.pendingLab.push(pending);
+      drawDocList();
+      if (railTab === 'actions' && !el('rail-body').contains(document.activeElement)) drawRail();
+    },
+    transcript: (entry) => {
+      if (!inv.transcript.some((t) => t.at === entry.at && t.a === entry.a)) inv.transcript.push(entry);
+      if (interrogating === entry.suspectId && el('iq-log')) el('iq-log').innerHTML = transcriptHtml(entry.suspectId);
+    },
     board: ({ suspectId, entry, byId }) => {
       if (byId === auth.user.id) return;
       state.board[suspectId] = entry;

@@ -31,6 +31,11 @@ const MIME = {
 
 const server = createServer(async (req, res) => {
   try {
+    res.setHeader('x-content-type-options', 'nosniff');
+    res.setHeader('x-frame-options', 'DENY');
+    res.setHeader('referrer-policy', 'same-origin');
+    res.setHeader('content-security-policy',
+      "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'");
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
     if (url.pathname.startsWith('/api/')) return await handleApi(req, res, url);
     return await serveStatic(url.pathname, res);
@@ -40,6 +45,20 @@ const server = createServer(async (req, res) => {
     sendJson(res, status, { error: err.status ? err.message : 'Internal server error' });
   }
 });
+
+// Basic per-IP throttle on credential endpoints (public hosting hygiene).
+const authHits = new Map();
+function throttleAuth(req) {
+  const ip = (String(req.headers['x-forwarded-for'] || '').split(',')[0].trim())
+    || req.socket.remoteAddress || 'unknown';
+  const now = Date.now();
+  const rec = authHits.get(ip) || { count: 0, resetAt: now + 10 * 60 * 1000 };
+  if (now > rec.resetAt) { rec.count = 0; rec.resetAt = now + 10 * 60 * 1000; }
+  rec.count += 1;
+  authHits.set(ip, rec);
+  if (authHits.size > 10_000) authHits.clear();
+  if (rec.count > 30) throw httpError(429, 'Too many attempts — take a breath, detective.');
+}
 
 // ---------------------------------------------------------------- static ----
 
@@ -64,6 +83,7 @@ async function handleApi(req, res, url) {
   const body = ['POST', 'PUT', 'PATCH'].includes(req.method) ? await readJson(req) : {};
 
   // -- auth (public) --
+  if (route === 'POST /api/register' || route === 'POST /api/login') throttleAuth(req);
   if (route === 'POST /api/register') {
     const { handle, password } = body;
     if (!handle || !/^[\w .-]{2,24}$/.test(handle)) throw httpError(400, 'Handle must be 2–24 letters, numbers, spaces, dots or dashes.');
@@ -147,6 +167,18 @@ async function handleApi(req, res, url) {
     if (req.method === 'POST' && sub === '/accuse') {
       const verdict = games.accuse(s, user.id, body);
       return sendJson(res, 200, verdict);
+    }
+    if (req.method === 'POST' && sub === '/warrant') {
+      return sendJson(res, 200, games.requestWarrant(s, user.id, body));
+    }
+    if (req.method === 'POST' && sub === '/lab') {
+      return sendJson(res, 200, games.requestLab(s, user.id, body));
+    }
+    if (req.method === 'POST' && sub === '/cctv') {
+      return sendJson(res, 200, games.requestCctv(s, user.id, body));
+    }
+    if (req.method === 'POST' && sub === '/interrogate') {
+      return sendJson(res, 200, games.interrogate(s, user.id, body));
     }
   }
 

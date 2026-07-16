@@ -171,6 +171,28 @@ table.lb th { color: var(--ink-dim); text-transform: uppercase; font-size: 11px;
 .banner.win { color: var(--green); }
 .banner.warn { color: var(--amber); }
 
+/* actions panel */
+.actions .act-h { color: var(--amber); font-size: 12px; letter-spacing: .12em; margin: 20px 0 4px; border-top: 1px solid var(--line); padding-top: 14px; }
+.actions .act-h:first-of-type { border-top: none; padding-top: 0; }
+.actions select { width: 100%; }
+.actions button.primary { width: 100%; margin-top: 10px; }
+.actions .act-out { margin-top: 8px; }
+.actions p.muted { font-size: 11.5px; margin: 2px 0 6px; }
+.lab-credits { font-size: 13px; letter-spacing: .08em; color: var(--amber); border: 1px dashed var(--amber-dim); border-radius: 4px; padding: 8px 10px; text-align: center; }
+
+/* interrogation room */
+.interrogation .muted-ink { color: var(--paper-dim); font-family: var(--mono); font-size: 12px; }
+.qa { margin: 14px 0; }
+.qa-q { font-family: var(--mono); font-size: 12.5px; color: var(--paper-dim); margin-bottom: 4px; }
+.qa-a { font-size: 15px; }
+.qa-a .tag { margin-left: 8px; }
+.iq-controls { margin-top: 22px; border-top: 2px solid var(--paper-ink); padding-top: 14px; display: flex; flex-direction: column; gap: 8px; }
+.iq-controls button { background: #fff9ea; color: var(--paper-ink); border-color: #cfc5aa; font-family: var(--mono); }
+.iq-controls button:hover { border-color: var(--paper-ink); color: var(--paper-ink); }
+.iq-confront { display: flex; gap: 8px; }
+.iq-confront select { flex: 1; background: #fff9ea; color: var(--paper-ink); border-color: #cfc5aa; }
+.iq-confront button.primary { background: var(--paper-ink); color: var(--paper); border-color: var(--paper-ink); }
+
 /* debrief */
 .debrief { max-width: 760px; margin: 0 auto; }
 .debrief .paper h2 { color: var(--red); border-color: var(--red); }
