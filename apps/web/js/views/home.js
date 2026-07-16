@@ -35,11 +35,25 @@ export async function renderHome(layout) {
 
     <div class="panel">
       <h2>THE DAILY CASE</h2>
-      <div class="sub">One case, everyone. Same evidence, same killer. Fastest clean solve tops the board.</div>
+      <div class="sub">One case, everyone. Same evidence, same killer. Fastest clean solve tops the board. No giving up — the culprit is revealed here the next day.</div>
       <button class="primary" id="daily">Take today's case</button>
       <table class="lb" id="lb"><tr><th>#</th><th>Detective</th><th>Score</th><th>Time</th></tr></table>
+      <div style="margin-top:14px;border-top:1px solid var(--line);padding-top:10px">
+        <button id="reveal-daily">Reveal yesterday's culprit</button>
+        <div id="reveal-out" style="margin-top:8px"></div>
+      </div>
     </div>
   </div>`);
+
+  el('reveal-daily').onclick = async () => {
+    el('reveal-out').innerHTML = '<span class="muted">Opening the file…</span>';
+    try {
+      const r = await api('GET', '/api/daily/solution');
+      el('reveal-out').innerHTML = `<div class="verdict bad" style="margin-top:0">
+        <b>${esc(r.day)}</b> — “${esc(r.title)}”, ${esc(r.town)}<br>
+        The culprit was <b>${esc(r.killerName)}</b> — ${esc(r.motiveLabel)}, with the ${esc(r.weapon)}, at ${esc(r.murderTimeText)}.</div>`;
+    } catch (err) { el('reveal-out').innerHTML = `<div class="verdict bad" style="margin-top:0">${esc(err.message)}</div>`; }
+  };
 
   el('create').onclick = async () => {
     el('create-err').textContent = '';

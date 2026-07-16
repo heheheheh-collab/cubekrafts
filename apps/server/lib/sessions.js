@@ -366,6 +366,68 @@ export function createSessionManager(db) {
     };
   }
 
+  // ---- give up / reveal the culprit ----------------------------------------
+  // Solo & co-op: concede — the killer is revealed and the case ends (no score,
+  // no leaderboard). Versus: forfeit — you're out of the race and lose, the
+  // others race on. Daily: no giving up mid-day; the culprit is published the
+  // next day (see revealDailySolution).
+
+  function reveal(session, userId) {
+    const p = session.players.get(userId);
+    if (!p) throw httpError(404, 'Not in this session.');
+    if (!session.started) throw httpError(409, 'Case not started.');
+    if (p.solvedAt) throw httpError(409, 'You already cracked this case.');
+
+    if (session.daily) {
+      const today = new Date().toISOString().slice(0, 10);
+      if (session.daily >= today) {
+        throw httpError(403, 'No giving up on the daily — the culprit is revealed after the day ends. Come back tomorrow.');
+      }
+    }
+
+    if (session.mode === 'versus') {
+      if (session.winnerId) throw httpError(409, 'The race is already over.');
+      if (!p.forfeited) {
+        p.forfeited = true;
+        p.lockedUntil = Number.MAX_SAFE_INTEGER; // eliminated from the race
+        const event = { byId: userId, byName: p.name, correct: false, forfeit: true, at: Date.now() };
+        session.accusations.push(event);
+        broadcast(session, 'accusation', event);
+        broadcast(session, 'players', publicPlayers(session));
+      }
+      return { conceded: true, forfeit: true, debrief: buildDebrief(session.caseData) };
+    }
+
+    // Solo / co-op concede — ends the case for the (whole) squad.
+    if (!session.solved) {
+      session.solved = true;
+      session.conceded = true;
+      p.conceded = true;
+      const event = { byId: userId, byName: p.name, conceded: true, at: Date.now() };
+      session.accusations.push(event);
+      broadcast(session, 'conceded', { byId: userId, byName: p.name });
+    }
+    return { conceded: true, debrief: buildDebrief(session.caseData) };
+  }
+
+  // Stateless: reveal a PAST daily's culprit (works after the session is gone).
+  function revealDailySolution(day) {
+    const today = new Date().toISOString().slice(0, 10);
+    const d = day && /^\d{4}-\d{2}-\d{2}$/.test(day) ? day : yesterday();
+    if (d >= today) throw httpError(403, "Today's culprit is revealed after the day ends. Check back tomorrow.");
+    const caseData = generateCase(`daily-${d}`, { tier: 'detective' });
+    const deb = buildDebrief(caseData);
+    return {
+      day: d,
+      title: caseData.title,
+      town: caseData.town,
+      killerName: deb.killerName,
+      motiveLabel: deb.motiveLabel,
+      weapon: deb.weapon,
+      murderTimeText: deb.murderTimeText,
+    };
+  }
+
   // ---- views ---------------------------------------------------------------
 
   function publicPlayers(session) {
@@ -376,6 +438,8 @@ export function createSessionManager(db) {
       readCount: p.readDocs.length,
       readDocs: session.mode === 'coop' ? p.readDocs : undefined,
       solved: !!p.solvedAt,
+      conceded: !!p.conceded,
+      forfeited: !!p.forfeited,
       lockedUntil: p.lockedUntil,
       isHost: p.id === session.hostId,
     }));
@@ -396,7 +460,11 @@ export function createSessionManager(db) {
       accusations: session.accusations,
       chat: session.mode === 'versus' ? [] : session.chat.slice(-100),
       board: session.mode === 'versus' ? {} : session.board,
-      me: me ? { readDocs: me.readDocs, lockedUntil: me.lockedUntil, wrongAttempts: me.wrongAttempts, solved: !!me.solvedAt, score: me.score } : null,
+      me: me ? {
+        readDocs: me.readDocs, lockedUntil: me.lockedUntil, wrongAttempts: me.wrongAttempts,
+        solved: !!me.solvedAt, score: me.score, conceded: !!me.conceded, forfeited: !!me.forfeited,
+      } : null,
+      daily: session.daily || null,
     };
     if (me && session.started) {
       const inv = invOf(session, userId);
@@ -421,10 +489,16 @@ export function createSessionManager(db) {
           weapons: WEAPONS.map((w) => w.name),
         },
       };
-      const solvedForMe = session.mode === 'versus'
-        ? !!session.winnerId
-        : session.solved;
-      if (solvedForMe) base.debrief = buildDebrief(session.caseData);
+      const doneForMe = session.mode === 'versus'
+        ? (!!session.winnerId || me?.forfeited)
+        : (session.solved || me?.conceded);
+      if (doneForMe) {
+        base.debrief = buildDebrief(session.caseData);
+        base.debriefOutcome = me?.forfeited ? 'forfeit'
+          : me?.conceded || session.conceded ? 'conceded'
+            : (me?.score != null || session.winnerId === userId) ? 'won'
+              : session.mode === 'versus' ? 'lost' : 'won';
+      }
     }
     return base;
   }
@@ -501,9 +575,15 @@ export function createSessionManager(db) {
 
   return {
     create, join, start, startDaily, markRead, postChat, updateBoard, accuse,
-    requestWarrant, requestLab, requestCctv, interrogate,
+    requestWarrant, requestLab, requestCctv, interrogate, reveal, revealDailySolution,
     publicState, attachClient, get, getByCode,
   };
+}
+
+function yesterday() {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
 }
 
 function newInv(mode) {

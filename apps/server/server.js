@@ -107,6 +107,10 @@ async function handleApi(req, res, url) {
       .map((r) => ({ handle: r.handle, score: r.score, durationMs: r.durationMs }));
     return sendJson(res, 200, { day, rows });
   }
+  if (route === 'GET /api/daily/solution') {
+    // Reveal a past daily's culprit — refused until that day has ended.
+    return sendJson(res, 200, games.revealDailySolution(url.searchParams.get('day')));
+  }
 
   // -- everything below requires auth --
   const user = authenticate(req, url);
@@ -168,6 +172,9 @@ async function handleApi(req, res, url) {
     if (req.method === 'POST' && sub === '/accuse') {
       const verdict = games.accuse(s, user.id, body);
       return sendJson(res, 200, verdict);
+    }
+    if (req.method === 'POST' && sub === '/reveal') {
+      return sendJson(res, 200, games.reveal(s, user.id));
     }
     if (req.method === 'POST' && sub === '/warrant') {
       return sendJson(res, 200, games.requestWarrant(s, user.id, body));

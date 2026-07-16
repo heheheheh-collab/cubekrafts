@@ -109,6 +109,59 @@ test('interrogation: a caught secret-holder confesses the secret (when catchable
   assert.fail('no catchable secret-holder found across 12 cases (statistically implausible)');
 });
 
+function capturingGames() {
+  const results = [];
+  const db = { addResult: (r) => results.push(r), resultsFor: (f) => results.filter(f) };
+  return { games: createSessionManager(db), results };
+}
+const winWindow = (t) => t - (t % 30);
+
+test('solo concede reveals the killer, ends the case, and does not score', () => {
+  const { games, results } = capturingGames();
+  const s = games.create({ hostId: 'u1', hostName: 'A', mode: 'solo', tier: 'detective' });
+  const r = games.reveal(s, 'u1');
+  assert.equal(r.conceded, true);
+  assert.equal(r.debrief.killerName, s.caseData.solution.killerName);
+  const st = games.publicState(s, 'u1');
+  assert.equal(st.debriefOutcome, 'conceded');
+  assert.ok(st.debrief, 'debrief is exposed after conceding');
+  assert.equal(results.length, 0, 'conceding never touches the leaderboard');
+  // can't then accuse a closed case
+  assert.throws(() => games.accuse(s, 'u1', { suspectId: 'x', motiveId: 'y', weapon: 'z', windowStart: 1200 }), /closed/);
+});
+
+test('versus forfeit eliminates that player but a rival can still win', () => {
+  const { games } = capturingGames();
+  const s = games.create({ hostId: 'u1', hostName: 'A', mode: 'versus', tier: 'rookie' });
+  games.join(s, 'u2', 'B');
+  games.start(s, 'u1');
+
+  const r = games.reveal(s, 'u1');
+  assert.equal(r.forfeit, true);
+  assert.equal(games.publicState(s, 'u1').debriefOutcome, 'forfeit');
+  // the forfeiter is locked out of accusing
+  const sol = s.caseData.solution;
+  assert.throws(() => games.accuse(s, 'u1', { suspectId: sol.killerId, motiveId: sol.motiveId, weapon: sol.weapon, windowStart: winWindow(sol.murderTime) }), /locked out/);
+  // the rival can still crack it and win
+  const win = games.accuse(s, 'u2', { suspectId: sol.killerId, motiveId: sol.motiveId, weapon: sol.weapon, windowStart: winWindow(sol.murderTime) });
+  assert.equal(win.correct, true);
+  assert.equal(s.winnerId, 'u2');
+  assert.equal(games.publicState(s, 'u2').debriefOutcome, 'won');
+  // the forfeiter still sees a forfeit outcome, not a win
+  assert.equal(games.publicState(s, 'u1').debriefOutcome, 'forfeit');
+});
+
+test('daily: no giving up during the day; past days are revealable', () => {
+  const { games } = capturingGames();
+  const s = games.startDaily('u1', 'A');
+  assert.throws(() => games.reveal(s, 'u1'), /after the day ends/);
+  const today = new Date().toISOString().slice(0, 10);
+  assert.throws(() => games.revealDailySolution(today), /after the day ends/);
+  const past = games.revealDailySolution('2020-01-01');
+  assert.equal(past.day, '2020-01-01');
+  assert.ok(past.killerName && past.weapon && past.murderTimeText, 'past daily culprit is fully revealed');
+});
+
 test('versus keeps investigation resources per player', () => {
   const games = createSessionManager(fakeDb);
   const s = games.create({ hostId: 'u1', hostName: 'A', mode: 'versus', tier: 'rookie' });

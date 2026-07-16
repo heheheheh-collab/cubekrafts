@@ -502,9 +502,17 @@ export async function renderGame(layout, sessionId) {
     return slots;
   }
 
+  const GIVEUP = {
+    solo: { label: 'Concede — reveal the killer', warn: 'You’ll see who did it, but the case is marked unsolved.' },
+    coop: { label: 'Concede for the squad', warn: 'This ends the case for everyone and reveals the killer.' },
+    versus: { label: 'Give up — forfeit the race', warn: 'You’re out and it counts as a loss. Your rivals keep racing.' },
+  };
+
   function drawAccuse() {
     const me = state.me || {};
     const lockedFor = Math.max(0, (me.lockedUntil || 0) - Date.now());
+    const done = me.solved || me.conceded || me.forfeited || state.winnerId;
+    const g = GIVEUP[state.mode] || GIVEUP.solo;
     el('rail-body').innerHTML = `
       <div class="accuse-form">
         <p class="muted" style="margin-top:0">A formal accusation goes to the D.A. — name the killer, the motive, the weapon and the half-hour it happened. ${state.mode === 'versus' ? 'A wrong accusation locks you out for 3 minutes and your rivals will hear about it.' : 'Wrong accusations cost score.'}</p>
@@ -516,49 +524,105 @@ export async function renderGame(layout, sessionId) {
         <select id="acc-weapon"><option value="">— select —</option>${c.taxonomy.weapons.map((w) => `<option value="${esc(w)}">${esc(w)}</option>`).join('')}</select>
         <label>Time of the murder</label>
         <select id="acc-window"><option value="">— select —</option>${windowSlots().map((w) => `<option value="${w}">${fmtTime(w)} – ${fmtTime(w + 30)}</option>`).join('')}</select>
-        <button class="primary" id="acc-submit" style="width:100%;margin-top:14px" ${lockedFor > 0 || me.solved || state.winnerId ? 'disabled' : ''}>Submit accusation</button>
+        <button class="primary" id="acc-submit" style="width:100%;margin-top:14px" ${lockedFor > 0 || done ? 'disabled' : ''}>Submit accusation</button>
         <div id="acc-verdict">${lockedFor > 0 ? `<div class="verdict bad">Locked out for ${Math.ceil(lockedFor / 1000)}s after a wrong accusation.</div>` : ''}</div>
+
+        <div class="giveup">
+          ${state.daily
+    ? '<p class="muted">No giving up on the daily — the culprit is revealed to everyone the day after. Check the precinct screen tomorrow.</p>'
+    : done
+      ? ''
+      : `<p class="muted">Stuck? You can give up and see the answer.</p>
+             <button id="giveup-btn">${esc(g.label)}</button>
+             <div id="giveup-out"></div>`}
+        </div>
       </div>`;
 
-    el('acc-submit').onclick = async () => {
-      const payload = {
-        suspectId: el('acc-suspect').value,
-        motiveId: el('acc-motive').value,
-        weapon: el('acc-weapon').value,
-        windowStart: Number(el('acc-window').value),
+    const submit = el('acc-submit');
+    if (submit) submit.onclick = submitAccusation;
+
+    const gb = el('giveup-btn');
+    if (gb) {
+      gb.onclick = () => {
+        el('giveup-out').innerHTML = `
+          <div class="verdict bad">${esc(g.warn)} Are you sure?
+            <div style="margin-top:8px;display:flex;gap:8px">
+              <button id="giveup-yes" class="primary" style="flex:1">Yes, reveal it</button>
+              <button id="giveup-no" style="flex:1">Keep going</button>
+            </div>
+          </div>`;
+        gb.style.display = 'none';
+        el('giveup-yes').onclick = revealCase;
+        el('giveup-no').onclick = drawAccuse;
       };
-      if (!payload.suspectId || !payload.motiveId || !payload.weapon || !payload.windowStart) {
-        el('acc-verdict').innerHTML = '<div class="verdict bad">The D.A. wants all four: killer, motive, weapon, time.</div>';
-        return;
-      }
-      try {
-        const v = await api('POST', `/api/sessions/${sessionId}/accuse`, payload);
-        if (v.correct) {
-          state.debrief = v.debrief;
-          state.me.solved = true;
-          state.me.score = v.score;
-          state.verdictBreakdown = v.breakdown;
-          railTab = 'debrief';
-          drawRail();
-          openDebriefDoc();
-        } else {
-          if (v.lockedUntil) state.me.lockedUntil = v.lockedUntil;
-          el('acc-verdict').innerHTML = `<div class="verdict bad">Wrong. The suspect walks and the trail goes colder.${v.lockedUntil ? ' Locked out 3 minutes.' : ` (wrong attempts: ${v.wrongAttempts})`}</div>`;
-          if (v.lockedUntil) drawAccuse();
-        }
-      } catch (err) {
-        el('acc-verdict').innerHTML = `<div class="verdict bad">${esc(err.message)}</div>`;
-      }
+    }
+  }
+
+  async function submitAccusation() {
+    const payload = {
+      suspectId: el('acc-suspect').value,
+      motiveId: el('acc-motive').value,
+      weapon: el('acc-weapon').value,
+      windowStart: Number(el('acc-window').value),
     };
+    if (!payload.suspectId || !payload.motiveId || !payload.weapon || !payload.windowStart) {
+      el('acc-verdict').innerHTML = '<div class="verdict bad">The D.A. wants all four: killer, motive, weapon, time.</div>';
+      return;
+    }
+    try {
+      const v = await api('POST', `/api/sessions/${sessionId}/accuse`, payload);
+      if (v.correct) {
+        state.debrief = v.debrief;
+        state.debriefOutcome = 'won';
+        state.me.solved = true;
+        state.me.score = v.score;
+        state.verdictBreakdown = v.breakdown;
+        railTab = 'debrief';
+        drawRail();
+        openDebriefDoc();
+      } else {
+        if (v.lockedUntil) state.me.lockedUntil = v.lockedUntil;
+        el('acc-verdict').innerHTML = `<div class="verdict bad">Wrong. The suspect walks and the trail goes colder.${v.lockedUntil ? ' Locked out 3 minutes.' : ` (wrong attempts: ${v.wrongAttempts})`}</div>`;
+        if (v.lockedUntil) drawAccuse();
+      }
+    } catch (err) {
+      el('acc-verdict').innerHTML = `<div class="verdict bad">${esc(err.message)}</div>`;
+    }
+  }
+
+  async function revealCase() {
+    try {
+      const v = await api('POST', `/api/sessions/${sessionId}/reveal`, {});
+      state.debrief = v.debrief;
+      state.debriefOutcome = v.forfeit ? 'forfeit' : 'conceded';
+      if (state.me) { if (v.forfeit) state.me.forfeited = true; else state.me.conceded = true; }
+      railTab = 'debrief';
+      drawRail();
+      openDebriefDoc();
+    } catch (err) {
+      const box = el('giveup-out');
+      if (box) box.innerHTML = `<div class="verdict bad">${esc(err.message)}</div>`;
+    }
   }
 
   // -- debrief --
+  function outcomeBanner() {
+    const o = state.debriefOutcome || (state.me?.score != null ? 'won' : 'won');
+    const bd = state.verdictBreakdown;
+    if (o === 'won') {
+      return `<div class="verdict good">CASE CLOSED — score ${state.me?.score ?? ''}${bd ? `<br><span class="muted">motive ${bd.motive ? '✓' : '✗'} · weapon ${bd.weapon ? '✓' : '✗'} · time ${bd.window ? '✓' : '✗'}</span>` : ''}</div>`;
+    }
+    if (o === 'conceded') return '<div class="verdict bad">YOU GAVE UP — here’s who did it. Case marked unsolved.</div>';
+    if (o === 'forfeit') return '<div class="verdict bad">FORFEITED — you’re out of the race and it counts as a loss.</div>';
+    if (o === 'lost') return '<div class="verdict bad">Another team cracked it first — you didn’t win this one.</div>';
+    return '';
+  }
+
   function drawDebrief() {
     const d = state.debrief;
     if (!d) { el('rail-body').innerHTML = '<p class="muted">Nothing to see yet.</p>'; return; }
-    const bd = state.verdictBreakdown;
     el('rail-body').innerHTML = `
-      ${state.me?.score != null ? `<div class="verdict good">CASE CLOSED — score ${state.me.score}${bd ? `<br><span class="muted">motive ${bd.motive ? '✓' : '✗'} · weapon ${bd.weapon ? '✓' : '✗'} · time ${bd.window ? '✓' : '✗'}</span>` : ''}</div>` : ''}
+      ${outcomeBanner()}
       <p><b>${esc(d.killerName)}</b> killed the victim at ${esc(d.murderTimeText)} — ${esc(d.motiveLabel)}, with the ${esc(d.weapon)}.</p>
       <p class="muted">Open the full debrief in the reading pane →</p>
       <button class="primary" id="open-debrief" style="width:100%">Read the full debrief</button>`;
@@ -568,10 +632,14 @@ export async function renderGame(layout, sessionId) {
   function openDebriefDoc() {
     const d = state.debrief;
     if (!d) return;
+    const o = state.debriefOutcome || 'won';
+    const stamp = o === 'forfeit' ? 'FORFEITED' : o === 'conceded' ? 'CONCEDED' : 'CLOSED';
     activeDocId = null;
+    interrogating = null;
+    setMobileView('doc'); // show the reading pane so the debrief is visible on phones
     drawDocList();
     el('doc-view').innerHTML = `<div class="debrief"><article class="paper">
-      <div class="stamp">${esc(c.town)} P.D. · case ${esc(c.id)} · CLOSED</div>
+      <div class="stamp">${esc(c.town)} P.D. · case ${esc(c.id)} · ${stamp}</div>
       <h2>DEBRIEF — WHAT REALLY HAPPENED</h2>
       <p><b>${esc(d.killerName)}</b> murdered the victim at <b>${esc(d.murderTimeText)}</b> with the <b>${esc(d.weapon)}</b>. Motive: <b>${esc(d.motiveLabel)}</b>.</p>
       <h3 style="font-family:var(--mono)">The fair path to the answer</h3>
@@ -617,15 +685,23 @@ export async function renderGame(layout, sessionId) {
       if (ev.byId === auth.user.id) return;
       const msg = el('banner-msg');
       if (msg) {
-        msg.innerHTML = ev.correct
-          ? ` · <span class="tag green">Det. ${esc(ev.byName)} CLOSED THE CASE</span>`
-          : ` · <span class="tag red">Det. ${esc(ev.byName)} accused the wrong person</span>`;
+        msg.innerHTML = ev.forfeit
+          ? ` · <span class="tag red">Det. ${esc(ev.byName)} gave up (forfeit)</span>`
+          : ev.correct
+            ? ` · <span class="tag green">Det. ${esc(ev.byName)} CLOSED THE CASE</span>`
+            : ` · <span class="tag red">Det. ${esc(ev.byName)} accused the wrong person</span>`;
       }
     },
     solved: async () => {
       state = await api('GET', `/api/sessions/${sessionId}`);
       drawRail();
       if (state.debrief && !state.me?.score) openDebriefDoc();
+    },
+    conceded: async () => {
+      // A squadmate gave up — the case ends for everyone; show the debrief.
+      state = await api('GET', `/api/sessions/${sessionId}`);
+      drawRail();
+      if (state.debrief) openDebriefDoc();
     },
   });
 
