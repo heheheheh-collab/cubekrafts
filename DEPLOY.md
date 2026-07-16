@@ -49,10 +49,27 @@ Browser-only, no CLI — the closest thing to how you tried Vercel.
    |-------|------|--------------------------------|
    | CNAME | www  | (the target Railway shows you) |
 
-   For the bare `thecoldtrail.com`, add it as a second custom domain; Railway
-   will give you either an ALIAS/ANAME or an A record to use for the apex.
-
 Railway costs ~\$5/mo usage-based (small free trial credit to start).
+
+### Adding those records in GoDaddy (thecoldtrail.com)
+
+1. GoDaddy → **My Products → thecoldtrail.com → DNS** (or "Manage DNS").
+2. Under **Records**, add the CNAME the host gave you:
+   - **Type:** CNAME **Name:** `www` **Value:** the target (e.g.
+     `xyz.up.railway.app` for Railway, `coldtrail.onrender.com` for Render,
+     `coldtrail.fly.dev` for Fly) **TTL:** 1 hour. Save.
+3. GoDaddy will **not** let the root `@` be a CNAME. Easiest fix — make the bare
+   `thecoldtrail.com` forward to the www version:
+   - GoDaddy → domain → **Forwarding → Add** → forward `thecoldtrail.com` to
+     `https://www.thecoldtrail.com`, type **Permanent (301)**, "Forward only".
+   - (Alternative if your host gives you an apex IP: add an **A** record,
+     Name `@`, Value that IP, instead of forwarding.)
+4. Back in the host's dashboard, the custom domain flips to "Active / Certificate
+   issued" once DNS propagates — usually minutes, up to an hour. Then
+   `https://www.thecoldtrail.com` is live with HTTPS.
+
+Whichever host you pick, it will show you the exact CNAME target — send it to me
+and I'll write the precise GoDaddy record values for you.
 
 ---
 
