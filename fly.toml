@@ -1,0 +1,32 @@
+# Fly.io deployment for Cold Trail.
+#   fly launch --no-deploy   (first time, creates the app)
+#   fly volume create coldtrail_data --size 1
+#   fly deploy
+# Fly gives you free HTTPS + a *.fly.dev subdomain immediately; attach your
+# own domain with `fly certs add www.yourdomain.com` (see DEPLOY.md).
+
+app = "coldtrail"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "5177"
+  NODE_ENV = "production"
+
+[http_service]
+  internal_port = 5177
+  force_https = true
+  auto_stop_machines = "suspend"
+  auto_start_machines = true
+  min_machines_running = 1   # keep one warm so live sessions & SSE survive
+
+# Persist accounts + the daily-case leaderboard across restarts.
+[mounts]
+  source = "coldtrail_data"
+  destination = "/app/apps/server/data"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
