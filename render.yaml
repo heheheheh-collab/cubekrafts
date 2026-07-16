@@ -1,0 +1,23 @@
+# Render.com "Blueprint" — one-click deploy of Cold Trail from this repo.
+# In the Render dashboard: New + → Blueprint → connect this repo → Apply.
+# Render reads this file, builds the Dockerfile, and stands up the service.
+services:
+  - type: web
+    name: coldtrail
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    # 'starter' keeps the instance always-on AND allows the persistent disk
+    # below (the free plan sleeps when idle and has no disk, which would drop
+    # live game sessions and reset accounts). Downgrade to 'free' only for a
+    # throwaway demo.
+    plan: starter
+    healthCheckPath: /api/daily/leaderboard
+    envVars:
+      - key: PORT
+        value: "5177"
+      - key: NODE_ENV
+        value: production
+    disk:
+      name: coldtrail-data
+      mountPath: /app/apps/server/data
+      sizeGB: 1
