@@ -7,7 +7,9 @@
     "dev": "nodemon src/index.js",
     "start": "node src/index.js",
     "prisma": "prisma",
-    "nodemailer": "^6.9.8"
+    "nodemailer": "^6.9.8",
+    "case:generate": "node packages/case-engine/src/cli.js",
+    "case:test": "node --test packages/case-engine/test/engine.test.js"
   },
   "dependencies": {
     "@prisma/client": "^5.10.2",

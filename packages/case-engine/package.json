@@ -1,0 +1,14 @@
+{
+  "name": "@coldtrail/case-engine",
+  "version": "0.1.0",
+  "description": "Deterministic procedural case generator, evidence projector and solvability prover for the Cold Trail detective game.",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "generate": "node src/cli.js",
+    "test": "node --test test/engine.test.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
