@@ -1,0 +1,13 @@
+{
+  "appId": "com.thecoldtrail.app",
+  "appName": "Cold Trail",
+  "webDir": "apps/web",
+  "server": {
+    "url": "https://www.thecoldtrail.com",
+    "cleartext": false
+  },
+  "ios": {
+    "contentInset": "always"
+  },
+  "backgroundColor": "#101014"
+}

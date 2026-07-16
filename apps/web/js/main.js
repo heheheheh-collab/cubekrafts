@@ -50,5 +50,10 @@ async function route() {
   }
 }
 
+// Register the service worker so the app is installable (PWA / Play Store).
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
+}
+
 window.addEventListener('hashchange', route);
 route();

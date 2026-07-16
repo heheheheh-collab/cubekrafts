@@ -5,6 +5,7 @@ This is the backend API for Cubekrafts, a modular construction platform.
 > **Also in this repo:** Cold Trail, a multiplayer detective case game (separate project sharing this repository for now).
 > - Play it: `npm run coldtrail` → http://localhost:5177 (login, solo/co-op/versus, daily case)
 > - Deploy it to a public domain: [`DEPLOY.md`](DEPLOY.md) (Fly.io / Railway / Render / VPS)
+> - Ship it as a phone app (App Store / Play Store): [`PUBLISH_APPS.md`](PUBLISH_APPS.md) — it's an installable PWA
 > - Design plan: [`docs/DETECTIVE_GAME_PLAN.md`](docs/DETECTIVE_GAME_PLAN.md)
 > - Website (server + client): [`apps/`](apps/README.md)
 > - Case generation engine: [`packages/case-engine`](packages/case-engine) — try `npm run case:generate -- --seed my-case --dossier case.md`
