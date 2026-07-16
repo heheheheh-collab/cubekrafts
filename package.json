@@ -8,6 +8,7 @@
     "start": "node src/index.js",
     "prisma": "prisma",
     "nodemailer": "^6.9.8",
+    "coldtrail": "node apps/server/server.js",
     "case:generate": "node packages/case-engine/src/cli.js",
     "case:test": "node --test packages/case-engine/test/engine.test.js"
   },
