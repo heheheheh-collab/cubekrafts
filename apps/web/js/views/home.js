@@ -51,7 +51,7 @@ export async function renderHome(layout) {
       const r = await api('GET', '/api/daily/solution');
       el('reveal-out').innerHTML = `<div class="verdict bad" style="margin-top:0">
         <b>${esc(r.day)}</b> — “${esc(r.title)}”, ${esc(r.town)}<br>
-        The culprit was <b>${esc(r.killerName)}</b> — ${esc(r.motiveLabel)}, with the ${esc(r.weapon)}, at ${esc(r.murderTimeText)}.</div>`;
+        The culprit was <b>${esc(r.killerName)}</b> — ${esc(r.motiveLabel)}. Method: ${esc(r.weapon)} (${esc(r.murderTimeText)}).</div>`;
     } catch (err) { el('reveal-out').innerHTML = `<div class="verdict bad" style="margin-top:0">${esc(err.message)}</div>`; }
   };
 

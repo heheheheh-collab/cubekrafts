@@ -5,6 +5,17 @@
 import { SIM_START, SIM_END, fmtTime, roundTo5, clamp } from '../time.js';
 import { MOTIVES, MEALS, NPC_ROLES } from '../data/pools.js';
 
+// How the first responders describe the death before the autopsy — deliberately
+// as much as an untrained officer would see (the staged fall reads as an accident).
+const BRIEF_PRESENTATION = {
+  blunt_force: 'There was apparent head trauma consistent with a heavy blow.',
+  stabbing: 'There was a great deal of blood and an apparent stab wound.',
+  poisoning: 'There were no obvious injuries; the death looked natural until the responding medic flagged it as suspicious.',
+  gunshot: 'There was an apparent gunshot wound and a spent casing on the floor.',
+  strangulation: 'There were marks to the throat and signs of a struggle.',
+  staged_fall: 'The victim appeared to have fallen down the stairs, but the attending officer was not satisfied it was an accident.',
+};
+
 function fuzz(rng, t, amount) {
   return clamp(roundTo5(t + rng.int(-amount, amount)), SIM_START, SIM_END);
 }
@@ -36,33 +47,27 @@ export function projectEvidence(rng, map, cast, skeleton, timeline) {
       `${map.town} Police Department — Incident Report`,
       ``,
       `At ${fmtTime(discoveredAt)}, officers conducted a welfare check at ${scene.name} after ${victim.name} (${victim.age}, ${victim.occupation}) failed to appear for a standing Saturday appointment and could not be reached by phone.`,
-      `The front door was unlocked. ${victim.name} was found deceased in the study with apparent head trauma. There were no signs of forced entry. The scene was secured at ${fmtTime(discoveredAt + 12)} pending forensic examination.`,
+      `The front door was unlocked. ${victim.name} was found deceased inside. ${BRIEF_PRESENTATION[skeleton.crime.id]} There were no signs of forced entry. The scene was secured at ${fmtTime(discoveredAt + 12)} pending forensic examination.`,
       `Detectives are requested to establish the victim's movements on Friday evening and to identify persons of interest among the victim's family, business associates and neighbors. Statements have been collected and are attached to this casefile, together with phone records, background summaries and the medical examiner's report.`,
     ].join('\n'),
   });
 
   // ------------------------------------------------------------- crime scene
-  const weapon = skeleton.weapon;
+  const crime = skeleton.crime;
+  const meal = rng.pick(MEALS);
+  const autopsyCtx = {
+    victim, killer, method: skeleton.method, room: skeleton.room, meal,
+    windowStart: skeleton.window.start, windowEnd: skeleton.window.end,
+  };
   documents.push({
     id: 'doc_scene',
     kind: 'crime_scene',
     title: 'Crime Scene Examination Report',
-    payload: {
-      sceneLocId: timeline.scene,
-      markers: [
-        { n: 1, label: 'Body position', detail: 'Victim found prone in the study, facing the desk. Lividity fixed and consistent with the position found — the body was not moved after death.' },
-        { n: 2, label: 'Blood evidence', detail: 'Cast-off pattern on the bookshelf indicates a single heavy blow struck from behind and slightly above. No spatter trail leading away from the study.' },
-        { n: 3, label: 'Point of entry', detail: 'No forced entry. Front door lock undamaged; rear windows latched from inside. The victim very likely admitted the attacker voluntarily.' },
-        { n: 4, label: 'Glassware', detail: 'Two used tumblers on the sideboard, one bearing the victim’s prints, the second wiped clean. The victim appears to have poured a drink for a guest.' },
-        { n: 5, label: 'Footwear impression', detail: `Partial sole impression in the flowerbed beneath the study window, men’s size ${killer.shoeSize}–${killer.shoeSize + 1}, deep tread, heading away from the house.` },
-        { n: 6, label: 'Weapon', detail: 'No weapon recovered at the scene. Wound characteristics suggest a heavy blunt object removed by the attacker.' },
-      ],
-    },
+    payload: { sceneLocId: timeline.scene, crimeType: crime.id, markers: crime.scene(autopsyCtx) },
     prose: null,
   });
 
   // ----------------------------------------------------------------- autopsy
-  const meal = rng.pick(MEALS);
   documents.push({
     id: 'doc_autopsy',
     kind: 'autopsy',
@@ -71,17 +76,11 @@ export function projectEvidence(rng, map, cast, skeleton, timeline) {
       victimId: victim.id,
       windowStart: skeleton.window.start,
       windowEnd: skeleton.window.end,
-      causeOfDeath: 'blunt force trauma to the head',
-      weaponClass: weapon.autopsy,
+      causeOfDeath: crime.causeOfDeath,
+      crimeType: crime.id,
       meal,
     },
-    prose: [
-      `Decedent: ${victim.name}, ${victim.age}.`,
-      `Cause of death: blunt force trauma to the posterior right parietal region; single impact; immediate incapacitation, death within minutes.`,
-      `Wound morphology is consistent with ${weapon.autopsy}, delivered with substantial force by an assailant standing behind the victim. No defensive wounds — the victim did not anticipate the attack.`,
-      `Time of death: based on core temperature, fixed lividity and the state of rigor at examination, death is placed between ${fmtTime(skeleton.window.start)} and ${fmtTime(skeleton.window.end)}.`,
-      `Gastric contents: partially digested ${meal}, consumed approximately two to three hours before death. Toxicology: blood alcohol consistent with a single drink; no drugs detected.`,
-    ].join('\n'),
+    prose: [`Decedent: ${victim.name}, ${victim.age}.`, ...crime.autopsy(autopsyCtx)].join('\n'),
   });
 
   // -------------------------------------------------------------- phone CDRs

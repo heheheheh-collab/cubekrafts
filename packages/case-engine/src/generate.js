@@ -4,7 +4,8 @@
 // Failed attempts are discarded and regenerated from a derived seed.
 
 import { createRng } from './rng.js';
-import { TOWNS, WEAPONS, MOTIVES } from './data/pools.js';
+import { TOWNS, MOTIVES } from './data/pools.js';
+import { CRIME_TYPES } from './data/crimes.js';
 import { generateMap } from './gen/map.js';
 import { generateCast } from './gen/cast.js';
 import { generateTimeline } from './gen/timeline.js';
@@ -30,12 +31,18 @@ export function generateCase(seed, { tier = 'detective' } = {}) {
 function buildAttempt(rng, tier) {
   const town = rng.pick(TOWNS);
   const murderTime = rng.int(1260, 1365); // Fri 21:00 – 22:45
+  const crime = rng.pick(CRIME_TYPES);
+  const method = rng.pick(crime.methods);
+  const room = rng.pick(crime.rooms);
   const skeleton = {
     tier,
     town,
     murderTime,
     window: { start: murderTime - rng.int(30, 45), end: murderTime + rng.int(30, 45) },
-    weapon: rng.pick(WEAPONS),
+    crime,
+    method,
+    room,
+    weapon: method, // alias kept for existing timeline/gated references
   };
   const map = generateMap(rng.fork('map'), town);
   const cast = generateCast(rng.fork('cast'), map, tier);
@@ -51,6 +58,14 @@ function finalize(seed, tier, attempts, built, report) {
   const motive = MOTIVES[killer.motiveId];
   const sceneName = map.locations.find((l) => l.id === timeline.scene).name;
   const street = sceneName.split(', ')[1] || sceneName;
+  const TITLE = {
+    blunt_force: `Death on ${street}`,
+    stabbing: `Blood on ${street}`,
+    poisoning: `The ${street} Poisoning`,
+    gunshot: `A Shot on ${street}`,
+    strangulation: `The ${street} Strangling`,
+    staged_fall: `No Accident on ${street}`,
+  };
   const gated = projectGated(createRng(`${seed}#gated`), map, cast, skeleton, timeline);
   // Camera index is public knowledge — players see WHERE cameras are on the
   // map; the footage itself is pulled per-request in game.
@@ -62,24 +77,28 @@ function finalize(seed, tier, attempts, built, report) {
     seed: String(seed),
     tier,
     town: skeleton.town,
-    title: `Death on ${street}`,
+    title: TITLE[skeleton.crime.id] || `Death on ${street}`,
     documents,
     solution: {
       killerId: killer.id,
       killerName: killer.name,
       motiveId: killer.motiveId,
       motiveLabel: motive.label,
-      weapon: skeleton.weapon.name,
+      crimeType: skeleton.crime.id,
+      crimeLabel: skeleton.crime.label,
+      weapon: skeleton.method.name,
       murderTime: skeleton.murderTime,
       murderTimeText: fmtTime(skeleton.murderTime),
       sceneLocId: timeline.scene,
-      weaponDumpLocId: 'loc_bridge',
+      weaponDumpLocId: skeleton.crime.disposesWeapon ? 'loc_bridge' : null,
       keyEvidence: [
-        `The medical examiner puts death between ${fmtTime(skeleton.window.start)} and ${fmtTime(skeleton.window.end)}.`,
+        `This was ${skeleton.crime.label} — the medical examiner puts death between ${fmtTime(skeleton.window.start)} and ${fmtTime(skeleton.window.end)}.`,
         `${killer.name} claims to have been home for the rest of the night, but at ${fmtTime(timeline.incriminatingCall.t)} their handset answered a call registered to the cell site serving ${sceneName} — not their home.`,
         `Background checks give ${killer.name} a live motive: ${motive.label}.`,
         `Every other person of interest with a motive is verifiably elsewhere for the whole death window.`,
-        `The weapon (${skeleton.weapon.name}) was dropped from ${map.locations.find((l) => l.id === 'loc_bridge').name} on the drive home.`,
+        skeleton.crime.disposesWeapon
+          ? `The weapon (${skeleton.method.name}) was dropped from ${map.locations.find((l) => l.id === 'loc_bridge').name} on the drive home.`
+          : `No weapon to trace: the method (${skeleton.method.name}) left nothing to dispose of — which is what nearly made it look like no crime at all.`,
       ],
     },
     hidden: {

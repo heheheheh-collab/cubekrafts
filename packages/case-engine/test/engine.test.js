@@ -40,6 +40,19 @@ test('cases vary: killers, motives and weapons differ across seeds', () => {
   assert.ok(combos.size >= 5, `expected variety, got ${combos.size} distinct combos`);
 });
 
+test('crime types vary: multiple distinct kinds of murder appear', () => {
+  const kinds = new Set();
+  for (let i = 0; i < 60; i++) kinds.add(generateCase(`crime-${i}`).solution.crimeType);
+  assert.ok(kinds.size >= 4, `expected several crime types, got: ${[...kinds].join(', ')}`);
+  // Each non-weapon crime must leave no weapon to recover; weapon crimes must.
+  for (let i = 0; i < 20; i++) {
+    const c = generateCase(`disp-${i}`);
+    const hasDump = !!c.solution.weaponDumpLocId;
+    const isWeaponCrime = ['blunt_force', 'stabbing', 'gunshot'].includes(c.solution.crimeType);
+    assert.equal(hasDump, isWeaponCrime, `${c.solution.crimeType} weapon-dump mismatch`);
+  }
+});
+
 test('internal consistency: documents never contradict the hidden truth', () => {
   const c = generateCase('consistency', { tier: 'detective' });
   const autopsy = c.documents.find((d) => d.kind === 'autopsy').payload;

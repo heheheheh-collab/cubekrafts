@@ -623,7 +623,7 @@ export async function renderGame(layout, sessionId) {
     if (!d) { el('rail-body').innerHTML = '<p class="muted">Nothing to see yet.</p>'; return; }
     el('rail-body').innerHTML = `
       ${outcomeBanner()}
-      <p><b>${esc(d.killerName)}</b> killed the victim at ${esc(d.murderTimeText)} — ${esc(d.motiveLabel)}, with the ${esc(d.weapon)}.</p>
+      <p><b>${esc(d.killerName)}</b> killed the victim at ${esc(d.murderTimeText)} — motive: ${esc(d.motiveLabel)}. Method: ${esc(d.weapon)}.</p>
       <p class="muted">Open the full debrief in the reading pane →</p>
       <button class="primary" id="open-debrief" style="width:100%">Read the full debrief</button>`;
     el('open-debrief').onclick = openDebriefDoc;
@@ -641,7 +641,7 @@ export async function renderGame(layout, sessionId) {
     el('doc-view').innerHTML = `<div class="debrief"><article class="paper">
       <div class="stamp">${esc(c.town)} P.D. · case ${esc(c.id)} · ${stamp}</div>
       <h2>DEBRIEF — WHAT REALLY HAPPENED</h2>
-      <p><b>${esc(d.killerName)}</b> murdered the victim at <b>${esc(d.murderTimeText)}</b> with the <b>${esc(d.weapon)}</b>. Motive: <b>${esc(d.motiveLabel)}</b>.</p>
+      <p><b>${esc(d.killerName)}</b> murdered the victim at <b>${esc(d.murderTimeText)}</b>. Method: <b>${esc(d.weapon)}</b>. Motive: <b>${esc(d.motiveLabel)}</b>.</p>
       <h3 style="font-family:var(--mono)">The fair path to the answer</h3>
       <ol>${d.keyEvidence.map((k) => `<li>${esc(k)}</li>`).join('')}</ol>
       <h3 style="font-family:var(--mono)">The killer's real evening</h3>

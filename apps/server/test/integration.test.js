@@ -7,19 +7,25 @@ const { createSessionManager } = await import('../lib/sessions.js');
 const fakeDb = { addResult: () => {}, resultsFor: () => [] };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-function newGame() {
-  const games = createSessionManager(fakeDb);
-  const s = games.create({ hostId: 'u1', hostName: 'Marlowe', mode: 'solo', tier: 'detective' });
-  const cast = s.caseData.hidden.cast;
-  return {
-    games,
-    s,
-    killer: cast.find((c) => c.isKiller),
-    flagged: cast.find((c) => c.motiveId && !c.isKiller),
-    plain: cast.find((c) => c.role === 'suspect' && !c.motiveId && !c.secret && !c.isKiller),
-    secretHolders: cast.filter((c) => c.secret),
-  };
+function newGame(predicate) {
+  for (let i = 0; i < 60; i++) {
+    const games = createSessionManager(fakeDb);
+    const s = games.create({ hostId: 'u1', hostName: 'Marlowe', mode: 'solo', tier: 'detective' });
+    if (predicate && !predicate(s)) continue;
+    const cast = s.caseData.hidden.cast;
+    return {
+      games,
+      s,
+      killer: cast.find((c) => c.isKiller),
+      flagged: cast.find((c) => c.motiveId && !c.isKiller),
+      plain: cast.find((c) => c.role === 'suspect' && !c.motiveId && !c.secret && !c.isKiller),
+      secretHolders: cast.filter((c) => c.secret),
+    };
+  }
+  throw new Error('no matching case generated');
 }
+// A case where the killer ditches a physical weapon at the bridge.
+const weaponGame = () => newGame((s) => s.caseData.solution.weaponDumpLocId);
 
 test('warrants: estate always granted; motive grounds grant; fishing denied', () => {
   const { games, s, flagged, plain } = newGame();
@@ -48,7 +54,7 @@ test('warrant on the killer via the tower contradiction is granted', () => {
 });
 
 test('lab: weapon dive at the bridge recovers the weapon; wrong site finds nothing; credits run out', async () => {
-  const { games, s, killer } = newGame();
+  const { games, s, killer } = weaponGame();
   games.requestLab(s, 'u1', { type: 'weapon_search', locId: 'loc_bridge' });
   games.requestLab(s, 'u1', { type: 'weapon_search', locId: 'loc_park' });
   games.requestLab(s, 'u1', { type: 'shoeprint', suspectId: killer.id });
@@ -68,7 +74,7 @@ test('lab: weapon dive at the bridge recovers the weapon; wrong site finds nothi
 });
 
 test('cctv: bridge camera catches the killer during the weapon dump', () => {
-  const { games, s, killer } = newGame();
+  const { games, s, killer } = weaponGame();
   const seg = s.caseData.hidden.segments[killer.id].find((x) => x.locId === 'loc_bridge');
   const w = Math.max(990, seg.start - 5);
   const { doc } = games.requestCctv(s, 'u1', { cameraId: 'cam_bridge', windowStart: w });

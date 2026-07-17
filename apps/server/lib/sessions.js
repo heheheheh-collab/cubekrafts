@@ -5,7 +5,8 @@
 // have legitimately solved the case.
 
 import { generateCase, cctvPull } from '../../../packages/case-engine/src/index.js';
-import { MOTIVES, WEAPONS } from '../../../packages/case-engine/src/data/pools.js';
+import { MOTIVES } from '../../../packages/case-engine/src/data/pools.js';
+import { ALL_METHODS } from '../../../packages/case-engine/src/data/crimes.js';
 import { fmtTime } from '../../../packages/case-engine/src/time.js';
 import { newId } from './auth.js';
 
@@ -202,8 +203,9 @@ export function createSessionManager(db) {
     } else if (type === 'weapon_search') {
       const loc = session.caseData.documents.find((d) => d.kind === 'map').payload.locations.find((l) => l.id === locId);
       if (!loc) throw httpError(400, 'Pick a search location.');
+      const dumpLoc = session.caseData.solution.weaponDumpLocId; // null when no weapon
       title = `Lab Report — Evidence Search: ${loc.name}`;
-      prose = locId === 'loc_bridge' ? gated.lab.weaponFound : gated.lab.weaponNotFound(loc.name);
+      prose = dumpLoc && locId === dumpLoc ? gated.lab.weaponFound : gated.lab.weaponNotFound(loc.name);
     } else if (type === 'phone') {
       const s = cast.find((c) => c.id === suspectId && c.role === 'suspect');
       if (!s) throw httpError(400, 'Pick a suspect’s device.');
@@ -486,7 +488,7 @@ export function createSessionManager(db) {
         documents: c.documents, // visible layer only — no solution, no hidden
         taxonomy: {
           motives: Object.entries(MOTIVES).map(([id, m]) => ({ id, label: m.label })),
-          weapons: WEAPONS.map((w) => w.name),
+          weapons: ALL_METHODS,
         },
       };
       const doneForMe = session.mode === 'versus'

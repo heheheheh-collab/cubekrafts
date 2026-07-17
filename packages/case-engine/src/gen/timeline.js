@@ -60,13 +60,19 @@ export function generateTimeline(rng, map, cast, skeleton) {
   const callMin = Math.max(arriveScene + 1, killerClaimHomeStart + claimMargin);
   if (callMin > murderTime + 26) return null;
   leaveScene = Math.max(leaveScene, Math.min(murderTime + 30, callMin + 4));
-  const bridgeArrive = leaveScene + drive(scene, 'loc_bridge');
-  const bridgeLeave = bridgeArrive + 6;
-  kSegs.push(
-    { locId: scene, start: arriveScene, end: leaveScene, activity: 'AT THE SCENE (murder)' },
-    { locId: 'loc_bridge', start: bridgeArrive, end: bridgeLeave, activity: 'disposing of the weapon' },
-    { locId: kHome, start: bridgeLeave + drive('loc_bridge', kHome), end: SIM_END, activity: 'at home' },
-  );
+  kSegs.push({ locId: scene, start: arriveScene, end: leaveScene, activity: 'AT THE SCENE (murder)' });
+  if (skeleton.crime.disposesWeapon) {
+    // Detour to the bridge to ditch the weapon, then home.
+    const bridgeArrive = leaveScene + drive(scene, 'loc_bridge');
+    const bridgeLeave = bridgeArrive + 6;
+    kSegs.push(
+      { locId: 'loc_bridge', start: bridgeArrive, end: bridgeLeave, activity: 'disposing of the weapon' },
+      { locId: kHome, start: bridgeLeave + drive('loc_bridge', kHome), end: SIM_END, activity: 'at home' },
+    );
+  } else {
+    // No weapon to lose (poison, ligature taken, staged) — straight home.
+    kSegs.push({ locId: kHome, start: leaveScene + drive(scene, kHome), end: SIM_END, activity: 'at home' });
+  }
   setSegs(killer, kSegs);
 
   // Killer's false alibi: truthful up to departure, then "went straight home".
