@@ -175,6 +175,7 @@ export const NPC_ROLES = {
   bartender: 'bartender',
   waitress: 'diner waitress',
   dinner_guest: 'dinner guest',
+  passerby: 'neighbour out walking',
 };
 
 export const TIERS = {

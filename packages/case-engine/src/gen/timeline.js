@@ -258,19 +258,51 @@ export function generateTimeline(rng, map, cast, skeleton) {
       });
     }
   }
-  // Guaranteed incriminating call: someone calls the killer while the killer
-  // is at the scene. The CDR tower for the killer's phone will sit in the
-  // scene's zone while the killer claims to have been home.
+  // The killer's provable lie — the "tell" — is one of two kinds:
+  //  • 'tower'   : a call reaches the killer while they're at the scene, so the
+  //                CDR registers their handset to the scene-area cell site while
+  //                they claim to have been home. (crack it via the phone records)
+  //  • 'sighting': a neighbour who was home near the victim's house saw the
+  //                killer there during the death window. (crack it via a witness)
+  // The sighting tell needs a suitably-placed witness; if none exists we fall
+  // back to the tower tell so the case is always solvable.
   const callerPool = suspects.filter((s) => s !== killer);
-  const worried = rng.pick(callerPool);
-  const incriminatingCall = {
-    t: rng.int(callMin, leaveScene - 2),
-    fromId: worried.id,
-    toId: killer.id,
-    durationMin: rng.int(1, 3),
-    keyEvidence: true,
-  };
-  calls.push(incriminatingCall);
+  let incriminatingCall = null;
+  let pendingSighting = null;
+  let tell = null;
+
+  if (skeleton.tell === 'sighting') {
+    const at = rng.int(callMin, Math.max(callMin, leaveScene - 1));
+    // Prefer a suspect-neighbour who was home nearby (more interesting), else a
+    // passer-by NPC who happened to walk past — so a sighting is always possible.
+    const cands = suspects.filter((s) => s !== killer
+      && dist(locs[s.homeLocId], locs[scene]) <= 2.0
+      && segments[s.id].some((seg) => seg.locId === s.homeLocId && seg.start <= callMin && seg.end >= leaveScene));
+    let witnessId;
+    if (cands.length) {
+      witnessId = rng.pick(cands).id;
+    } else {
+      const w = cast.addChar({ id: 'npc_witness', role: 'npc', name: cast.nextName(), occupation: NPC_ROLES.passerby });
+      npcs.push(w);
+      setSegs(w, [{ locId: scene, start: Math.max(SIM_START, at - 5), end: at + 3, activity: 'walking past on the street' }]);
+      witnessId = w.id;
+    }
+    pendingSighting = { byId: witnessId, aboutId: killer.id, locId: scene, t0: at, t1: at, keyTell: true };
+    tell = { type: 'sighting', witnessId, at };
+  }
+  if (!tell) {
+    const worried = rng.pick(callerPool);
+    incriminatingCall = {
+      t: rng.int(callMin, leaveScene - 2),
+      fromId: worried.id,
+      toId: killer.id,
+      durationMin: rng.int(1, 3),
+      keyEvidence: true,
+    };
+    calls.push(incriminatingCall);
+    tell = { type: 'tower', callTime: incriminatingCall.t, callerId: worried.id };
+  }
+
   // 1-2 unanswered calls to the victim after death.
   for (let i = 0; i < rng.int(1, 2); i++) {
     calls.push({
@@ -327,6 +359,9 @@ export function generateTimeline(rng, map, cast, skeleton) {
       }
     }
   }
+  // Add the sighting tell (a named witness placing the killer at the scene).
+  if (pendingSighting) sightings.push(pendingSighting);
+
   // A vague figure seen near the scene (prose-only flavor, added at projection).
   let vagueFigure = null;
   for (const s of suspects) {
@@ -349,6 +384,7 @@ export function generateTimeline(rng, map, cast, skeleton) {
     leaveScene,
     dinerMealEnd: dinerEnd,
     incriminatingCall,
+    tell,
     dinnerGuests,
   };
 }

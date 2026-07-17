@@ -3,6 +3,7 @@
 
 import { api, auth, openStream } from '../api.js';
 import { el, esc, fmtTime, clock, initials } from '../util.js';
+import { avatarImg } from '../avatar.js';
 
 export async function renderGame(layout, sessionId) {
   let state = await api('GET', `/api/sessions/${sessionId}`);
@@ -112,9 +113,12 @@ export async function renderGame(layout, sessionId) {
     drawDocList();
     const d = allDocs().find((x) => x.id === docId);
     if (!d) return;
+    const head = d.kind === 'witness_statement'
+      ? `<div class="stmt-head">${avatarImg(d.payload.charId, 'avatar lg')}<h2>${esc(d.title)}</h2></div>`
+      : `<h2>${esc(d.title)}</h2>`;
     el('doc-view').innerHTML = `<article class="paper">
       <div class="stamp">${esc(c.town)} P.D. · case ${esc(c.id)} · confidential</div>
-      <h2>${esc(d.title)}</h2>
+      ${head}
       ${renderDoc(d)}
     </article>`;
     wireDoc(d);
@@ -127,7 +131,9 @@ export async function renderGame(layout, sessionId) {
 
   function renderDoc(d) {
     if (d.kind === 'crime_scene') {
-      return d.payload.markers.map((m) => `<div class="marker"><b>[${m.n}] ${esc(m.label)}.</b> ${esc(m.detail)}</div>`).join('');
+      return `<p class="muted-ink">Tap a numbered marker to read the finding.</p>
+        <canvas id="scenecanvas" width="640" height="440"></canvas>
+        <div class="scene-detail" id="scene-detail">Select a marker on the diagram above.</div>`;
     }
     if (d.kind === 'call_logs') {
       const subs = d.payload.subscribers;
@@ -154,8 +160,10 @@ export async function renderGame(layout, sessionId) {
     }
     if (d.kind === 'background_checks') {
       return `${prosePara(d.prose)}${d.payload.rows.map((r) => `
-        <div class="marker"><b>${esc(r.name)}</b>, ${r.age}, ${esc(r.occupation)} — ${esc(r.relationship)}.<br>
-        ${r.motiveId ? '⚑ ' : ''}${esc(r.motiveNote)}</div>`).join('')}`;
+        <div class="bg-row">${avatarImg(r.charId, 'avatar')}<div>
+          <b>${esc(r.name)}</b>, ${r.age}, ${esc(r.occupation)} — ${esc(r.relationship)}.
+          ${r.motiveId ? '<span class="tag red">⚑ motive</span>' : ''}<br>
+          ${esc(r.motiveNote)}</div></div>`).join('')}`;
     }
     if (d.kind === 'map') {
       const cams = d.payload.cameras || [];
@@ -183,6 +191,75 @@ export async function renderGame(layout, sessionId) {
       };
     }
     if (d.kind === 'map') wireMap(d);
+    if (d.kind === 'crime_scene') wireScene(d);
+  }
+
+  // ------------------------------------------------ interactive crime scene ----
+  function wireScene(d) {
+    const cv = el('scenecanvas');
+    if (!cv) return;
+    const ctx = cv.getContext('2d');
+    const W = cv.width; const H = cv.height;
+    // Schematic top-down layout; markers keyed by their number.
+    const POS = { 1: [0.5, 0.52], 2: [0.66, 0.4], 3: [0.5, 0.12], 4: [0.83, 0.6], 5: [0.17, 0.82], 6: [0.83, 0.85] };
+    const markers = d.payload.markers;
+    let sel = null;
+
+    const px = (fx) => 40 + fx * (W - 80);
+    const py = (fy) => 30 + fy * (H - 60);
+
+    function draw() {
+      ctx.clearRect(0, 0, W, H);
+      // room
+      ctx.fillStyle = '#e0d6bd'; ctx.fillRect(30, 20, W - 60, H - 40);
+      ctx.strokeStyle = '#7d7358'; ctx.lineWidth = 3;
+      ctx.strokeRect(30, 20, W - 60, H - 40);
+      // door gap (top) + window (bottom-left)
+      ctx.strokeStyle = '#e0d6bd'; ctx.lineWidth = 5;
+      ctx.beginPath(); ctx.moveTo(px(0.42), 20); ctx.lineTo(px(0.58), 20); ctx.stroke();
+      ctx.strokeStyle = '#4a6b7d'; ctx.lineWidth = 5;
+      ctx.beginPath(); ctx.moveTo(30, py(0.7)); ctx.lineTo(30, py(0.92)); ctx.stroke();
+      ctx.fillStyle = '#7d7358'; ctx.font = '11px Courier New';
+      ctx.fillText('DOOR', px(0.5) - 16, 15); ctx.save(); ctx.translate(20, py(0.81)); ctx.rotate(-Math.PI / 2); ctx.fillText('WINDOW', -22, 0); ctx.restore();
+      // body outline at marker 1
+      const b = POS[1];
+      ctx.strokeStyle = '#b04a43'; ctx.lineWidth = 2; ctx.setLineDash([5, 3]);
+      ctx.beginPath(); ctx.ellipse(px(b[0]), py(b[1]) + 6, 34, 20, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(px(b[0]) - 24, py(b[1]) - 2, 10, 0, Math.PI * 2); ctx.stroke();
+      ctx.setLineDash([]);
+      // markers
+      ctx.font = 'bold 15px Courier New'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      for (const m of markers) {
+        const p = POS[m.n] || [0.5, 0.5];
+        const x = px(p[0]); const y = py(p[1]);
+        const on = sel === m.n;
+        ctx.fillStyle = on ? '#b04a43' : '#1d1d25';
+        ctx.beginPath(); ctx.arc(x, y, on ? 16 : 13, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#d9a441'; ctx.lineWidth = 2; ctx.stroke();
+        ctx.fillStyle = '#f0e6cf'; ctx.fillText(String(m.n), x, y + 1);
+      }
+    }
+
+    function showDetail(n) {
+      const m = markers.find((x) => x.n === n);
+      el('scene-detail').innerHTML = m
+        ? `<b>[${m.n}] ${esc(m.label)}.</b> ${esc(m.detail)}`
+        : 'Select a marker on the diagram above.';
+    }
+
+    cv.onclick = (e) => {
+      const rect = cv.getBoundingClientRect();
+      const mx = (e.clientX - rect.left) * (W / rect.width);
+      const my = (e.clientY - rect.top) * (H / rect.height);
+      let best = null; let bd = 26;
+      for (const m of markers) {
+        const p = POS[m.n] || [0.5, 0.5];
+        const dd = Math.hypot(px(p[0]) - mx, py(p[1]) - my);
+        if (dd < bd) { best = m.n; bd = dd; }
+      }
+      if (best) { sel = best; draw(); showDetail(best); }
+    };
+    draw();
   }
 
   // ------------------------------------------------------ interactive map ----
@@ -375,8 +452,13 @@ export async function renderGame(layout, sessionId) {
       const b = boardOf(s.charId);
       return `
       <div class="suspect-card ${b.status}" data-sus="${s.charId}">
-        <h4>${esc(s.name)} ${s.motiveId ? '<span class="tag red">⚑ motive</span>' : ''}</h4>
-        <div class="rel">${esc(s.relationship)} · ${esc(s.occupation)}</div>
+        <div class="sus-head">
+          ${avatarImg(s.charId, 'avatar')}
+          <div>
+            <h4>${esc(s.name)} ${s.motiveId ? '<span class="tag red">⚑ motive</span>' : ''}</h4>
+            <div class="rel">${esc(s.relationship)} · ${esc(s.occupation)}</div>
+          </div>
+        </div>
         <div class="mmo">
           ${['means', 'motive', 'opportunity'].map((k) => `<label><input type="checkbox" data-k="${k}" ${b[k] ? 'checked' : ''}>${k.slice(0, 3)}</label>`).join('')}
         </div>
@@ -425,7 +507,7 @@ export async function renderGame(layout, sessionId) {
     const citable = docs.filter((d) => ['call_logs', 'witness_statement'].includes(d.kind));
     el('doc-view').innerHTML = `<article class="paper interrogation">
       <div class="stamp">${esc(c.town)} P.D. · interview room 2 · recording</div>
-      <h2>INTERROGATION — ${esc(s.name)}</h2>
+      <div class="stmt-head">${avatarImg(suspectId, 'avatar lg')}<h2>INTERROGATION — ${esc(s.name)}</h2></div>
       <p class="muted-ink">${esc(s.relationship)} · ${esc(s.occupation)}. Confrontations only bite when the cited record actually contradicts their story — press with nothing and they stonewall; press the guilty too hard and they call a lawyer.</p>
       <div id="iq-log">${transcriptHtml(suspectId)}</div>
       <div class="iq-controls">

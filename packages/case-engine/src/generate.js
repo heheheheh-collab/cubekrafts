@@ -43,6 +43,7 @@ function buildAttempt(rng, tier) {
     method,
     room,
     weapon: method, // alias kept for existing timeline/gated references
+    tell: rng.chance(0.5) ? 'sighting' : 'tower', // how the killer's lie is caught
   };
   const map = generateMap(rng.fork('map'), town);
   const cast = generateCast(rng.fork('cast'), map, tier);
@@ -86,6 +87,7 @@ function finalize(seed, tier, attempts, built, report) {
       motiveLabel: motive.label,
       crimeType: skeleton.crime.id,
       crimeLabel: skeleton.crime.label,
+      tellType: timeline.tell.type,
       weapon: skeleton.method.name,
       murderTime: skeleton.murderTime,
       murderTimeText: fmtTime(skeleton.murderTime),
@@ -93,7 +95,7 @@ function finalize(seed, tier, attempts, built, report) {
       weaponDumpLocId: skeleton.crime.disposesWeapon ? 'loc_bridge' : null,
       keyEvidence: [
         `This was ${skeleton.crime.label} — the medical examiner puts death between ${fmtTime(skeleton.window.start)} and ${fmtTime(skeleton.window.end)}.`,
-        `${killer.name} claims to have been home for the rest of the night, but at ${fmtTime(timeline.incriminatingCall.t)} their handset answered a call registered to the cell site serving ${sceneName} — not their home.`,
+        tellLine(timeline.tell, killer, cast, sceneName),
         `Background checks give ${killer.name} a live motive: ${motive.label}.`,
         `Every other person of interest with a motive is verifiably elsewhere for the whole death window.`,
         skeleton.crime.disposesWeapon
@@ -123,6 +125,14 @@ function finalize(seed, tier, attempts, built, report) {
     gated,
     meta: { attempts, solverReport: report },
   };
+}
+
+function tellLine(tell, killer, cast, sceneName) {
+  if (tell.type === 'sighting') {
+    const witness = cast.characters.find((c) => c.id === tell.witnessId);
+    return `${killer.name} claims to have been home all night, but ${witness.name} — home nearby — saw them at ${sceneName} at ${fmtTime(tell.at)}, squarely inside the death window.`;
+  }
+  return `${killer.name} claims to have been home for the rest of the night, but at ${fmtTime(tell.callTime)} their handset answered a call registered to the cell site serving ${sceneName} — not their home.`;
 }
 
 function hash(str) {

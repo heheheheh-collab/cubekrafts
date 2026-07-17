@@ -40,6 +40,15 @@ test('cases vary: killers, motives and weapons differ across seeds', () => {
   assert.ok(combos.size >= 5, `expected variety, got ${combos.size} distinct combos`);
 });
 
+test('the tell varies: some cases are cracked by a witness, some by the phone', () => {
+  const tells = {};
+  for (let i = 0; i < 80; i++) {
+    const c = generateCase(`tell-${i}`);
+    tells[c.solution.tellType] = (tells[c.solution.tellType] || 0) + 1;
+  }
+  assert.ok(tells.tower >= 10 && tells.sighting >= 10, `expected both tell types, got ${JSON.stringify(tells)}`);
+});
+
 test('crime types vary: multiple distinct kinds of murder appear', () => {
   const kinds = new Set();
   for (let i = 0; i < 60; i++) kinds.add(generateCase(`crime-${i}`).solution.crimeType);

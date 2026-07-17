@@ -226,17 +226,22 @@ export function projectEvidence(rng, map, cast, skeleton, timeline) {
       slack: f + 6,
     }));
     const lines = [];
+    const isPasserby = n.occupation === NPC_ROLES.passerby;
     if (n.occupation === NPC_ROLES.bartender) {
       lines.push('I was behind the bar all night, like every Friday. Here’s who I remember.');
     } else if (n.occupation === NPC_ROLES.waitress) {
       lines.push('Friday dinner shift, I had the floor to myself. I remember the regulars.');
+    } else if (isPasserby) {
+      lines.push('I was walking the dog down that street on Friday night. I don’t want any trouble, but I saw something.');
     } else {
       const host = cast.characters.find((c) => c.id === n.guestOf);
       lines.push(`I was invited to dinner at ${host.name}’s home that evening.`);
     }
     for (const sg of seen) {
       const who = cast.characters.find((c) => c.id === sg.aboutId).name;
-      if (sg.to - sg.from >= 25) {
+      if (isPasserby) {
+        lines.push(`I saw ${who} at ${locName(sg.locId)} at about ${fmtTime(sg.from)}. I know them by sight — I’m certain it was them, coming away from the house.`);
+      } else if (sg.to - sg.from >= 25) {
         lines.push(`${who} was at ${locName(sg.locId)} from about ${fmtTime(sg.from)} until ${fmtTime(sg.to)} — I’m sure of it, they were in my line of sight the whole time.`);
       } else {
         lines.push(`${who} came through ${locName(sg.locId)} around ${fmtTime(sg.from)}, stayed maybe ${Math.max(10, sg.to - sg.from)} minutes.`);
