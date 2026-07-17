@@ -289,36 +289,63 @@ export async function renderGame(layout, sessionId) {
     const px = (fx) => 40 + fx * (W - 80);
     const py = (fy) => 30 + fy * (H - 60);
 
+    const bloody = ['blunt_force', 'stabbing', 'gunshot'].includes(d.payload.crimeType);
+    const rr = (x, y, w, h, r) => { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); };
+    function bloodBlob(x, y, rad) {
+      ctx.beginPath();
+      for (let a = 0; a < Math.PI * 2; a += 0.4) { const r2 = rad * (0.6 + ((Math.sin(a * 3 + 1) + 1) / 2) * 0.6); const bx = x + Math.cos(a) * r2; const by = y + Math.sin(a) * r2 * 0.7; if (a === 0) ctx.moveTo(bx, by); else ctx.lineTo(bx, by); }
+      ctx.closePath(); ctx.fill();
+    }
+    function chalkBody(x, y) {
+      ctx.strokeStyle = '#f4eede'; ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      ctx.beginPath(); ctx.arc(x - 36, y - 2, 9, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(x - 6, y, 28, 13, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x - 8, y - 11); ctx.lineTo(x + 8, y - 26); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x - 8, y + 11); ctx.lineTo(x + 4, y + 26); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x + 20, y - 6); ctx.lineTo(x + 44, y - 15); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x + 20, y + 6); ctx.lineTo(x + 44, y + 13); ctx.stroke();
+    }
+    function evMarker(x, y, n, on) {
+      ctx.fillStyle = on ? '#c94a3f' : '#e8c24a'; ctx.strokeStyle = '#7a5a10'; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.moveTo(x - 10, y + 10); ctx.lineTo(x + 10, y + 10); ctx.lineTo(x, y - 13); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#33301f'; ctx.font = 'bold 11px Georgia'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(String(n), x, y + 3);
+    }
+
     function draw() {
       ctx.clearRect(0, 0, W, H);
-      // room
-      ctx.fillStyle = '#e0d6bd'; ctx.fillRect(30, 20, W - 60, H - 40);
-      ctx.strokeStyle = '#7d7358'; ctx.lineWidth = 3;
-      ctx.strokeRect(30, 20, W - 60, H - 40);
-      // door gap (top) + window (bottom-left)
-      ctx.strokeStyle = '#e0d6bd'; ctx.lineWidth = 5;
-      ctx.beginPath(); ctx.moveTo(px(0.42), 20); ctx.lineTo(px(0.58), 20); ctx.stroke();
-      ctx.strokeStyle = '#4a6b7d'; ctx.lineWidth = 5;
-      ctx.beginPath(); ctx.moveTo(30, py(0.7)); ctx.lineTo(30, py(0.92)); ctx.stroke();
-      ctx.fillStyle = '#7d7358'; ctx.font = '11px Courier New';
-      ctx.fillText('DOOR', px(0.5) - 16, 15); ctx.save(); ctx.translate(20, py(0.81)); ctx.rotate(-Math.PI / 2); ctx.fillText('WINDOW', -22, 0); ctx.restore();
-      // body outline at marker 1
-      const b = POS[1];
-      ctx.strokeStyle = '#b04a43'; ctx.lineWidth = 2; ctx.setLineDash([5, 3]);
-      ctx.beginPath(); ctx.ellipse(px(b[0]), py(b[1]) + 6, 34, 20, 0, 0, Math.PI * 2); ctx.stroke();
-      ctx.beginPath(); ctx.arc(px(b[0]) - 24, py(b[1]) - 2, 10, 0, Math.PI * 2); ctx.stroke();
-      ctx.setLineDash([]);
-      // markers
-      ctx.font = 'bold 15px Courier New'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      for (const m of markers) {
-        const p = POS[m.n] || [0.5, 0.5];
-        const x = px(p[0]); const y = py(p[1]);
-        const on = sel === m.n;
-        ctx.fillStyle = on ? '#b04a43' : '#1d1d25';
-        ctx.beginPath(); ctx.arc(x, y, on ? 16 : 13, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = '#d9a441'; ctx.lineWidth = 2; ctx.stroke();
-        ctx.fillStyle = '#f0e6cf'; ctx.fillText(String(m.n), x, y + 1);
-      }
+      // wood floor
+      ctx.fillStyle = '#cbb48b'; ctx.fillRect(30, 20, W - 60, H - 40);
+      ctx.strokeStyle = '#c0a97c'; ctx.lineWidth = 1;
+      for (let y = 34; y < H - 24; y += 14) { ctx.beginPath(); ctx.moveTo(33, y); ctx.lineTo(W - 33, y); ctx.stroke(); }
+      // walls
+      ctx.strokeStyle = '#5b513a'; ctx.lineWidth = 6; ctx.strokeRect(30, 20, W - 60, H - 40);
+      // rug under the body
+      ctx.fillStyle = '#b0996f'; ctx.beginPath(); ctx.ellipse(px(0.5), py(0.55), 78, 50, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#9a8358'; ctx.lineWidth = 3; ctx.stroke();
+      // furniture
+      const fur = '#8a6f4a'; const furD = '#6f5836';
+      ctx.fillStyle = fur; ctx.fillRect(px(0.7), py(0.13), 96, 34); ctx.strokeStyle = furD; ctx.lineWidth = 2; ctx.strokeRect(px(0.7), py(0.13), 96, 34); // desk
+      ctx.fillStyle = furD; ctx.fillRect(W - 44, py(0.34), 14, 120); // bookshelf
+      ctx.fillStyle = fur; ctx.fillRect(px(0.7), H - 60, 84, 20); // sideboard
+      ctx.fillStyle = '#d8e4ea'; ctx.strokeStyle = '#a9b8bf'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(px(0.75), H - 50, 4, 0, 7); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.arc(px(0.82), H - 50, 4, 0, 7); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = fur; rr(px(0.11), py(0.6), 58, 56, 9); ctx.fill(); ctx.strokeStyle = furD; ctx.lineWidth = 2; ctx.stroke(); // armchair
+      // door + swing arc
+      ctx.strokeStyle = '#cbb48b'; ctx.lineWidth = 7; ctx.beginPath(); ctx.moveTo(px(0.4), 20); ctx.lineTo(px(0.56), 20); ctx.stroke();
+      ctx.strokeStyle = '#9a8358'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(px(0.4), 23, px(0.56) - px(0.4), -Math.PI / 2, 0); ctx.stroke();
+      // window
+      ctx.strokeStyle = '#5a86a0'; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(30, py(0.66)); ctx.lineTo(30, py(0.9)); ctx.stroke();
+      // blood (violent crimes only)
+      if (bloody) { ctx.fillStyle = 'rgba(140,28,24,0.5)'; bloodBlob(px(0.5) - 4, py(0.56) + 6, 30); }
+      chalkBody(px(0.5), py(0.55));
+      // labels
+      ctx.fillStyle = '#5c5540'; ctx.font = 'italic 10px Georgia'; ctx.textAlign = 'center';
+      ctx.fillText('door', px(0.48), 15); ctx.fillText('desk', px(0.78), py(0.13) - 4);
+      ctx.save(); ctx.translate(22, py(0.78)); ctx.rotate(-Math.PI / 2); ctx.fillText('window', 0, 0); ctx.restore();
+      // evidence markers
+      for (const m of markers) { const p = POS[m.n] || [0.5, 0.5]; evMarker(px(p[0]), py(p[1]), m.n, sel === m.n); }
     }
 
     function showDetail(n) {
@@ -347,54 +374,85 @@ export async function renderGame(layout, sessionId) {
   function wireMap(d) {
     const cv = el('mapcanvas');
     const ctx = cv.getContext('2d');
-    const { locations, towers, travel } = d.payload;
-    const PAD = 42; const SIZE = cv.width - PAD * 2; const KM = 8.5;
+    const { locations, towers, travel, town } = d.payload;
+    const PAD = 30; const SIZE = cv.width - PAD * 2; const KM = 8.5;
     const X = (x) => PAD + (x / KM) * SIZE;
     const Y = (y) => cv.height - PAD - (y / KM) * SIZE;
+    const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
     let picked = [];
 
-    const KIND_STYLE = {
-      home: { color: '#6b5b3e', r: 5 },
-      bar: { color: '#8c2f2f', r: 7 }, diner: { color: '#8c2f2f', r: 7 },
-      motel: { color: '#8c2f2f', r: 7 }, office: { color: '#3e5b6b', r: 7 },
-      store: { color: '#3e5b6b', r: 7 }, park: { color: '#3e6b45', r: 7 },
-      bridge: { color: '#3e5b6b', r: 7 },
-    };
+    const ROOF = { bar: '#9a3b34', diner: '#9a3b34', motel: '#9a3b34', office: '#40607a', store: '#40607a', bridge: '#6d7684', park: '#4e7a4a', home: '#7a6a48' };
+
+    // Road network: connect each place to its two nearest neighbours.
+    const roads = []; const seen = new Set();
+    for (const a of locations) {
+      const near = locations.filter((o) => o !== a).sort((p, q) => dist(a, p) - dist(a, q)).slice(0, 2);
+      for (const b of near) { const k = [a.id, b.id].sort().join('|'); if (!seen.has(k)) { seen.add(k); roads.push([a, b]); } }
+    }
+    // River runs through the bridge, top to bottom.
+    const bridge = locations.find((l) => l.kind === 'bridge') || { x: KM / 2, y: KM / 2 };
+    let th = 0; for (let i = 0; i < town.length; i++) th = (th * 31 + town.charCodeAt(i)) >>> 0;
+    const amp = 0.7 + (th % 40) / 100; const freq = 1.4 + (th % 7) / 10; const phase = (th % 100) / 16;
+    const riverX = (y) => bridge.x + amp * Math.sin(y * freq + phase);
+
+    function roadPath(w, color) {
+      ctx.strokeStyle = color; ctx.lineWidth = w; ctx.lineCap = 'round';
+      for (const [a, b] of roads) { ctx.beginPath(); ctx.moveTo(X(a.x), Y(a.y)); ctx.lineTo(X(b.x), Y(b.y)); ctx.stroke(); }
+    }
 
     function draw() {
       ctx.clearRect(0, 0, cv.width, cv.height);
-      ctx.strokeStyle = '#d5c9a8'; ctx.lineWidth = 1;
-      for (let k = 0; k <= KM; k += 1) {
-        ctx.beginPath(); ctx.moveTo(X(0), Y(k)); ctx.lineTo(X(KM), Y(k)); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(X(k), Y(0)); ctx.lineTo(X(k), Y(KM)); ctx.stroke();
-      }
-      ctx.font = '11px Courier New'; ctx.fillStyle = '#8a7c5c';
-      ctx.fillText('1 square = 1 km · drive ≈ 4 min/km + 3', PAD, 20);
-
-      for (const t of towers) {
-        ctx.strokeStyle = '#8a7c5c';
-        ctx.beginPath(); ctx.arc(X(t.x), Y(t.y), 14, 0, Math.PI * 2); ctx.setLineDash([3, 3]); ctx.stroke(); ctx.setLineDash([]);
-        ctx.fillStyle = '#8a7c5c';
-        ctx.beginPath(); ctx.moveTo(X(t.x) - 5, Y(t.y) + 5); ctx.lineTo(X(t.x) + 5, Y(t.y) + 5); ctx.lineTo(X(t.x), Y(t.y) - 6); ctx.closePath(); ctx.fill();
-        ctx.fillText(t.id.replace('tower_', 'T'), X(t.x) + 8, Y(t.y) - 6);
-      }
-
-      if (picked.length === 2) {
-        ctx.strokeStyle = '#a33'; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.moveTo(X(picked[0].x), Y(picked[0].y)); ctx.lineTo(X(picked[1].x), Y(picked[1].y)); ctx.stroke();
-        ctx.lineWidth = 1;
-      }
-
-      ctx.font = '10.5px Courier New';
+      // land
+      ctx.fillStyle = '#dfd7bf'; ctx.fillRect(0, 0, cv.width, cv.height);
+      // river
+      ctx.strokeStyle = '#9cc0cf'; ctx.lineWidth = 16; ctx.lineCap = 'round'; ctx.beginPath();
+      for (let y = -0.3; y <= KM + 0.3; y += 0.2) { const px = X(riverX(y)); const py = Y(y); if (y < 0) ctx.moveTo(px, py); else ctx.lineTo(px, py); } ctx.stroke();
+      ctx.strokeStyle = '#b6d6e2'; ctx.lineWidth = 9; ctx.beginPath();
+      for (let y = -0.3; y <= KM + 0.3; y += 0.2) { const px = X(riverX(y)); const py = Y(y); if (y < 0) ctx.moveTo(px, py); else ctx.lineTo(px, py); } ctx.stroke();
+      // parks as green ground
+      for (const l of locations) if (l.kind === 'park') { ctx.fillStyle = '#bcd0a0'; ctx.beginPath(); ctx.ellipse(X(l.x), Y(l.y), 34, 26, 0, 0, Math.PI * 2); ctx.fill(); }
+      // roads: casing then surface
+      roadPath(9, '#c3b48c');
+      roadPath(6, '#f2ecda');
+      // buildings
+      ctx.font = '10px Georgia';
       for (const l of locations) {
-        const s = KIND_STYLE[l.kind] || KIND_STYLE.home;
-        const sel = picked.includes(l);
-        ctx.fillStyle = sel ? '#a33' : s.color;
-        ctx.beginPath(); ctx.arc(X(l.x), Y(l.y), sel ? s.r + 2 : s.r, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#4a4230';
-        const label = l.kind === 'home' ? l.name.split(',')[0] : l.name;
-        ctx.fillText(label, X(l.x) + 8, Y(l.y) + 3);
+        if (l.kind === 'park') continue;
+        const on = picked.includes(l);
+        const x = X(l.x); const y = Y(l.y);
+        const sz = l.kind === 'home' ? 7 : 11;
+        ctx.fillStyle = '#6f6549'; ctx.fillRect(x - sz / 2 - 1, y - sz / 2 - 1, sz + 2, sz + 2);
+        ctx.fillStyle = on ? '#b04a43' : (ROOF[l.kind] || '#7a6a48');
+        ctx.fillRect(x - sz / 2, y - sz / 2, sz, sz);
+        if (on) { ctx.strokeStyle = '#b04a43'; ctx.lineWidth = 2; ctx.strokeRect(x - sz / 2 - 2, y - sz / 2 - 2, sz + 4, sz + 4); }
       }
+      // labels (venues bold, homes small surname)
+      ctx.textAlign = 'left';
+      for (const l of locations) {
+        if (l.kind === 'park' || l.kind === 'home') continue;
+        ctx.fillStyle = '#33301f'; ctx.font = 'bold 10.5px Georgia';
+        ctx.fillText(l.name.split(' — ')[0], X(l.x) + 9, Y(l.y) + 3);
+      }
+      ctx.fillStyle = '#5c5540'; ctx.font = '9px Georgia';
+      for (const l of locations) if (l.kind === 'home') ctx.fillText(l.name.split(/[ ,]/)[0], X(l.x) + 6, Y(l.y) + 3);
+      for (const l of locations) if (l.kind === 'park') { ctx.fillStyle = '#3e6b45'; ctx.font = 'italic 10px Georgia'; ctx.fillText(l.name, X(l.x) - 26, Y(l.y) + 3); }
+      // cell towers with faint coverage
+      for (const t of towers) {
+        ctx.fillStyle = 'rgba(138,124,92,0.10)'; ctx.beginPath(); ctx.arc(X(t.x), Y(t.y), 34, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#8a7c5c'; ctx.lineWidth = 1; ctx.setLineDash([2, 3]); ctx.beginPath(); ctx.arc(X(t.x), Y(t.y), 34, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+        ctx.fillStyle = '#6f6549'; ctx.beginPath(); ctx.moveTo(X(t.x) - 4, Y(t.y) + 4); ctx.lineTo(X(t.x) + 4, Y(t.y) + 4); ctx.lineTo(X(t.x), Y(t.y) - 5); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#8a7c5c'; ctx.font = '9px Courier New'; ctx.fillText(t.id.replace('tower_', 'Tower '), X(t.x) + 7, Y(t.y) - 5);
+      }
+      // travel line
+      if (picked.length === 2) {
+        ctx.strokeStyle = '#b04a43'; ctx.lineWidth = 2.5; ctx.setLineDash([7, 4]);
+        ctx.beginPath(); ctx.moveTo(X(picked[0].x), Y(picked[0].y)); ctx.lineTo(X(picked[1].x), Y(picked[1].y)); ctx.stroke(); ctx.setLineDash([]);
+      }
+      // scale bar
+      ctx.strokeStyle = '#33301f'; ctx.lineWidth = 2; ctx.beginPath();
+      ctx.moveTo(PAD, cv.height - 12); ctx.lineTo(PAD + (SIZE / KM), cv.height - 12); ctx.stroke();
+      ctx.fillStyle = '#33301f'; ctx.font = '10px Georgia'; ctx.textAlign = 'left';
+      ctx.fillText('1 km', PAD + 4, cv.height - 16);
     }
 
     cv.onclick = (e) => {

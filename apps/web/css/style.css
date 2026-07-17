@@ -134,9 +134,9 @@ table.lb th { color: var(--ink-dim); text-transform: uppercase; font-size: 11px;
 .paper .subidx { font-family: var(--mono); font-size: 11.5px; color: var(--paper-dim); margin-top: 12px; }
 #mapcanvas { width: 100%; height: auto; background: #e6dcc2; border: 1px solid #cfc5aa; border-radius: 2px; cursor: crosshair; }
 
-/* avatars (case photos) */
-.avatar { width: 40px; height: 40px; border-radius: 4px; border: 1px solid var(--line); flex: none; display: block; }
-.avatar.lg { width: 54px; height: 54px; }
+/* avatars (case photos) — portrait booking-photo aspect */
+.avatar { width: 46px; height: 54px; border-radius: 3px; border: 1px solid var(--line); flex: none; display: block; object-fit: cover; }
+.avatar.lg { width: 58px; height: 68px; }
 .stmt-head { display: flex; align-items: center; gap: 12px; }
 .stmt-head h2 { margin: 0; }
 .bg-row { display: flex; gap: 12px; align-items: flex-start; margin: 12px 0; }

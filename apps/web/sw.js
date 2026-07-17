@@ -4,7 +4,7 @@
 // including the SSE event stream — bypasses the worker entirely and goes
 // straight to the network, so real-time multiplayer is never cached or stalled.
 
-const CACHE = 'coldtrail-shell-v1';
+const CACHE = 'coldtrail-shell-v2';
 const SHELL = [
   '/',
   '/index.html',
@@ -12,6 +12,7 @@ const SHELL = [
   '/js/main.js',
   '/js/api.js',
   '/js/util.js',
+  '/js/avatar.js',
   '/js/views/auth.js',
   '/js/views/home.js',
   '/js/views/lobby.js',
