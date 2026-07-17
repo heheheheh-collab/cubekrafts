@@ -43,7 +43,7 @@ function buildAttempt(rng, tier) {
     method,
     room,
     weapon: method, // alias kept for existing timeline/gated references
-    tell: rng.chance(0.5) ? 'sighting' : 'tower', // how the killer's lie is caught
+    tell: rng.pick(['tower', 'sighting', 'anpr']), // how the killer's lie is caught
   };
   const map = generateMap(rng.fork('map'), town);
   const cast = generateCast(rng.fork('cast'), map, tier);
@@ -131,6 +131,9 @@ function tellLine(tell, killer, cast, sceneName) {
   if (tell.type === 'sighting') {
     const witness = cast.characters.find((c) => c.id === tell.witnessId);
     return `${killer.name} claims to have been home all night, but ${witness.name} — home nearby — saw them at ${sceneName} at ${fmtTime(tell.at)}, squarely inside the death window.`;
+  }
+  if (tell.type === 'anpr') {
+    return `${killer.name} claims to have been home all night, but a number-plate camera photographed their car (${tell.plate}) at ${tell.cameraName} at ${fmtTime(tell.at)} — inside the death window, nowhere near home.`;
   }
   return `${killer.name} claims to have been home for the rest of the night, but at ${fmtTime(tell.callTime)} their handset answered a call registered to the cell site serving ${sceneName} — not their home.`;
 }

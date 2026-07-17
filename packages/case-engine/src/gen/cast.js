@@ -47,6 +47,7 @@ export function generateCast(rng, map, tier) {
     const displayName = ['spouse', 'sibling'].includes(rel.id) && rng.chance(0.6)
       ? `${name.split(' ')[0]} ${victimName.split(' ')[1]}`
       : name;
+    const plateL = () => 'ABCDEFGHJKLMNPRSTVWXYZ'[rng.int(0, 21)];
     const s = addChar({
       id: `suspect_${i + 1}`,
       role: 'suspect',
@@ -55,6 +56,7 @@ export function generateCast(rng, map, tier) {
       occupation: rng.pick(OCCUPATIONS),
       relationship: rel,
       shoeSize: rng.int(6, 13),
+      plate: `${plateL()}${plateL()}${plateL()} ${rng.int(100, 999)}`,
     });
     s.homeLocId = map.addHome(s.id, displayName.split(' ').slice(-1)[0]).id;
     return s;

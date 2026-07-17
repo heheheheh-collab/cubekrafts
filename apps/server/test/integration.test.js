@@ -26,6 +26,8 @@ function newGame(predicate) {
 }
 // A case where the killer ditches a physical weapon at the bridge.
 const weaponGame = () => newGame((s) => s.caseData.solution.weaponDumpLocId);
+// A case whose killer is caught by the phone-tower tell (so doc_cdr is the lie).
+const towerGame = () => newGame((s) => s.caseData.solution.tellType === 'tower');
 
 test('warrants: estate always granted; motive grounds grant; fishing denied', () => {
   const { games, s, flagged, plain } = newGame();
@@ -46,7 +48,7 @@ test('warrants: estate always granted; motive grounds grant; fishing denied', ()
 });
 
 test('warrant on the killer via the tower contradiction is granted', () => {
-  const { games, s, killer } = newGame();
+  const { games, s, killer } = towerGame();
   const viaLie = games.requestWarrant(s, 'u1', { target: killer.id, groundsDocId: 'doc_cdr' });
   assert.equal(viaLie.granted, true);
   const fin = games.publicState(s, 'u1').inv.docs.find((d) => d.kind === 'financial_records');
@@ -83,7 +85,7 @@ test('cctv: bridge camera catches the killer during the weapon dump', () => {
 });
 
 test('interrogation: killer deflects then lawyers up; weak evidence stonewalls', () => {
-  const { games, s, killer, plain } = newGame();
+  const { games, s, killer, plain } = towerGame();
   const r1 = games.interrogate(s, 'u1', { suspectId: killer.id, question: 'confront', evidenceDocId: 'doc_cdr' });
   assert.equal(r1.entry.outcome, 'evasive');
   const r2 = games.interrogate(s, 'u1', { suspectId: killer.id, question: 'confront', evidenceDocId: 'doc_cdr' });

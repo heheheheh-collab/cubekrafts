@@ -108,6 +108,23 @@ export function projectEvidence(rng, map, cast, skeleton, timeline) {
     prose: 'Carrier records for all subscriber lines belonging to persons of interest. Tower columns give the cell site each handset was registered to at the time of the call. Records are machine-generated and exact.',
   });
 
+  // -------------------------------------------------------- ANPR (open doc)
+  if (timeline.anpr) {
+    const camName = Object.fromEntries(timeline.anpr.cameras.map((cm) => [cm.id, cm.name]));
+    documents.push({
+      id: 'doc_anpr',
+      kind: 'anpr',
+      title: 'Automatic Number-Plate Recognition — Camera Reads',
+      payload: {
+        cameras: timeline.anpr.cameras,
+        rows: timeline.anpr.reads.map((r) => ({
+          time: r.time, plate: r.plate, charId: r.charId, cameraId: r.cameraId, camera: camName[r.cameraId],
+        })),
+      },
+      prose: 'Roadside number-plate cameras log every registered vehicle that passes, to the minute. Match a plate’s keeper against where that person claims to have been.',
+    });
+  }
+
   // ------------------------------------------------------- background checks
   const flagged = suspects.filter((s) => s.motiveId);
   documents.push({

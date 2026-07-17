@@ -16,6 +16,32 @@ export async function renderGame(layout, sessionId) {
   const nameOf = {};
   for (const d of docs.find((x) => x.kind === 'call_logs').payload.subscribers) nameOf[d.charId] = d.name;
 
+  // Synthesize a visual "case timeline" from the open casefile: each suspect's
+  // claimed movements as bars, with the death window shaded — so alibi gaps are
+  // seen, not read out of paragraphs.
+  {
+    const autopsyP = docs.find((d) => d.kind === 'autopsy').payload;
+    const locKind = Object.fromEntries(mapDoc.payload.locations.map((l) => [l.id, l.kind]));
+    const locNm = Object.fromEntries(mapDoc.payload.locations.map((l) => [l.id, l.name]));
+    const stmtOf = {};
+    for (const d of docs.filter((x) => x.kind === 'witness_statement')) stmtOf[d.payload.charId] = d.payload;
+    docs.splice(docs.findIndex((d) => d.kind === 'map') + 1, 0, {
+      id: 'doc_timeline',
+      kind: 'case_timeline',
+      title: 'Case Timeline',
+      payload: {
+        windowStart: autopsyP.windowStart,
+        windowEnd: autopsyP.windowEnd,
+        rows: suspects.map((s) => ({
+          charId: s.charId, name: s.name, motiveId: s.motiveId,
+          claims: (stmtOf[s.charId]?.claims || []).map((cl) => ({
+            from: cl.from, to: cl.to, kind: locKind[cl.locId] || 'home', place: locNm[cl.locId] || cl.locId,
+          })),
+        })),
+      },
+    });
+  }
+
   let activeDocId = docs[0].id;
   let railTab = 'suspects';
   let readDocs = new Set(state.me?.readDocs || []);
@@ -64,7 +90,7 @@ export async function renderGame(layout, sessionId) {
   // ------------------------------------------------------------ doc list ----
   const GROUPS = [
     ['REPORTS', (d) => ['briefing', 'crime_scene', 'autopsy'].includes(d.kind)],
-    ['RECORDS', (d) => ['call_logs', 'background_checks', 'map'].includes(d.kind)],
+    ['RECORDS', (d) => ['call_logs', 'anpr', 'background_checks', 'map', 'case_timeline'].includes(d.kind)],
     ['STATEMENTS', (d) => d.kind === 'witness_statement'],
   ];
 
@@ -74,7 +100,7 @@ export async function renderGame(layout, sessionId) {
     if (d.kind === 'lab_report') return d.title.replace('Lab Report — ', '🧪 ');
     if (d.kind === 'cctv_footage') return d.title.replace('CCTV Pull — ', '📹 ');
     if (d.kind === 'estate_file') return '§ Estate & insurance file';
-    return { briefing: 'Case briefing', crime_scene: 'Crime scene', autopsy: 'Autopsy report', call_logs: 'Call records', background_checks: 'Background checks', map: 'Area map' }[d.kind] || d.title;
+    return { briefing: 'Case briefing', crime_scene: 'Crime scene', autopsy: 'Autopsy report', call_logs: 'Call records', anpr: '🚗 Number-plate reads', map: 'Area map', case_timeline: '⏱ Case timeline', background_checks: 'Background checks' }[d.kind] || d.title;
   }
 
   function drawDocList() {
@@ -177,7 +203,61 @@ export async function renderGame(layout, sessionId) {
         <table><thead><tr><th>Date</th><th>Description</th><th>Amount</th></tr></thead>
         <tbody>${d.payload.rows.map((r) => `<tr><td>${esc(r.date)}</td><td>${esc(r.desc)}</td><td>${esc(r.amount)}</td></tr>`).join('')}</tbody></table>`;
     }
+    if (d.kind === 'anpr') {
+      return `${prosePara(d.prose)}
+        <table><thead><tr><th>Time</th><th>Plate</th><th>Registered keeper</th><th>Camera</th></tr></thead>
+        <tbody>${d.payload.rows.map((r) => `<tr><td>${fmtTime(r.time)}</td><td>${esc(r.plate)}</td><td>${esc(nameOf[r.charId] || '—')}</td><td>${esc(r.camera)}</td></tr>`).join('')}</tbody></table>`;
+    }
+    if (d.kind === 'case_timeline') {
+      const h = 26 + d.payload.rows.length * 22 + 6;
+      return `<p class="muted-ink">Each bar is what that person <b>claims</b>. The red band is the death window — a red name has a motive. Look for who claims to be tucked safely away exactly when it happened.</p>
+        <canvas id="tlcanvas" width="700" height="${h}"></canvas>
+        <div class="tl-legend"><span style="background:#6b5b3e"></span>home <span style="background:#8c2f2f"></span>bar/diner <span style="background:#3e5b6b"></span>shops/office <span style="background:#3e6b45"></span>park</div>`;
+    }
     return prosePara(d.prose || '');
+  }
+
+  const TL_COL = { home: '#6b5b3e', bar: '#8c2f2f', diner: '#8c2f2f', motel: '#8c2f2f', office: '#3e5b6b', store: '#3e5b6b', bridge: '#3e5b6b', park: '#3e6b45' };
+  function wireTimeline(d) {
+    const cv = el('tlcanvas');
+    if (!cv) return;
+    const ctx = cv.getContext('2d');
+    const W = cv.width; const H = cv.height;
+    const T0 = 1140; const T1 = 1470; const span = T1 - T0;
+    const nameW = 92; const padR = 10; const axisH = 18; const rowH = 22;
+    const x0 = nameW; const x1 = W - padR;
+    const pxT = (t) => x0 + ((Math.max(T0, Math.min(T1, t)) - T0) / span) * (x1 - x0);
+    ctx.clearRect(0, 0, W, H);
+    // death-window band
+    const wl = pxT(d.payload.windowStart); const wr = pxT(d.payload.windowEnd);
+    ctx.fillStyle = 'rgba(176,74,67,.15)'; ctx.fillRect(wl, axisH, wr - wl, H - axisH);
+    ctx.strokeStyle = '#b04a43'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(wl, axisH); ctx.lineTo(wl, H); ctx.moveTo(wr, axisH); ctx.lineTo(wr, H); ctx.stroke();
+    // hour gridlines + labels
+    ctx.font = '10px Courier New'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    for (let t = T0; t <= T1; t += 60) {
+      const x = pxT(t);
+      ctx.strokeStyle = '#cfc5aa'; ctx.beginPath(); ctx.moveTo(x, axisH); ctx.lineTo(x, H); ctx.stroke();
+      ctx.fillStyle = '#8a7c5c'; ctx.fillText(fmtTime(t).slice(0, 5), x, 12);
+    }
+    // rows
+    ctx.textAlign = 'left';
+    d.payload.rows.forEach((r, i) => {
+      const y = axisH + i * rowH;
+      const nm = `${r.name.split(' ')[0]} ${(r.name.split(' ')[1] || '')[0] || ''}`;
+      ctx.fillStyle = r.motiveId ? '#b04a43' : '#26221a';
+      ctx.font = `${r.motiveId ? 'bold ' : ''}11px Courier New`;
+      ctx.fillText(nm, 4, y + 15);
+      for (const cl of r.claims) {
+        const bx = pxT(cl.from); const bw = Math.max(2, pxT(cl.to) - bx);
+        ctx.fillStyle = TL_COL[cl.kind] || '#6b5b3e';
+        ctx.fillRect(bx, y + 4, bw, rowH - 8);
+        if (bw > 34) {
+          ctx.fillStyle = '#f0e6cf'; ctx.font = '9px Courier New';
+          ctx.fillText(cl.kind === 'home' ? 'home' : cl.place.split(/[ ,]/)[0], bx + 3, y + 15);
+        }
+      }
+    });
   }
 
   function wireDoc(d) {
@@ -192,6 +272,7 @@ export async function renderGame(layout, sessionId) {
     }
     if (d.kind === 'map') wireMap(d);
     if (d.kind === 'crime_scene') wireScene(d);
+    if (d.kind === 'case_timeline') wireTimeline(d);
   }
 
   // ------------------------------------------------ interactive crime scene ----
@@ -368,7 +449,7 @@ export async function renderGame(layout, sessionId) {
     const locs = mapDoc.payload.locations;
     const slots = [];
     for (let w = 990; w <= 1530; w += 30) slots.push(w);
-    const citable = docs.filter((d) => ['background_checks', 'call_logs', 'witness_statement'].includes(d.kind));
+    const citable = docs.filter((d) => ['background_checks', 'call_logs', 'anpr', 'witness_statement'].includes(d.kind));
     el('rail-body').innerHTML = `
       <div class="actions">
         <div class="lab-credits">🧪 LAB CREDITS: <b>${inv.labCredits}</b>${inv.pendingLab.length ? ` · ⧗ ${inv.pendingLab.length} pending` : ''}</div>
@@ -504,7 +585,7 @@ export async function renderGame(layout, sessionId) {
     setMobileView('doc'); // the interview renders in the reading pane
     drawDocList();
     const s = suspects.find((x) => x.charId === suspectId);
-    const citable = docs.filter((d) => ['call_logs', 'witness_statement'].includes(d.kind));
+    const citable = docs.filter((d) => ['call_logs', 'anpr', 'witness_statement'].includes(d.kind));
     el('doc-view').innerHTML = `<article class="paper interrogation">
       <div class="stamp">${esc(c.town)} P.D. · interview room 2 · recording</div>
       <div class="stmt-head">${avatarImg(suspectId, 'avatar lg')}<h2>INTERROGATION — ${esc(s.name)}</h2></div>

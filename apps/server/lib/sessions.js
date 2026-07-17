@@ -155,6 +155,7 @@ export function createSessionManager(db) {
     return per.contradictions.filter((c) => (
       (c.kind === 'tower_vs_claim' && evidenceDocId === 'doc_cdr')
       || (c.kind === 'sighting_vs_claim' && c.docId === evidenceDocId)
+      || (c.kind === 'anpr_vs_claim' && evidenceDocId === 'doc_anpr')
     ));
   }
 

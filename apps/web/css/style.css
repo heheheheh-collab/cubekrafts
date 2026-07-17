@@ -150,6 +150,11 @@ table.lb th { color: var(--ink-dim); text-transform: uppercase; font-size: 11px;
 .scene-detail { font-family: var(--serif); font-size: 15px; line-height: 1.6; margin-top: 12px; min-height: 3em; padding: 12px 14px; background: #f4ecd8; border-left: 3px solid var(--red); border-radius: 2px; }
 .scene-detail b { font-family: var(--mono); }
 .paper .muted-ink { color: var(--paper-dim); font-family: var(--mono); font-size: 12px; }
+
+/* visual case timeline (canvas) */
+#tlcanvas { width: 100%; height: auto; background: #ece4cf; border: 1px solid #cfc5aa; border-radius: 2px; margin-top: 4px; }
+.tl-legend { margin-top: 12px; font-size: 10.5px; color: var(--paper-dim); display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.tl-legend span { display: inline-block; width: 12px; height: 10px; border-radius: 2px; margin-left: 8px; }
 .map-readout { font-family: var(--mono); font-size: 12.5px; margin-top: 8px; min-height: 1.4em; }
 
 /* right rail */

@@ -269,8 +269,35 @@ export function generateTimeline(rng, map, cast, skeleton) {
   const callerPool = suspects.filter((s) => s !== killer);
   let incriminatingCall = null;
   let pendingSighting = null;
+  let anpr = null;
   let tell = null;
 
+  if (skeleton.tell === 'anpr') {
+    // Roadside number-plate camera caught the killer's car by the scene.
+    const at = rng.int(callMin, Math.max(callMin, leaveScene - 1));
+    const sceneNm = locs[scene].name;
+    const cameras = [
+      { id: 'anpr_scene', name: `${sceneNm.split(', ')[1] || sceneNm} — road camera`, x: locs[scene].x, y: locs[scene].y },
+      { id: 'anpr_bar', name: `${locs.loc_bar.name} — junction camera`, x: locs.loc_bar.x, y: locs.loc_bar.y },
+      { id: 'anpr_store', name: `${locs.loc_store.name} — forecourt camera`, x: locs.loc_store.x, y: locs.loc_store.y },
+      { id: 'anpr_bridge', name: `${locs.loc_bridge.name} — span camera`, x: locs.loc_bridge.x, y: locs.loc_bridge.y },
+    ];
+    const reads = [{ time: at, charId: killer.id, plate: killer.plate, cameraId: 'anpr_scene' }];
+    // Truthful noise from honest suspects that genuinely drove past a camera.
+    const honest = suspects.filter((s) => s !== killer && !s.secret && !s.isCompeting
+      && s.claimedSegments && s.claimedSegments.every((c2) => !c2.lie));
+    for (const s of rng.shuffle(honest).slice(0, 4)) {
+      const t = rng.int(1150, 1440);
+      const pos = positionAt(s.id, t);
+      if (!pos) continue;
+      let best = null; let bd = 0.5;
+      for (const cam of cameras) { const dd = dist(cam, pos); if (dd < bd) { best = cam; bd = dd; } }
+      if (best && best.id !== 'anpr_scene') reads.push({ time: t, charId: s.id, plate: s.plate, cameraId: best.id });
+    }
+    reads.sort((a, b) => a.time - b.time);
+    anpr = { cameras, reads };
+    tell = { type: 'anpr', at, cameraId: 'anpr_scene', cameraName: cameras[0].name, plate: killer.plate };
+  }
   if (skeleton.tell === 'sighting') {
     const at = rng.int(callMin, Math.max(callMin, leaveScene - 1));
     // Prefer a suspect-neighbour who was home nearby (more interesting), else a
@@ -385,6 +412,7 @@ export function generateTimeline(rng, map, cast, skeleton) {
     dinerMealEnd: dinerEnd,
     incriminatingCall,
     tell,
+    anpr,
     dinnerGuests,
   };
 }

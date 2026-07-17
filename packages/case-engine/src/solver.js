@@ -18,6 +18,8 @@ export function solveCase(documents) {
   const cdr = doc('call_logs').payload;
   const background = doc('background_checks').payload;
   const statements = documents.filter((d) => d.kind === 'witness_statement');
+  const anprDoc = doc('anpr');
+  const anprCams = anprDoc ? byId(anprDoc.payload.cameras) : {};
 
   const locs = byId(mapDoc.locations);
   // towers in the map payload carry coordinates; the CDR payload has names only
@@ -86,6 +88,24 @@ export function solveCase(documents) {
         row,
       });
     }
+    // ANPR: a plate read puts that suspect's car AT a specific camera (precise).
+    if (anprDoc) {
+      for (const row of anprDoc.payload.rows) {
+        if (row.charId !== s.charId) continue;
+        const cam = anprCams[row.cameraId];
+        if (!cam) continue;
+        evidence.push({
+          type: 'anpr',
+          docId: 'doc_anpr',
+          loc: cam,
+          cameraName: row.camera,
+          from: row.time,
+          to: row.time,
+          slack: TOWER_TIME_SLACK,
+          radiusKm: 0.3,
+        });
+      }
+    }
 
     // ---- Opportunity: is there ANY minute in the death window at which this
     // person could have been at the scene, given all corroborated evidence?
@@ -142,7 +162,17 @@ export function solveCase(documents) {
             detail: `Claims to have been at ${claimed.name} at that time, but their handset registered to ${e.towerId}, which does not serve that address.`,
           });
         }
-      } else if (e.locId !== claimedLocId && dist(e.loc, claimed) > 1.0) {
+      } else if (e.type === 'anpr') {
+        if (dist(e.loc, claimed) > 0.6) {
+          contradictions.push({
+            kind: 'anpr_vs_claim',
+            time: t,
+            claimedLocId,
+            docId: e.docId,
+            detail: `Claims to have been at ${claimed.name}, but their car was photographed at ${e.cameraName} at that time.`,
+          });
+        }
+      } else if (e.type === 'sighting' && e.locId !== claimedLocId && dist(e.loc, claimed) > 1.0) {
         contradictions.push({
           kind: 'sighting_vs_claim',
           time: t,
