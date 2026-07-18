@@ -78,6 +78,9 @@ Cubekrafts is a **two-sided platform for India's modular furniture trade** (kitc
 6. **Scope discipline:** made-to-measure quoted work only; freestanding retail furniture (Pepperfry's war) is out. New categories enter when a real dealer asks.
 7. **The next feature is whatever the first real dealer complains about** — not what feels clever. Product is DONE for pilots.
 
+### Parked backlog (decided, not built — do not start before the pilot GREEN gate)
+- **Design Studio (post-pilot, founder-approved shape, Jul 2026):** homeowner uploads room photos → AI reimagines the room in a chosen catalog design/style/finish/layout (or from-scratch concept render) → wrapped in a structured brief (dimensions, budget, timeline, must-haves) → one CTA submits render + photos + specs attached to the lead the dealer receives. Renders capped/rate-limited on the existing hashed-IP spine; doubles as the demand-side social hook (doc 09). A true drag-and-drop 3D configurator was explicitly rejected for now — post-raise only.
+
 ## 9. Key infrastructure map
 
 | Thing | Where |
