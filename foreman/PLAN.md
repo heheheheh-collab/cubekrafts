@@ -15,7 +15,7 @@ You give it goals. The COO breaks them into work, assigns it to the right role, 
 
 ### What it is *not*
 
-- Not part of Cubekrafts. It has its own directory, its own package.json, its own database, and imports nothing from the Cubekrafts code. It talks to Cubekrafts the way any outside operator would — over the public API, with a token, against a local git clone. **You can `mv foreman/ ~/foreman && git init` at any point and nothing breaks.**
+- Not part of Cubekrafts. Its own repository, its own package.json, its own database, sharing no code with the Cubekrafts site or API. It talks to Cubekrafts the way any outside operator would — over the public API with a read-only token, and against a local git clone it may only branch from, never push to `main`.
 - Not a SaaS, not multi-tenant, not hosted, and it never phones home.
 - Not a chatbot with a persona menu. The point is the *organisation*: persistent roles, a shared work queue, a memory that carries across weeks, and a boss (you) with a veto.
 
@@ -481,11 +481,13 @@ None of these block Phase 0.
 
 ## 15. Repo layout
 
+This repository, at its root:
+
 ```
-foreman/                        # self-contained; lift out to its own repo any time
-  package.json                  # its own deps — imports nothing from cubekrafts
+  package.json                  # its own deps — nothing shared with cubekrafts
   PLAN.md                       # this file
   README.md
+  .gitignore
   src/
     server/         index.ts, routes/, sse.ts
     db/             migrations/*.sql, schema.ts, queries.ts

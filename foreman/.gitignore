@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.env
+.env.*
+*.log
+
+# local runtime state — the real database and files live in ~/.foreman
+data/
+*.db
+*.db-journal
+*.db-wal
