@@ -1,6 +1,6 @@
 # Foreman — a whole organisation that runs on your laptop
 
-**Status:** design, not built. Nothing in this folder ships yet.
+**Status:** design, not built. Nothing here ships yet.
 **Working name:** Foreman (a foreman runs a crew and reports to the owner). Rename is a find-and-replace.
 
 ---
@@ -11,7 +11,9 @@ Foreman is a **single desktop app that behaves like a small company you own**. Y
 
 You give it goals. The COO breaks them into work, assigns it to the right role, and the roles do the work: sales drafts follow-ups to real inbound leads, content writes the posts, the web developer edits a checkout of your site on a branch and shows you the diff, marketing plans the campaign, finance tells you what any of it costs. Anything that leaves the building — an email, a published page, a git push, a rupee spent — stops in an approval queue until you press the button.
 
-**It runs entirely on your device.** One process, one SQLite file, one browser tab at `http://127.0.0.1:7777`. No server to rent, no account to create, no data leaving the machine except the Claude API calls the agents make and the specific outbound requests you have allowlisted.
+**It runs entirely on your device.** One process, one SQLite file, one browser tab at `http://127.0.0.1:7777`. No server to rent, no account to create, no data leaving the machine except the model API calls the agents make and the specific outbound requests you have allowlisted.
+
+**It is not tied to one AI vendor.** Roles run on Claude or on ChatGPT, chosen per role, and the two can review each other's work. Section 10 is how that gets built without turning the codebase into a compatibility shim.
 
 ### What it is *not*
 
@@ -25,22 +27,25 @@ You give it goals. The COO breaks them into work, assigns it to the right role, 
 
 ---
 
-## 2. Ground rules (these constrain every decision below)
+## 2. Ground rules
 
 | Rule | Consequence for the design |
 |---|---|
-| Runs on your device only | Bind to `127.0.0.1` only. No inbound port on the LAN. No auth server — a local passphrase unlocks the secrets file, that's it. |
-| One user, ever | No roles/permissions system, no orgs, no invites. Every table is single-tenant. Saves ~40% of the code a normal app of this shape needs. |
-| Your data stays yours | SQLite at `~/.foreman/foreman.db`, artifacts as plain files in `~/.foreman/files/`. Backup = copy the folder. Export = it's already a file. No telemetry, ever. |
-| Cheap to run | One agent at a time by default. Prompt caching on every call. Model tiering by task. A hard daily spend cap that stops the loop, not just warns. |
+| Runs on your device only | Bind to `127.0.0.1` only. No inbound port on the LAN. No auth server — a local passphrase unlocks the secrets file. |
+| One user, ever | No roles/permissions system, no orgs, no invites. Every table is single-tenant. Saves ~40% of the code an app of this shape usually needs. |
+| Your data stays yours | SQLite at `~/.foreman/foreman.db`, artifacts as plain files in `~/.foreman/files/`. Backup = copy the folder. No telemetry, ever. |
+| **No vendor in the core** | The tick loop, the tools, the permission classifier, the transcripts and the audit log know nothing about Anthropic or OpenAI. Vendor knowledge lives in two adapter files and one config file. |
+| Cheap to run | One agent at a time by default. Cache-friendly context assembly. Model tiering by task. A hard daily spend cap that stops the loop, not just warns. |
 | Nothing irreversible without you | Every tool is classified `safe` / `guarded` / `forbidden` before the runtime will execute it. Guarded means it queues. |
-| Laptops sleep | The tick loop must survive being suspended mid-run: every run is checkpointed to the DB before and after the model call, and an interrupted run resumes or fails cleanly rather than half-executing. |
+| Laptops sleep | Every run is checkpointed to the DB before and after the model call, so an interrupted run resumes or fails cleanly rather than half-executing. |
 
 ---
 
 ## 3. The staff
 
-Every role is a **markdown charter file** on disk (`~/.foreman/charters/sales.md`) plus a row in the DB holding its tool grants, autonomy levels, and model. Charters are yours to edit — that's the main way you manage these employees.
+Every role is a **markdown charter file** on disk (`~/.foreman/charters/sales.md`) plus a row in the DB holding its tool grants, autonomy levels, provider, model tier, and effort. Charters are yours to edit — that's the main way you manage these employees.
+
+Charters are **provider-neutral by rule.** A charter describes the job, never the model. Anything a specific vendor's model needs to be told about *how* to call tools or format output lives in that provider's adapter preamble, not in the job description. This is what lets you move a role from Claude to ChatGPT by changing one field.
 
 Each charter has a fixed shape:
 
@@ -54,33 +59,32 @@ Each charter has a fixed shape:
 ## Definition of done — the checklist the COO reviews against
 ## Escalate when    — the conditions that require the founder
 ## Voice            — how it writes, with two examples
+## Learned          — appended automatically from your rejections
 ```
 
 ### The seven roles
 
 **COO — the only one that plans.**
 Converts your goals into initiatives and tasks, assigns them, sequences them, reviews finished work against its definition of done, writes the daily standup, and escalates. It does not do the work itself — it has no tools except the work-graph tools and read access to artifacts. This is deliberate: keeping planning and doing in separate agents is what stops the whole thing collapsing into one confused agent that plans, half-does, and reports success.
-*Model: Opus 5, effort `high`. It's the most expensive per-token role but the cheapest per-mistake.*
+*Suggested: Claude Opus 5 at high effort. Keep this role on one vendor permanently — planning style is the thing you least want drifting.*
 
 **Web Developer — ships code, never deploys.**
-Works in a local git clone of the Cubekrafts repo at a path you configure. Reads, edits, runs the test/lint/build commands, commits to a branch named `foreman/<task-id>`. It **cannot** push to `main`, cannot run deploy scripts, and cannot touch anything outside the clone directory. Its deliverable is a branch plus a plain-English diff summary in the approvals queue. You review, then push yourself (or approve a push, which is a guarded tool).
-*Model: Opus 5, effort `xhigh` — this is the coding/agentic case where xhigh actually pays for itself.*
+Works in a local git clone of the Cubekrafts repo at a path you configure. Reads, edits, runs the test/lint/build commands, commits to a branch named `foreman/<task-id>`. It **cannot** push to `main`, cannot run deploy scripts, and cannot touch anything outside the clone directory. Its deliverable is a branch plus a plain-English diff summary in the approvals queue.
+*Suggested: Claude Opus 5 at xhigh effort, with the other vendor's strongest reasoning model as second reader on any diff over ~100 lines (§4).*
 
 **Sales — drafts, never sends.**
 Pulls new inquiries from the Cubekrafts API (read-only token), qualifies each against your ICP, writes the first reply and a two-touch follow-up sequence, and maintains a pipeline with stages and next actions. Every outbound message lands in the approvals queue with the lead's context beside it. It also keeps a running list of objections it's seeing, which is the single most valuable thing it produces for marketing.
-*Model: Sonnet 5 for drafting, Haiku 4.5 for the initial qualify/triage pass.*
+*Suggested: a mid tier for drafting, the cheapest tier for the initial qualify pass. A good candidate for an A/B across vendors (§10) — reply quality is easy for you to judge.*
 
 **Marketing — plans, doesn't publish.**
-Owns the channel calendar, campaign briefs, keyword and competitor research (via the web-search tool with a domain allowlist), landing-page concepts, and budget proposals. Its output is briefs that Content and the Web Developer execute against. Any proposed spend is a guarded action with a number attached.
-*Model: Sonnet 5, effort `high`.*
+Owns the channel calendar, campaign briefs, keyword and competitor research (web search with a domain allowlist), landing-page concepts, and budget proposals. Its output is briefs that Content and the Web Developer execute against. Any proposed spend is a guarded action with a number attached.
 
 **Content — writes to brief.**
 Turns marketing briefs into posts, case studies, product page copy, and social. Reads the brand-voice canon and the last ten approved pieces before writing, so voice drifts slowly rather than per-piece. Output is a markdown artifact; publishing is a separate guarded step.
-*Model: Sonnet 5. Content volume is where token spend concentrates, and Sonnet is genuinely good at this.*
+*Content volume is where token spend concentrates, so this is the role where a vendor price difference actually shows up on the monthly bill. Worth measuring rather than guessing.*
 
 **Finance / Analyst — the one that says no.**
-Unit economics per product, quote and ROI math, weekly numbers (leads, conversion, content shipped, site changes), and — importantly — tracks Foreman's own API spend and tells you when a role is burning money for no output. Read-only on everything.
-*Model: Haiku 4.5 for the recurring number-crunching, Sonnet 5 for the weekly written analysis.*
+Unit economics per product, quote and ROI math, weekly numbers (leads, conversion, content shipped, site changes), and — importantly — tracks Foreman's own API spend **split by vendor** and tells you when a role is burning money for no output. Read-only on everything.
 
 **Support (phase 4, optional).**
 Post-sale FAQs, order-status templates, warranty questions. Deferred because it needs real post-sale volume to be worth anything.
@@ -101,7 +105,7 @@ Each role costs you charter-maintenance attention and adds a routing decision fo
                               + tasks ──────────────► picks up task        │
                                   ▲                      │                 │
                                   │                   builds context       │
-                                  │                   calls Claude         │
+                                  │                   provider.turn()      │
                                   │                   uses tools           │
                                   │                      │                 │
                                   │                 ┌────┴────┐            │
@@ -110,9 +114,9 @@ Each role costs you charter-maintenance attention and adds a routing decision fo
                                   │                 └────┬────┘            │
                                   │                      │                 │
                               reviews ◄──────────── produces artifact      │
-                              vs. DoD                                      │
-                                  │                                        │
-                    ┌─────────────┼─────────────┐                          │
+                              vs. DoD                    │                 │
+                                  │             (optional) second reader   │
+                    ┌─────────────┼─────────────┐   on the other vendor    │
                  accept      send back      escalate ────────────────────► │
                                 (max 2)                                    │
 ```
@@ -124,36 +128,53 @@ A single loop, default every 10 minutes, plus an instant tick when you press "Ru
 ```
 tick():
   if paused or daily_spend >= cap: return
-  claim = next ready task
-      (status=ready, deps satisfied, role enabled, concurrency slot free)
+  task = next ready task            # deps satisfied, role enabled, slot free
   if none: return
-  run = start_run(task)                    # checkpoint BEFORE the model call
-  ctx = build_context(task)
-  result = agent_turn(ctx)                 # Claude + tool runner
-  finish_run(run, result)                  # checkpoint AFTER
-  if task.deliverable_complete: queue COO review
+  run = start_run(task)             # checkpoint BEFORE the model call
+  result = agent_loop(task)         # our loop — see below
+  finish_run(run, result)           # checkpoint AFTER
+  if deliverable complete: queue COO review
 ```
 
-Concurrency defaults to **1**. Two agents editing the same repo checkout or the same artifact is the most obvious way to make this thing produce garbage, and on a laptop you gain nothing from parallelism except a bigger bill. Raise it to 2 only for roles with disjoint tool sets (e.g. Content + Finance).
+Concurrency defaults to **1**. Two agents editing the same repo checkout or the same artifact is the most obvious way to make this produce garbage, and on a laptop you gain nothing from parallelism except a bigger bill.
 
-### The context pack
+### Foreman owns the agent loop
 
-Every agent turn is assembled the same way, and the order is chosen so prompt caching works (§10):
+Both vendors ship a helper that runs the call-tool-call-again cycle for you. **Foreman uses neither.** The loop is about thirty lines, and it is where the permission classifier, the budget check, the checkpoint, and the audit write all live:
 
-1. **Stable prefix** (cached): tool schemas → role charter → company canon → the definition-of-done template.
-2. **Task-scoped**: the task, its parent initiative and goal, linked artifacts, the last N runs on this task.
-3. **Retrieved**: top-k memory chunks from FTS over past artifacts and run summaries.
-4. **Volatile, last**: today's date, current metrics, the pending question if any.
+```
+agent_loop(task):
+  msgs = build_context(task)                  # neutral format, see §10
+  for step in 1..MAX_STEPS:
+    result = provider.turn({ msgs, tools, effort, budget })
+    audit(result.usage, result.costUsd)
+    if result.finish == 'end':       return result
+    if result.finish == 'refused':   return escalate(result)
+    if result.finish == 'truncated': return retry_with_more_room(result)
+    for call in result.toolCalls:
+      cls = classify(role, call)              # safe | guarded | forbidden
+      if cls == 'forbidden': abort_run(); return
+      if cls == 'guarded':   queue_approval(call); park_run(); return
+      msgs += tool_result(call, execute(call))
+```
 
-Anything that changes per-tick goes at the end. A timestamp in the charter header would silently destroy caching for the entire company — this is the single easiest expensive mistake to make here.
+Handing that loop to a vendor SDK would mean a tool executing before the classifier saw it, and would mean writing the security boundary twice, in two shapes, from two sets of documentation. Adapters do exactly one thing: **one model call in, one normalised result out.**
 
 ### Review, not vibes
 
-When a role marks a task complete, the COO gets the artifact and the task's definition-of-done and returns one of three verdicts:
+When a role marks a task complete, the COO gets the artifact and the task's definition of done and returns one of three verdicts:
 
-- **accept** → artifact is finalised, task closed, dependents unblocked
+- **accept** → artifact finalised, task closed, dependents unblocked
 - **revise** → back to the role with specific, numbered feedback (max 2 rounds, then auto-escalate — an agent on its third revision is a task that was specified wrong)
 - **escalate** → straight to you, with the disagreement stated in one paragraph
+
+### The second reader
+
+On tasks you mark high-stakes — a code diff, a pricing page, anything customer-facing at volume — the COO sends the finished artifact to a **model from the other vendor** for an independent read before it reaches you. The second reader gets the artifact and the definition of done, and nothing else: not the author's reasoning, not the transcript. It returns a short list of concrete objections, or "no objections".
+
+This is the strongest reason to run two vendors, and it is worth more than any per-token price difference. Two models trained by different labs on different data fail differently, so an independent read catches the confident-and-wrong outputs that a self-review will not. It costs one extra call on a small fraction of tasks.
+
+Configurable per task type, defaulting to on for diffs and published pages, off for everything else.
 
 ---
 
@@ -168,7 +189,9 @@ type Effect = 'safe' | 'guarded' | 'forbidden'
 // forbidden — not for this role, ever. Refused, logged, run aborted.
 ```
 
-The classification is a function of `(role, tool, arguments)` — not just the tool. `git.commit` on a `foreman/*` branch is safe; on `main` it's forbidden. `http.fetch` to a domain on the allowlist is safe; anywhere else it's guarded. This is enforced in the runtime, not requested in the prompt, because a prompt is a suggestion and a switch statement is not.
+The classification is a function of `(role, tool, arguments)` — not just the tool. `git.commit` on a `foreman/*` branch is safe; on `main` it's forbidden. `http.fetch` to an allowlisted domain is safe; anywhere else it's guarded. Enforced in the runtime, not requested in the prompt, because a prompt is a suggestion and a switch statement is not.
+
+**This is also why the loop is ours (§4).** The classifier sits between the model's tool call and the tool's execution. That position has to be vendor-independent, or you are trusting two different SDKs to enforce your security boundary identically.
 
 ### The autonomy ladder
 
@@ -178,10 +201,12 @@ Set per `(role, tool)` pair from the UI:
 |---|---|
 | **L0 Propose** | Agent describes what it would do. Never executes. Good for a role's first week. |
 | **L1 Approve** | Executes only after you approve, with a full preview of the effect. **The default for everything guarded.** |
-| **L2 Notify** | Executes immediately, you get a notification and a one-click undo window. For things that turned out to be boring. |
+| **L2 Notify** | Executes immediately, you get a notification and a one-click undo window. |
 | **L3 Auto** | Executes silently, appears only in the audit log. Earn this one tool at a time. |
 
-Start every role at L1 across the board. Promote a specific tool to L2 after you've approved ~20 of them without editing. That ratcheting is the whole trust model — it's not a setting you configure up front, it's something the org earns.
+Promote a specific tool to L2 after you've approved ~20 of them without editing. That ratcheting is the whole trust model — not a setting you configure up front, something the org earns.
+
+**Autonomy is per role, not per vendor.** Moving a role to a different model does not change what it's allowed to do. If a vendor swap made a role more capable of harm, the permission model was wrong to begin with.
 
 ### The approvals inbox
 
@@ -189,24 +214,26 @@ The most important screen in the app. Each item shows:
 
 - **what will happen**, rendered as the actual effect — the email as it will send, the diff as it will apply, the ₹ figure as it will be spent
 - **why**, in the agent's own words, one paragraph
-- **what it's attached to** — the task, the goal, the lead
-- four buttons: **Approve** / **Edit & approve** / **Reject with reason** / **Always allow this** (which is the L1→L2 promotion, done inline)
+- **who wrote it** — role, vendor, and model, because after a month you will start noticing patterns
+- four buttons: **Approve** / **Edit & approve** / **Reject with reason** / **Always allow this**
 
-**Rejections are training data.** A rejection with a reason gets appended to that role's `## Learned` section in its charter, so the next context pack includes it. This is the loop that makes month three better than month one, and it costs almost nothing to build.
+**Rejections are training data.** A rejection with a reason gets appended to that role's `## Learned` section, so the next context pack includes it. This is the loop that makes month three better than month one, and it costs almost nothing to build.
 
 ### Hard guardrails, all enforced in code
 
-- **Kill switch** — one button pauses every agent, mid-run. Wired to `Esc Esc` too.
-- **Offline mode** — blocks all egress except `api.anthropic.com`. Agents keep working on local artifacts.
-- **Filesystem jail** — every path is resolved and checked against an allowed-roots list before any read or write. The dev agent sees the Cubekrafts clone and nothing else. (Path traversal via `../` and symlinks is the classic failure here; resolve first, then compare.)
+- **Kill switch** — one button pauses every agent, mid-run.
+- **Offline mode** — blocks all egress except the model API hosts you have enabled. Agents keep working on local artifacts.
+- **Filesystem jail** — every path resolved and checked against allowed roots before any read or write. Resolve first, then compare, or `../` and symlinks walk straight out.
 - **Domain allowlist** for all outbound HTTP.
-- **Daily and monthly spend caps** that hard-stop the loop, plus a per-run token ceiling.
-- **Full audit log** — every tool call with arguments, result hash, timestamp, run ID. Append-only. It's the thing you read when something weird happened.
-- **Secrets never enter a prompt.** Tokens live in the OS keychain (or an encrypted file), are injected by the tool implementation at call time, and are redacted from all logs. An agent never sees a credential, so no amount of prompt injection in an inbound lead's message can leak one.
+- **Daily and monthly spend caps**, enforced across both vendors combined, plus a per-run token ceiling.
+- **Full audit log** — every tool call with arguments, result hash, timestamp, run ID, vendor, model. Append-only.
+- **Secrets never enter a prompt.** Both API keys live in the OS keychain, are injected by the tool implementation at call time, and are redacted from all logs. An agent never sees a credential, so no prompt injection can leak one.
 
 ### Treat inbound content as hostile
 
-Lead messages, fetched web pages, and competitor sites are **untrusted input**. They get wrapped in a delimiter block with an explicit instruction that content inside is data, never instructions. Combined with the fact that every consequential action is a guarded tool, a prompt-injection attempt in an inquiry form can at worst produce a weird draft that you then reject.
+Lead messages, fetched web pages, and competitor sites are **untrusted input** — wrapped in a delimiter block with an explicit instruction that content inside is data, never instructions. Combined with every consequential action being guarded, an injection attempt in an inquiry form can at worst produce a weird draft that you reject.
+
+Injection resistance differs between vendors and between model versions. Don't treat a vendor swap as behaviour-neutral here: the delimiting and the approval gate are what you actually rely on, and they hold either way.
 
 ---
 
@@ -214,22 +241,26 @@ Lead messages, fetched web pages, and competitor sites are **untrusted input**. 
 
 Three tiers, deliberately boring:
 
-**Canon** — files you own in `~/.foreman/canon/`: brand voice, pricing, product specs, ICP, competitor notes, past-project case studies. Loaded whole into the cached prefix for the roles that need it. This is the highest-leverage thing you will ever type into this app; a good `pricing.md` is worth more than any prompt tuning.
+**Canon** — files you own in `~/.foreman/canon/`: brand voice, pricing, product specs, ICP, competitor notes, past-project case studies. Loaded whole into the cached prefix for the roles that need it. The highest-leverage thing you will ever type into this app.
 
 **Working memory** — the task, its artifacts, and its run history. Scoped to the task, dropped when it closes.
 
-**Recall** — SQLite **FTS5** full-text index over every artifact, run summary, approval decision, and rejection reason. Retrieved top-k into the context pack. No vector database: at a few thousand documents on one machine, FTS5 with a decent query is fast, debuggable, and has zero moving parts. If recall quality genuinely disappoints after a few months, the upgrade path is `sqlite-vec` with local embeddings — same table, one extra column. Don't pre-build it.
+**Recall** — SQLite **FTS5** full-text index over every artifact, run summary, approval decision, and rejection reason, retrieved top-k into the context pack. No vector database: at a few thousand documents on one machine, FTS5 is fast, debuggable, and has zero moving parts. If recall genuinely disappoints after a few months, the upgrade path is `sqlite-vec` with local embeddings — same table, one extra column.
+
+Memory is stored as plain text, not as vendor-formatted messages, so it reads the same to whichever model is asking.
 
 ---
 
 ## 7. The capability layer (tools)
+
+Tools are defined once, in **JSON Schema**, which is the format both vendors accept for function parameters. Authoring them with a schema library is fine; the schema object is the source of truth and each adapter translates it into that vendor's envelope.
 
 | Tool | Given to | Default class |
 |---|---|---|
 | `fs.read` / `fs.write` / `fs.list` | dev, content, all (scoped roots) | safe within jail |
 | `git.status/diff/branch/commit` | dev | safe on `foreman/*` |
 | `git.push` | dev | **guarded** (forbidden to `main`) |
-| `shell.run` (allowlisted commands only: test, lint, build) | dev | safe |
+| `shell.run` (allowlisted commands only) | dev | safe |
 | `http.fetch` | marketing, content | safe on allowlist, else guarded |
 | `web.search` | marketing, sales, finance | safe |
 | `cubekrafts.inquiries.list` | sales, finance | safe (read-only token) |
@@ -242,7 +273,9 @@ Three tiers, deliberately boring:
 | `ask_founder` | all | safe (blocks the task, queues a question) |
 | `spend.propose` | marketing | **guarded** |
 
-`ask_founder` is worth calling out: giving agents a first-class way to say "I need a decision" is what prevents them from inventing an answer and confidently proceeding. It's a tool, so it's structured, attributable, and it parks the task instead of failing it.
+`ask_founder` is worth calling out: giving agents a first-class way to say "I need a decision" is what prevents them from inventing an answer and confidently proceeding. Because it's a tool, the question is structured, attributable, and parks the task instead of failing it.
+
+**Keep the tool set small and identical across vendors.** Every tool you add is a schema two different models have to interpret the same way. A tool that works on one and confuses the other is a tool with a bad description, and the fix is the description, not a per-vendor branch.
 
 ---
 
@@ -252,31 +285,38 @@ SQLite. `better-sqlite3` with numbered `.sql` migrations — synchronous API sui
 
 ```sql
 -- org
-role(id, name, charter_path, model, effort, enabled, concurrency, created_at)
-tool_grant(role_id, tool, autonomy, config_json)      -- the autonomy ladder lives here
+role(id, name, charter_path, provider, tier, effort,
+     enabled, concurrency, second_reader_provider, created_at)
+tool_grant(role_id, tool, autonomy, config_json)
 
 -- work graph
 goal(id, title, why, target_date, status)
 initiative(id, goal_id, title, owner_role, status)
 task(id, initiative_id, title, spec, definition_of_done,
      owner_role, status, priority, due, blocked_by_json,
-     revision_count, created_at, closed_at)
+     high_stakes, revision_count, created_at, closed_at)
      -- status: draft|ready|running|blocked|review|revise|done|cancelled
 
 -- execution
-run(id, task_id, role_id, status, model, effort,
-    started_at, ended_at, input_tokens, cached_tokens, output_tokens,
+run(id, task_id, role_id, provider, model, effort, status,
+    started_at, ended_at,
+    input_tokens, cached_input_tokens, output_tokens, reasoning_tokens,
     cost_usd, summary, error)
 tool_call(id, run_id, tool, args_json, effect_class,
           approved_by, result_hash, ok, ms, created_at)
-message(id, run_id, seq, role, content_json)          -- full transcript, for replay
+message(id, run_id, seq, role, content_json)  -- NEUTRAL format, never wire format
+provider_payload(run_id, step, request_json, response_json)  -- debug only, prunable
 
 -- outputs & decisions
 artifact(id, task_id, kind, title, path, status, version, created_at)
-     -- kind: draft_email|post|brief|diff|report|doc|plan
+review(id, artifact_id, reviewer_role, reviewer_provider, kind,
+       verdict, notes, created_at)           -- kind: coo | second_reader
 approval(id, run_id, tool_call_id, kind, preview_json, status,
          decided_at, reason, promoted_to_l2)
 question(id, task_id, role_id, text, answer, asked_at, answered_at)
+
+-- comparison
+ab_trial(id, task_id, run_a, run_b, winner, note, decided_at)
 
 -- business objects (Foreman's own copy — never writes back in v1)
 lead(id, source_id, name, email, location, message, stage,
@@ -286,92 +326,152 @@ content_piece(id, title, channel, status, artifact_id, published_at)
 
 -- knowledge & ops
 memory(id, kind, ref_table, ref_id, text, created_at)
-memory_fts(text)                                      -- FTS5 virtual table
-audit(id, at, actor, action, subject, detail_json)    -- append-only
+memory_fts(text)
+audit(id, at, actor, action, subject, detail_json)
 setting(key, value_json)
-spend_day(date, usd, input_tokens, output_tokens)
+spend_day(date, provider, usd, input_tokens, output_tokens)
 ```
 
-Two notes. `run` stores token counts split into cached vs. uncached because cache-hit rate is the metric that determines whether this app costs ₹500/month or ₹5000/month, and you cannot fix what you cannot see. `message` stores full transcripts so any run can be replayed or diffed after you change a charter — that's how you'll actually debug agent behaviour.
+Three things here exist specifically because of the two-vendor decision:
+
+**`message` stores Foreman's own neutral format, never a vendor's wire format.** The two vendors attach tool results differently, place system instructions differently, and identify tool calls differently. If transcripts are stored in one vendor's shape, you can never replay a run on the other — and replay-after-editing-a-charter is how you will actually debug agent behaviour. Adapters render neutral → wire on every call. `provider_payload` keeps the raw request and response for debugging and can be pruned on a schedule.
+
+**`run` splits cached from uncached input tokens and stores `cost_usd` computed at write time**, from the price table for that vendor and model. Prices change and vendors add models; a stored cost is a fact, a recomputed one is a guess.
+
+**`spend_day` is keyed by provider**, because the first question you'll ask when the bill looks wrong is which vendor it came from.
 
 ---
 
 ## 9. The interface
 
-Seven screens. React + Vite, served by the same local process.
+Seven screens. React + Vite, served by the same local process, live over SSE.
 
-**HQ** — today's standup from the COO in plain English, active tasks, approvals waiting (with a count badge you'll learn to read from across the room), spend today vs. cap, and four KPI tiles.
+**HQ** — today's standup from the COO in plain English, active tasks, approvals waiting, spend today vs. cap **split by vendor**, and four KPI tiles.
 
-**The Org** — a card per role: on/off toggle, current task, autonomy sliders per tool, cost this week, last five outputs, and an **Edit charter** button that opens the markdown. This is the "management" screen.
+**The Org** — a card per role: on/off toggle, current task, **vendor + tier + effort selector**, autonomy sliders per tool, cost this week, last five outputs, and an **Edit charter** button. Changing a role's vendor shows a one-line warning that its prompt cache starts cold.
 
-**Board** — kanban by status, swimlanes by role, filterable by goal. Drag to reprioritise. Click through to any task's full run history.
+**Board** — kanban by status, swimlanes by role, filterable by goal. Click through to any task's full run history.
 
-**Room** — one thread per role. You chat with an agent directly; its autonomous runs appear inline in the same thread with collapsible tool calls. This is how you correct something in the moment without editing a charter.
+**Room** — one thread per role. You chat with an agent directly; its autonomous runs appear inline with collapsible tool calls.
 
-**Approvals** — the queue from §5. Keyboard-driven: `j`/`k` to move, `a` to approve, `r` to reject. You will spend more time here than anywhere else, so it gets the most design attention.
+**Approvals** — the queue from §5, keyboard-driven, with the author's vendor and model on every item.
 
-**Artifacts** — everything produced, filterable by kind and role, with version history and a diff view.
+**Artifacts** — everything produced, with version history, diff view, and any second-reader objections attached.
 
-**Numbers** — pipeline, content shipped, site changes, model spend by role and by day, cache-hit rate, average task cycle time.
-
-Live updates over SSE from the local server. No polling, no websocket library.
+**Numbers** — pipeline, content shipped, site changes, model spend by role/vendor/day, cache-hit rate, average task cycle time, and the A/B ledger: which vendor you picked when you were shown both blind.
 
 ---
 
-## 10. Model use, cost, and the API specifics
+## 10. The model layer: two vendors, one organisation
 
-This is where a local multi-agent app either works or quietly becomes unaffordable, so the details matter.
+This is the section that changed when ChatGPT entered the picture. The goal is that **adding, removing, or swapping a vendor is a config edit**, and that no vendor concept appears anywhere above the adapter boundary.
 
-### Which model for what
-
-| Use | Model | Input / Output per Mtok | Why |
-|---|---|---|---|
-| COO planning, review, escalation | `claude-opus-5` | $5 / $25 | Judgement-heavy, low volume. Wrong plans are the expensive failure. |
-| Web developer | `claude-opus-5` (effort `xhigh`) | $5 / $25 | Agentic coding is exactly its strength; a bad diff costs you an hour. |
-| Content, marketing, sales drafting | `claude-sonnet-5` | $3 / $15 (intro $2 / $10 through 2026-08-31) | The volume tier. Near-Opus quality on writing at a fraction of the cost. |
-| Lead triage, classification, metric summaries | `claude-haiku-4-5` | $1 / $5 | High frequency, low judgement. |
-
-Foreman is Anthropic-only by design — one SDK (`@anthropic-ai/sdk`), one auth path, one set of behaviours to tune against.
-
-### The request shape (current API, not the 2024 one)
+### One interface, two implementations
 
 ```ts
-const runner = client.beta.messages.toolRunner({
-  model: 'claude-opus-5',
-  max_tokens: 16000,
-  thinking: { type: 'adaptive' },              // on by default on Opus 5; no budget_tokens — it 400s
-  output_config: { effort: 'high' },           // low | medium | high | xhigh | max
-  system: [
-    { type: 'text', text: TOOL_PREAMBLE },
-    { type: 'text', text: charter },
-    { type: 'text', text: canon, cache_control: { type: 'ephemeral' } },  // breakpoint here
-  ],
-  tools,                                        // stable order — see caching below
-  messages,
-})
+type Effort = 'low' | 'medium' | 'high' | 'max'
+
+interface TurnRequest {
+  model: string
+  system: Block[]             // stable blocks first; adapter marks the cache boundary
+  messages: NeutralMessage[]  // Foreman's own format
+  tools: ToolSpec[]           // JSON Schema
+  effort: Effort
+  maxOutputTokens: number
+  taskBudgetTokens?: number
+}
+
+interface TurnResult {
+  finish: 'end' | 'tool_calls' | 'refused' | 'truncated' | 'error'
+  text: string
+  toolCalls: { id: string; name: string; args: unknown }[]
+  usage: { input: number; cachedInput: number; output: number; reasoning: number }
+  costUsd: number
+  raw: unknown                // stored for debugging, never read by logic
+}
+
+interface Provider {
+  id: 'anthropic' | 'openai'
+  turn(req: TurnRequest): Promise<TurnResult>
+  stream(req: TurnRequest): AsyncIterable<{ delta: string } | { done: TurnResult }>
+}
 ```
 
-Four things that are easy to get wrong and expensive to discover later:
+**The test for whether this abstraction is holding:** if `TurnRequest` or `TurnResult` grows a field only one vendor understands, it has failed. Push it below the boundary.
 
-- **No `temperature`, `top_p`, or `top_k`.** They return 400 on Opus 5 and Sonnet 5. Steer voice with the charter's `## Voice` section instead.
-- **No `budget_tokens`.** Use `output_config.effort`. Sweep `medium`/`high`/`xhigh` per role on your own work before settling — effort matters more than model choice for cost on this app.
-- **Stream anything with `max_tokens` above ~16k**, or the SDK will hit an HTTP timeout on a long dev-agent turn.
-- **Handle `stop_reason: 'refusal'` before reading `content`.** It arrives as a normal HTTP 200 with possibly-empty content. Code that does `response.content[0].text` unconditionally will crash on it. Opt into the server-side fallback (`betas: ['server-side-fallback-2026-07-01']`, `fallbacks: 'default'`) so a refusal is retried automatically instead of failing a run.
+### What each adapter owns
 
-### Prompt caching is the whole cost story
+| Concern | Why it can't live above the boundary |
+|---|---|
+| Message wire format | Tool results attach as content blocks in one vendor's scheme and as separate role-tagged messages keyed by call ID in the other. |
+| System instruction placement | One takes a top-level system field and supports appending operator messages mid-conversation; the other carries system/developer messages inline. |
+| Tool schema translation | Same JSON Schema, different envelope and different strictness flags. |
+| Cache directives | One wants explicit cache breakpoints in the request; the other caches long prefixes automatically. Same discipline, different mechanics. |
+| Effort mapping | Foreman's four levels map onto each vendor's own reasoning control. Stored as Foreman's enum, never the vendor's string. |
+| Refusal and stop-reason normalisation | Both can decline or truncate and both signal it completely differently. Everything above sees one of five `finish` values. |
+| Usage → cost | Field names differ and cached input is priced differently. The adapter emits the neutral usage shape and prices it from the catalog. |
+| Retry and fallback | Rate limits, overloads, and vendor-side declines are handled inside the adapter, so a transient 429 never surfaces as a failed task. |
 
-Caching is a **prefix match**: any byte that changes anywhere in the prefix invalidates everything after it. Render order is `tools` → `system` → `messages`. So:
+### Vendor is a property of the role, not of the tick
 
-- Tool definitions serialised deterministically, sorted by name, **never varied per tick**.
-- Charter and canon next, frozen, with the `cache_control` breakpoint on the last block.
-- Task, retrieved memory, date, and metrics after the breakpoint.
-- Never interpolate a timestamp, run ID, or `new Date()` into the system prompt. This is the mistake that produces a bill 10× larger than expected with no visible symptom.
-- Minimum cacheable prefix on Opus 5 is **512 tokens** (1024 on Sonnet 5); a charter plus canon clears that easily.
-- Cache reads cost ~0.1× and writes ~1.25× (5-minute TTL). With ticks every 10 minutes, the default 5-minute TTL will often miss — use `ttl: '1h'` (2× write) for the COO and any role that ticks all day, and let the low-frequency roles take the cold write.
-- **Mid-run operator context** (a new instruction, an approval that just landed) goes in as a `{ role: 'system' }` message appended to `messages[]` — supported on Opus 5, and it leaves the cached prefix intact. Editing the top-level `system` mid-conversation would re-bill the entire history.
-- Log `cache_read_input_tokens` on every run. If it's zero across consecutive runs of the same role, something in the prefix is moving; find it before doing anything else.
+Set it once per role and leave it. Two reasons:
 
-### What it costs
+1. **Caches are per model, per vendor.** Both discount repeated prefixes heavily, and the charter-plus-canon prefix is the bulk of every request. Alternating a role between vendors pays a cold prefix every single tick, which can cost more than the model choice saves.
+2. **Behaviour comparison needs a stable baseline.** If a role's output quality changes and its model changed too, you've learned nothing.
+
+Change it deliberately, from the Org screen, with the cold-cache warning shown. Then leave it for a week.
+
+### The context assembly rule is the same for both
+
+Order the request: **tool schemas → charter → canon → [cache boundary] → task, retrieved memory, date, metrics.** Stable content first, volatile last. One vendor needs the boundary marked explicitly; the other finds it. Getting this wrong is the easiest expensive mistake available here — a timestamp in the charter header defeats caching on both, silently, with no symptom other than the bill.
+
+Log cached-input tokens on every run. If that number is zero across consecutive runs of the same role, something in the prefix is moving. Find it before doing anything else.
+
+### The model catalog is config, not code
+
+`~/.foreman/models.json`, editable without a rebuild:
+
+```json
+{
+  "anthropic": {
+    "top":   { "model": "claude-opus-5",    "in": 5.00, "cachedIn": 0.50, "out": 25.00 },
+    "mid":   { "model": "claude-sonnet-5",  "in": 3.00, "cachedIn": 0.30, "out": 15.00 },
+    "cheap": { "model": "claude-haiku-4-5", "in": 1.00, "cachedIn": 0.10, "out":  5.00 }
+  },
+  "openai": {
+    "top":   { "model": "<pin at build time>", "in": null, "cachedIn": null, "out": null },
+    "mid":   { "model": "<pin at build time>", "in": null, "cachedIn": null, "out": null },
+    "cheap": { "model": "<pin at build time>", "in": null, "cachedIn": null, "out": null }
+  }
+}
+```
+
+Roles reference a **tier** (`top` / `mid` / `cheap`) plus a vendor, never a raw model string. Both vendors ship new models faster than you'll want to edit code, and the tier indirection makes upgrading the whole org one line.
+
+The Anthropic figures are current as of this plan, per million tokens. **The OpenAI model IDs and prices are deliberately left null** — fill them from OpenAI's own model and pricing pages when you build that adapter rather than trusting anything written here from memory. Add a startup check that refuses to run a role whose catalog entry has a null price, so a missing number never becomes a free-looking bill.
+
+### Known divergences, and how they're normalised
+
+- **Sampling knobs.** Some models reject `temperature` outright; others accept it. Foreman's interface simply doesn't expose it — voice is steered by the charter's `## Voice` section, which works everywhere and is inspectable.
+- **Reasoning tokens** are billed as output on both, but only some models report them separately. `usage.reasoning` is nullable and cost math must not depend on it.
+- **Parallel tool calls.** Both can return several calls in one turn. Foreman classifies each independently and stops at the **first guarded call**, queueing it and parking the run. Don't execute the safe ones and queue the rest — partial execution of a multi-call turn produces half-finished states you can't reason about.
+- **Structured output.** Both support strict JSON-schema-constrained output under different parameter names. The adapter takes a schema and returns parsed JSON or a `truncated` finish.
+- **Long-run controls.** One vendor exposes a task budget the model can see and pace itself against; where that isn't available, the adapter enforces the same ceiling by counting tokens across the loop and returning `truncated`. Behaviour above the boundary is identical; only the graceful wrap-up is lost.
+- **Streaming events** differ entirely. Both reduce to text deltas plus a final result, which is all the UI needs.
+
+### A/B, so the choice is measured rather than argued
+
+For a task type you're unsure about, mark it for trial: the same spec runs on both vendors, both artifacts are kept, and Approvals shows them side by side **with the vendor hidden until you pick**. Your pick is recorded in `ab_trial`.
+
+Twenty trials on content drafts will tell you more than any benchmark, because the thing being measured is whether *you* would send it. Keep trials rare — they double that task's cost — and turn them off once a role has a clear winner.
+
+### The honest cost of two vendors
+
+Two SDKs, two auth paths, two sets of failure modes, two behaviours to tune against, and a class of bug that appears on only one of them. The mitigation is a **narrow interface and small adapters**: if either adapter grows past a few hundred lines, or starts making decisions rather than translating, work has leaked out of the core into the wrong place. Build the boundary in phase 0 with one implementation behind it; add the second when there's real work to compare on.
+
+---
+
+## 11. What it costs
 
 A typical role turn: ~15k input (mostly cache reads after the first), ~3k output.
 
@@ -381,27 +481,33 @@ A typical role turn: ~15k input (mostly cache reads after the first), ~3k output
 | Normal (all roles, one goal active) | 25 | $1.50–3 | $45–90 |
 | Heavy (dev agent on a real feature) | 40+ | $4–8 | $120–240 |
 
-Set the daily cap at whatever you're comfortable losing to a runaway loop — $5 is a sane start — and make the cap a hard stop, not a warning. For the dev agent's long agentic runs, add a **task budget** (`output_config.task_budget`, beta `task-budgets-2026-03-13`, minimum 20k tokens): the model sees the countdown and wraps up gracefully instead of being guillotined by `max_tokens`.
+Add roughly **10–15%** for second-reader passes if enabled on diffs and published pages, and **double the cost of any task in an A/B trial**. Both are worth it in small doses and ruinous as defaults.
+
+Set the daily cap — $5 is a sane start — as a hard stop across both vendors combined, not per vendor, or a runaway loop just moves to the other one. Set a spend limit on each vendor's dashboard too: the app's cap protects you from the app, the vendor's cap protects you from a bug in the app.
 
 ---
 
-## 11. Local API surface
+## 12. Local API surface
 
-Everything on `127.0.0.1:7777`. The React app is the only consumer, so this stays small.
+Everything on `127.0.0.1:7777`. The React app is the only consumer.
 
 ```
 GET  /api/hq                       dashboard payload
 GET  /api/stream                   SSE: runs, approvals, questions, spend
 
 GET  /api/roles                    list with live status
-PATCH/api/roles/:id                enable, model, effort, concurrency
+PATCH/api/roles/:id                enable, provider, tier, effort, concurrency
 GET  /api/roles/:id/charter        raw markdown
 PUT  /api/roles/:id/charter        save (bumps a charter version)
 PATCH/api/roles/:id/grants/:tool   set autonomy level
 
+GET  /api/providers                configured vendors, key status, catalog
+POST /api/providers/:id/test       one cheap call — confirms key, model ID, pricing
+
 POST /api/goals                    create a goal → COO plans it
 GET  /api/tasks                    filter by status/role/goal
 POST /api/tasks/:id/run            run now
+POST /api/tasks/:id/trial          run on both vendors, queue blind comparison
 POST /api/tasks/:id/cancel
 
 GET  /api/approvals                pending queue
@@ -411,75 +517,84 @@ GET  /api/questions                open questions from agents
 POST /api/questions/:id/answer
 
 GET  /api/artifacts                filter by kind/role/task
-GET  /api/runs/:id                 full transcript + tool calls
+GET  /api/runs/:id                 neutral transcript + tool calls + raw payloads
 
 POST /api/control/pause            kill switch
 POST /api/control/offline          egress lockdown
-GET  /api/spend                    daily/monthly, by role
+GET  /api/spend                    daily/monthly, by role and vendor
 ```
 
 ---
 
-## 12. Build order
+## 13. Build order
 
-Each phase ends with something you actually use. Nothing is built "for later".
+Each phase ends with something you actually use. Nothing is built "for later" — except the provider boundary, which is the one thing genuinely cheaper to build on day one than to retrofit.
 
 **Phase 0 — one agent, end to end (a weekend).**
-SQLite + migrations, the tick loop, the tool runtime with effect classification, the audit log, and **exactly one role: Content**. Two tools (`fs.write`, `artifact.create`), one guarded action, the approvals inbox, and a bare HQ screen. Success: you type a goal, an agent writes a blog post, you approve it, and the whole thing is in the audit log. This proves the loop; everything after is repetition.
+SQLite + migrations, the tick loop, **our agent loop and the provider interface with exactly one adapter behind it**, the tool runtime with effect classification, the audit log, and one role: Content. Two tools, one guarded action, the approvals inbox, a bare HQ screen. Success: you type a goal, an agent writes a blog post, you approve it, and the whole thing is in the audit log.
 
 **Phase 1 — the org appears.**
-COO + the work graph (goal → initiative → task), charters as files, the review/revise cycle, the standup digest, the Org and Board screens, the autonomy ladder in the UI. Success: you set one goal and get a sensible plan with tasks you didn't have to write.
+COO + the work graph, charters as files, the review/revise cycle, the standup digest, the Org and Board screens, the autonomy ladder in the UI. Success: you set one goal and get a sensible plan with tasks you didn't have to write.
 
-**Phase 2 — real business input.**
-Sales role. Read-only sync of Cubekrafts inquiries, lead scoring, drafted replies in the approvals queue, pipeline view. Finance basics (weekly numbers + Foreman's own spend). Success: an inquiry arrives and a good reply is waiting for you within a tick.
+**Phase 2 — the second vendor, and real business input.**
+The OpenAI adapter behind the same interface, the model catalog, the vendor selector, per-vendor spend, and the provider test endpoint. Sales role: read-only inquiry sync, lead scoring, drafted replies, pipeline. Success: an inquiry arrives and a good reply is waiting within a tick — and you can move Content to the other vendor with one click and see both the cost and the quality difference.
 
 **Phase 3 — it touches the product.**
-Web Developer on a local clone: branch, edit, test, commit, diff preview, guarded push. Marketing + the content calendar feeding Content properly. Success: a real site change ships from a Foreman branch.
+Web Developer on a local clone: branch, edit, test, commit, diff preview, guarded push. Second reader enabled on diffs. Marketing + the content calendar feeding Content. Success: a real site change ships from a Foreman branch with an independent review attached.
 
 **Phase 4 — it gets better on its own.**
-Metrics loop (which content produced leads, which replies converted), the weekly review, charter self-tuning from your accumulated approve/reject reasons, memory recall tuning. Optional: wrap in Tauri so it's an icon you click instead of `npm start`.
+Metrics loop, weekly review, charter self-tuning from your approve/reject reasons, the A/B ledger informing role defaults. Optional: package it so it's an icon you click.
 
 ---
 
-## 13. The ways this fails, and what's in the design about it
+## 14. The ways this fails, and what's in the design about it
 
 | Failure | Mitigation already in the design |
 |---|---|
-| Agents produce plausible work nobody uses | Every task needs a written definition of done before it can be `ready`; the COO reviews against it; Finance reports output-per-dollar per role. |
-| Runaway spend | Hard daily cap that stops the loop, per-run token ceiling, task budgets, cache-hit monitoring, model tiering. |
-| Approval fatigue → rubber-stamping | The L1→L2 ratchet exists precisely so the queue shrinks over time. If you're approving 50 things a day at week four, that's a signal to promote tools, not to work faster. |
-| An agent does something irreversible | Effect classification in the runtime, not the prompt. Dev agent branch-only. No write access to the live site in v1. |
-| Prompt injection via a lead's message | Untrusted input delimited and labelled as data; every consequential action still needs your approval. |
-| Voice drifts into generic AI slop | Brand canon in the cached prefix, last-ten-approved-pieces in context, rejections appended to the charter. |
-| Context rot on long-running tasks | Runs are checkpointed and summarised, not accumulated; server-side compaction (`compact-2026-01-12`) and context editing available for the dev agent's long sessions. |
-| You stop using it in week three | Phase 0 must deliver something you'd miss. If the standup digest isn't worth reading on day 5, fix that before building phase 1. |
+| Agents produce plausible work nobody uses | Written definition of done before a task can be `ready`; COO reviews against it; Finance reports output-per-dollar per role. |
+| Runaway spend | Hard daily cap across both vendors, per-run token ceiling, task budgets, cache-hit monitoring, tier-based selection. |
+| Approval fatigue → rubber-stamping | The L1→L2 ratchet exists so the queue shrinks. Approving 50 things a day in week four means promote tools, not work faster. |
+| An agent does something irreversible | Effect classification in the runtime, in *our* loop, not a vendor's. Dev agent branch-only. No live-site writes in v1. |
+| Prompt injection via a lead's message | Untrusted input delimited and labelled as data; every consequential action guarded. Holds regardless of which model is running. |
+| Voice drifts into generic slop | Brand canon in the cached prefix, last-ten-approved pieces in context, rejections appended to the charter. |
+| **The abstraction leaks and the core fills with `if (provider === …)`** | One narrow interface, two small adapters, a stated size budget, and a rule that any vendor-only field goes below the boundary. A third `if` in the core means the interface is wrong. |
+| **Cache thrash from switching vendors** | Vendor is a role property with a cold-cache warning, not a per-tick decision. Cached-token count surfaced per run. |
+| **Silent price drift on a new model** | Prices live in the catalog; startup refuses to run a role whose model has no price entry. |
+| **One vendor is down or declines the request** | Adapter-level retry; the role's second-reader vendor doubles as a manual failover you can flip from the Org screen. |
+| **Two vendors, two prompt behaviours** | Charters stay vendor-neutral; per-vendor tool-use guidance lives in the adapter preamble, so tuning one never silently changes the other. |
+| Context rot on long tasks | Runs checkpointed and summarised, not accumulated; vendor compaction where available, our own summarisation where not. |
+| You stop using it in week three | Phase 0 must deliver something you'd miss. If the standup isn't worth reading on day five, fix that before building phase 1. |
 
 ---
 
-## 14. Decisions I've made for you (change any of them)
+## 15. Decisions I've made for you (change any of them)
 
 | Decision | Why | The alternative |
 |---|---|---|
-| TypeScript, Node 20 | Tool schemas want types; the Anthropic SDK's tool runner + `betaZodTool` gives typed inputs and handles the agent loop, with per-turn hooks for the approval gate | Plain JS — faster to start, more runtime surprises in tool arguments |
-| `better-sqlite3` + hand-written SQL migrations | Single process, synchronous, FTS5 available without a fight | Prisma — you already know it, but FTS5 needs raw queries anyway |
-| DB-backed queue, in-process | No Redis, no second process, survives restarts | BullMQ — real infrastructure for a problem you don't have |
-| React + Vite + SSE | Matches what you already use | Anything else |
-| `npm start` now, Tauri later | Packaging before the thing is good is wasted work | Electron/Tauri from day one |
+| TypeScript, Node 20 | Two SDKs with a neutral schema layer between them is exactly where types earn their keep | Plain JS — faster to start, more runtime surprises at the boundary |
+| **We own the agent loop; no vendor tool-runner** | The permission classifier must sit between the model's tool call and execution, and behave identically on both | Each SDK's loop helper — two loops, two security models, one eventually wrong |
+| **Neutral transcripts in the DB** | Replay a run on either vendor after editing a charter | Store wire format — simpler today, locks every run to the vendor that produced it |
+| **Roles reference a tier, not a model string** | Both vendors ship models faster than you'll edit code | Hardcode model IDs and update them everywhere each time |
+| `better-sqlite3` + SQL migrations | Single process, synchronous, FTS5 without a fight | Prisma — familiar, but FTS5 needs raw queries anyway |
+| DB-backed queue, in-process | No Redis, no second process, survives restarts | A real job queue — infrastructure for a problem you don't have |
 | Concurrency 1 | Two agents in one repo checkout is a corruption bug waiting to happen | Higher, once tool sets are provably disjoint |
-| Cubekrafts read-only in v1 | The blast radius of a bad write to a live business system is not worth it in month one | Grant writes per-endpoint later, at L1 |
+| Cubekrafts read-only in v1 | The blast radius of a bad write to a live business system isn't worth it in month one | Grant writes per-endpoint later, at L1 |
+| Second adapter in phase 2, boundary in phase 0 | The interface is cheap now and expensive to retrofit; the second implementation needs real work to compare against | Both vendors from day one — twice the surface before you know the loop is right |
 
 ### Open questions only you can answer
 
-1. **Where's the Cubekrafts git clone going to live**, and which commands may the dev agent run (`npm test`, `npm run lint`, `npm run build`)?
-2. **Email**: real SMTP send-after-approval, or drafts-to-a-folder that you paste? Drafts is safer for month one and costs nothing to upgrade later.
-3. **Does the Cubekrafts API get a read-only token for Foreman**, or does Foreman read a nightly CSV export? Token is better; export is zero-change.
-4. **What's the daily spend cap?** ($5 default.)
+1. **Which roles start on which vendor?** My default: COO and Web Developer on Claude, Content and Sales on OpenAI so the comparison is real, Finance on whichever bottom tier is cheaper.
+2. **Do you already have an OpenAI API key with billing enabled**, and will you set a spend limit on that side too?
+3. **Where's the Cubekrafts git clone going to live**, and which commands may the dev agent run (`npm test`, `npm run lint`, `npm run build`)?
+4. **Email**: real SMTP send-after-approval, or drafts-to-a-folder that you paste? Drafts is safer for month one.
+5. **Read-only Cubekrafts API token for Foreman**, or a nightly CSV export?
+6. **Daily spend cap?** ($5 default, across both vendors combined.)
 
 None of these block Phase 0.
 
 ---
 
-## 15. Repo layout
+## 16. Repo layout
 
 This repository, at its root:
 
@@ -491,7 +606,11 @@ This repository, at its root:
   src/
     server/         index.ts, routes/, sse.ts
     db/             migrations/*.sql, schema.ts, queries.ts
-    agents/         runtime.ts, context.ts, review.ts, charters/
+    agents/         loop.ts, context.ts, review.ts, second-reader.ts
+    providers/      types.ts          # the interface — the whole contract
+                    anthropic.ts      # adapter
+                    openai.ts         # adapter
+                    catalog.ts        # tiers, model IDs, prices
     tools/          registry.ts, effects.ts, fs.ts, git.ts, http.ts,
                     email.ts, cubekrafts.ts, work.ts, memory.ts
     guards/         jail.ts, allowlist.ts, budget.ts, audit.ts
@@ -500,10 +619,14 @@ This repository, at its root:
   data/                         # gitignored; real data lives in ~/.foreman
 ```
 
-`~/.foreman/` holds `foreman.db`, `files/`, `charters/`, `canon/`, `secrets.enc`, and `config.json`. None of it is ever in git.
+`src/providers/types.ts` is the most important file in the project. Everything in `agents/`, `tools/`, `guards/`, and `scheduler/` should be readable without knowing which vendor is behind it.
+
+`~/.foreman/` holds `foreman.db`, `files/`, `charters/`, `canon/`, `models.json`, `secrets.enc`, and `config.json`. None of it is ever in git.
 
 ---
 
-## 16. What I'd build first, given a day
+## 17. What I'd build first, given a day
 
-The tick loop, the tool effect classifier, the audit log, and the approvals inbox — with one role and two tools. Not the org chart, not seven charters, not the KPI dashboard. If a single agent can pick up a task, write something, get stopped at a guarded action, and wait for you — the company works. Everything in this document after that point is filling in employees.
+`providers/types.ts`, one adapter behind it, our agent loop, the tool effect classifier, the audit log, and the approvals inbox — with one role and two tools. Not the org chart, not seven charters, not the KPI dashboard, and not the second vendor.
+
+If a single agent can pick up a task, write something, get stopped at a guarded action, and wait for you, the company works. Everything after that is filling in employees — and everything in §10 is making sure it doesn't matter whose model they use.
