@@ -25,6 +25,7 @@ It *controls* Cubekrafts from the outside, the way an external contractor would:
 ## Ground rules
 
 - **One account, ever.** No signup, no invites. Passkey sign-in, one allowed identity, sessions you can revoke from your phone.
+- **Email goes out for real, as you, after you have read it.** The approved message is frozen and sent verbatim, and the send tool can never be promoted to run unattended.
 - **Being behind a login is one layer of four.** The approvals queue, the tool classifier, and branch protection on `main` each hold on their own.
 - Every tool call is classified `safe` / `guarded` / `forbidden` by the runtime before it executes
 - Outbound traffic goes to an allowlist of four hosts and nowhere else
@@ -39,13 +40,14 @@ It *controls* Cubekrafts from the outside, the way an external contractor would:
 | §4 | Who can get in — passkeys, sessions, and why the login isn't the security model |
 | §5 | The seven roles and what each one owns |
 | §7 | Permissions, the autonomy ladder, and the approvals inbox |
-| §12 | Models, prompt-cache layout, and the cost envelope |
-| §14 | Build order — phase 0 is a weekend, and auth lands before the second role |
-| §16 | Decisions made in advance, and the six questions that need you |
+| §10 | Sending email — the freeze rule, deliverability, suppression, and consent |
+| §13 | Models, prompt-cache layout, and the cost envelope |
+| §15 | Build order — phase 0 is a weekend, and auth lands before the second role |
+| §17 | Decisions made in advance, and the seven questions that need you |
 
 ## Cost
 
-$5–10/month hosting, plus $45–90/month of model spend at normal load. Both capped.
+$5–10/month hosting, plus $45–90/month of model spend at normal load. Both capped. The email provider is free at these volumes.
 
 ## Status
 

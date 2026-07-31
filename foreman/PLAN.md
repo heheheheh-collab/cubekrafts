@@ -37,6 +37,7 @@ You give it goals. The COO breaks them into work, assigns it to the right role, 
 | Defence does not depend on the network | Being behind a login is one layer. The approval gate, the tool classifier, and the branch protection on your repo each hold on their own. |
 | Cheap to run | One agent at a time. Cache-friendly context assembly. Model tier per role. A hard daily spend cap that stops the loop, not just warns. |
 | It keeps running when you close the laptop | The tick loop is server-side and always on. Runs checkpoint before and after every model call, so a deploy or a crash resumes cleanly rather than half-executing. |
+| Email goes out as you, after you've read it | The approved payload is frozen and sent verbatim, and `email.send` is excluded from autonomy promotion in code. §10. |
 | You can always leave | One endpoint exports everything — database, artifacts, charters — as a single archive. No lock-in to the host or to me. |
 
 ---
@@ -69,7 +70,7 @@ You give it goals. The COO breaks them into work, assigns it to the right role, 
        outbound, allowlisted ───► │ Claude API   │
                                   │ Cubekrafts   │
                                   │ GitHub       │
-                                  │ SMTP         │
+                                  │ email API    │
                                   └──────────────┘
 ```
 
@@ -83,7 +84,7 @@ You give it goals. The COO breaks them into work, assigns it to the right role, 
 
 ### Secrets
 
-No OS keychain any more. The Anthropic key, the Cubekrafts read token, the GitHub PAT, and SMTP credentials live in the **host's secret store as environment variables** — never in Postgres, never in a config file in the repo, never in a prompt. The app reads them at boot into memory. Every one is individually rotatable, and the app logs which secrets are present at startup without logging any value.
+No OS keychain any more. The Anthropic key, the Cubekrafts read token, the GitHub PAT, and the email provider's API key live in the **host's secret store as environment variables** — never in Postgres, never in a config file in the repo, never in a prompt. The app reads them at boot into memory. Every one is individually rotatable, and the app logs which secrets are present at startup without logging any value.
 
 ### Backups, and getting out
 
@@ -281,7 +282,9 @@ Classification is a function of `(role, tool, arguments)` — not just the tool.
 
 Promote a tool to L2 after you've approved ~20 of them without editing. That ratchet is the trust model — not something you configure up front, something the org earns.
 
-Because it's hosted, **L2 and L3 mean things happen while you're not looking.** Keep the dev agent's push and sales' send at L1 indefinitely; they're the two that are hard to walk back.
+**The ratchet has an exclusion list, in code.** `email.send` and `git.push` can never be promoted, by any path, including the "always allow this" button. Those two reach real people and a real repository, and the value of the design rests on a human having read each one.
+
+Because it's hosted, **L2 and L3 mean things happen while you're not looking.** That is exactly why the two hardest actions to walk back are excluded from promotion rather than left to discipline.
 
 ### The approvals inbox
 
@@ -292,7 +295,7 @@ The most important screen in the app, and the one you'll use most on a phone. Ea
 ### Hard guardrails
 
 - **Kill switch** — pauses every agent mid-run, reachable from the phone in two taps.
-- **Egress allowlist** — the only outbound hosts are the Claude API, the Cubekrafts API, GitHub, and your SMTP provider. Everything else is refused at the HTTP client, and the attempt is logged.
+- **Egress allowlist** — the only outbound hosts are the Claude API, the Cubekrafts API, GitHub, and your email provider. Everything else is refused at the HTTP client, and the attempt is logged.
 - **Filesystem jail** — every path resolved and checked against allowed roots before any read or write. Resolve first, then compare, or `../` and symlinks walk straight out.
 - **Spend caps**, daily and monthly, that hard-stop the loop, plus a per-run token ceiling.
 - **Branch protection on `main`**, set in GitHub, so the strongest rule in the system isn't enforced by my code at all.
@@ -321,14 +324,14 @@ Lead messages, fetched pages, and competitor sites are untrusted input, wrapped 
 |---|---|---|
 | `fs.read` / `fs.write` / `fs.list` | dev, content (scoped roots) | safe within jail |
 | `git.status/diff/branch/commit` | dev | safe on `foreman/*` |
-| `git.push` + open PR | dev | **guarded** (forbidden to `main`) |
+| `git.push` + open PR | dev | **guarded, permanently L1** (forbidden to `main`) |
 | `shell.run` (allowlisted commands only) | dev | safe |
 | `http.fetch` | marketing, content | safe on allowlist, else guarded |
 | `web.search` | marketing, sales, finance | safe |
 | `cubekrafts.inquiries.list` | sales, finance | safe (read-only token) |
 | `cubekrafts.admin.*` (writes) | — | **forbidden** in v1 |
 | `email.draft` | sales | safe |
-| `email.send` | sales | **guarded** |
+| `email.send` | sales | **guarded, permanently L1** — see §10 |
 | `artifact.create/update` | all | safe |
 | `work.*` (create/assign/update tasks) | COO only | safe |
 | `memory.search` | all | safe |
@@ -341,7 +344,58 @@ Tools are defined in JSON Schema, with `strict: true` so arguments validate exac
 
 ---
 
-## 10. Data model
+## 10. Sending email
+
+Sales replies go out **as real email, from you, after you have read and approved each one**. That decision is what the rest of this section has to protect, because it is the only place where an agent's output reaches a stranger who did not ask to hear from a machine.
+
+### What "you approved it" has to actually mean
+
+**The approved payload is frozen and the frozen payload is what sends.** On approval, the rendered message — recipient, subject, body, headers, any attachment — is written as an immutable record with a hash. The sender reads that record. Nothing re-renders between your tap and the SMTP conversation. If the message were regenerated at send time from the task and the charter, you would have approved one email and dispatched a slightly different one, and you would never know.
+
+**The preview is the email.** The approvals screen renders the exact HTML and plain-text alternates that will be transmitted, at phone width, with the real sender name and subject line. Not a summary of the email. Not the model's description of what it wrote.
+
+**`email.send` never leaves L1.** The autonomy ratchet in §7 promotes tools to L2 after you approve enough of them without editing — `email.send` is on an explicit exclusion list, in code, and the UI has no control that promotes it. Your sentence above is only true for as long as the system cannot quietly stop asking. A stale approval helps here too: anything sitting in the queue longer than seven days requires a second confirmation, with its age shown, because the context that made it a good reply may have moved on.
+
+### Delivery
+
+**Use a transactional email provider, not raw SMTP from the container.** Hosting-provider IP ranges have poor sending reputation and are widely blocked; a message that silently lands in spam is worse than one that fails loudly, because you will keep sending into a void and conclude the copy is bad. Postmark or Resend both work; Postmark has the stronger deliverability record for one-to-one mail, Resend the simpler API.
+
+**Authenticate the sending domain before the first send.** SPF, DKIM and a DMARC policy on `cubekrafts.com`. This is the single highest-impact thing on this page for whether the replies get read, and it is twenty minutes of DNS.
+
+**Send from a real mailbox you monitor** — `tarun@cubekrafts.com`, not `noreply@`. These are replies to people who wrote to you; a no-reply address on a sales reply reads as a mass mailing and invites the response it deserves.
+
+**Set the threading headers.** `Message-ID` on the way out, `In-Reply-To` and `References` when replying, correct `Reply-To`. Without them the lead's client shows your reply as a disconnected new message and the conversation loses its history.
+
+### When they reply
+
+In v1, replies go to your normal mailbox and Foreman does not see them. You mark the lead's stage when you read one. That is a deliberate scope limit: inbound parsing is a bigger surface than it looks, and the sales agent is useful without it.
+
+Phase 5 adds an inbound webhook from the provider so replies land against the lead automatically, and the follow-up sequence cancels itself the moment a human answers. Until then, **the follow-up sequence is the dangerous part** — see the caps below.
+
+### Guardrails specific to sending
+
+These are enforced in the tool implementation, not requested in a prompt.
+
+- **A suppression list, checked before the send executes.** Anyone who asks to stop, hard-bounces, or reports spam goes on it permanently. A queued approval targeting a suppressed address fails closed and tells you why.
+- **A daily send cap**, separate from the spend cap and much smaller — 25 to start. A bug that loops approvals costs money under the spend cap; a bug that loops *sends* costs your domain reputation, which is far harder to get back.
+- **A per-recipient cap.** No more than three messages to the same address in fourteen days without you explicitly overriding. This is what stops a follow-up sequence from continuing to chase someone who already replied to your inbox where Foreman cannot see it.
+- **Idempotency on every send.** The approval ID is the idempotency key with the provider, and each message walks a state machine — `queued → sending → sent(provider_id) → failed`. A network failure after transmission but before the database write is the classic double-send, and an idempotency key is the only thing that reliably prevents it.
+- **Bounce and complaint webhooks wired from day one.** A hard bounce suppresses the address and marks the lead invalid; a spam complaint suppresses and alerts you. Without these you degrade your own deliverability silently over months.
+- **Test mode** for the first week: every send is redirected to your own address with the intended recipient shown in a header. Turn it off when the rendering has stopped surprising you.
+
+### Consent, and the honest bit about disclosure
+
+Replying to someone who filled in your contact form is unambiguously fine. **The two-touch follow-up is where care is owed**, because the recipient consented to an answer, not a sequence. Every follow-up carries a one-line way to stop, and honouring it is automatic and permanent via the suppression list. If a lead can plausibly be in the EU or the US, apply the stricter of the rules rather than the local minimum — the cost is one sentence in a footer.
+
+On whether recipients should be told a machine drafted it: **because you read and approve every message before it leaves, it is your email.** Signing your own name to something you have read is not deception, and no disclosure is required. That reasoning depends entirely on the review being real — which is why `email.send` is pinned at L1 above, and why the preview has to be the actual message rather than a summary of it. If you ever find yourself approving a queue of twelve without reading them, the honest fix is to send fewer emails, not to loosen the gate.
+
+### What gets recorded
+
+Every send stores the exact transmitted payload, the provider's message ID, the timestamp, the approval that authorised it, and every subsequent delivery event. When a lead says "you told me X", the answer is one query, not a memory.
+
+---
+
+## 11. Data model
 
 Postgres.
 
@@ -380,6 +434,16 @@ approval(id, run_id, tool_call_id, kind, preview, status,
          decided_at, reason, promoted_to_l2)
 question(id, task_id, role_id, text, answer, asked_at, answered_at)
 
+-- outbound email (see §10)
+email_message(id, approval_id, lead_id, to_addr, from_addr, reply_to,
+              subject, body_html, body_text, headers, payload_hash,
+              state, provider_id, idempotency_key,
+              approved_at, sent_at, failed_reason)
+              -- state: queued | sending | sent | failed | suppressed
+email_event(id, email_message_id, kind, at, detail)
+              -- kind: delivered | opened | bounced | complained | replied
+suppression(address, reason, created_at)   -- checked before any send executes
+
 -- business objects (Foreman's own copy — never writes back in v1)
 lead(id, source_id, name, email, location, message, stage,
      score, next_action, next_action_at, synced_at)
@@ -394,11 +458,13 @@ setting(key, value)
 spend_day(date, usd, input_tokens, output_tokens)
 ```
 
-Two details worth defending. `run` splits cached from uncached input tokens and stores `cost_usd` computed at write time — cache-hit rate is what decides whether this costs $15 or $150 a month, and a stored cost is a fact where a recomputed one is a guess. `message` keeps full transcripts so a run can be replayed after you edit a charter, which is how you'll actually debug agent behaviour.
+`email_message` stores `payload_hash` and the fully rendered body because of the freeze rule in §10: the record is written at approval time and the sender reads it verbatim, so there is a hash you can compare against what you saw. `suppression` is a table rather than a flag on `lead` because a suppressed address must stay suppressed even if the lead record is re-synced or deleted.
+
+Two further details worth defending. `run` splits cached from uncached input tokens and stores `cost_usd` computed at write time — cache-hit rate is what decides whether this costs $15 or $150 a month, and a stored cost is a fact where a recomputed one is a guess. `message` keeps full transcripts so a run can be replayed after you edit a charter, which is how you'll actually debug agent behaviour.
 
 ---
 
-## 11. The interface
+## 12. The interface
 
 Eight screens, React + Vite, served by the same service, live over SSE. Built mobile-first, because approvals will mostly happen on a phone.
 
@@ -410,7 +476,7 @@ Eight screens, React + Vite, served by the same service, live over SSE. Built mo
 
 **Room** — one thread per role; you chat directly, and autonomous runs appear inline with collapsible tool calls.
 
-**Approvals** — the queue from §7. Thumb-sized targets, swipe to approve, keyboard shortcuts on desktop.
+**Approvals** — the queue from §7. Thumb-sized targets, swipe to approve, keyboard shortcuts on desktop. Email items render the actual message at phone width, not a summary of it (§10).
 
 **Artifacts** — everything produced, with version history, diffs, and second-reader objections attached.
 
@@ -422,7 +488,7 @@ Push notifications via the web push API for three things only: an approval that'
 
 ---
 
-## 12. Models, caching, and cost
+## 13. Models, caching, and cost
 
 ### Which model for what
 
@@ -483,7 +549,7 @@ A typical role turn: ~15k input (mostly cache reads after the first), ~3k output
 | Normal (all roles, one goal active) | 25 | $1.50–3 | $45–90 |
 | Heavy (dev agent on a real feature) | 40+ | $4–8 | $120–240 |
 
-Plus **$5–10/month hosting**. Add ~10–15% if the second reader is on for diffs and published pages.
+Plus **$5–10/month hosting**, and the email provider — free at the volumes a sales agent produces, around $15/month once you pass a few thousand messages. Add ~10–15% of model spend if the second reader is on for diffs and published pages.
 
 Set the daily cap as a hard stop — $5 is a sane start — and set a spend limit in the Anthropic console too. The app's cap protects you from a runaway loop; the console's cap protects you from a bug in the app's cap. That second one matters more now that the loop runs unattended overnight.
 
@@ -491,7 +557,7 @@ For the dev agent's long runs, use a **task budget** (`output_config.task_budget
 
 ---
 
-## 13. HTTP API
+## 14. HTTP API
 
 ```
 POST /auth/passkey/register        first-run only, then disabled
@@ -519,6 +585,12 @@ POST /api/tasks/:id/cancel
 GET  /api/approvals                pending queue
 POST /api/approvals/:id/decide     approve | edit | reject(reason) | always-allow
 
+GET  /api/email                    sent, queued, failed, with delivery state
+GET  /api/email/:id                the exact transmitted payload
+POST /api/email/webhook            provider callbacks: bounce, complaint, delivery
+GET  /api/suppression              the do-not-contact list
+POST /api/suppression              add an address by hand
+
 GET  /api/questions                open questions from agents
 POST /api/questions/:id/answer
 
@@ -538,7 +610,7 @@ Every route except `/auth/*` requires a valid session. CSRF protection on all st
 
 ---
 
-## 14. Build order
+## 15. Build order
 
 **Phase 0 — one agent, end to end, on your machine (a weekend).**
 Postgres schema + migrations, the tick loop, our agent loop, the tool runtime with effect classification, the audit log, and one role: Content. Two tools, one guarded action, the approvals inbox, a bare HQ screen. **Run it on localhost for now** — do not deploy anything until phase 1 has auth. Success: you type a goal, an agent writes a post, you approve it, and the whole thing is in the audit log.
@@ -549,8 +621,8 @@ Passkey registration and sign-in, sessions, rate limiting, the auth log, securit
 **Phase 2 — the org appears.**
 COO + the work graph, charters in the app, the review/revise cycle, the standup digest, the Org and Board screens, the autonomy ladder, push notifications. Success: you set one goal and get a sensible plan with tasks you didn't have to write.
 
-**Phase 3 — real business input.**
-Sales: read-only inquiry sync, lead scoring, drafted replies, pipeline. Finance: weekly numbers and Foreman's own spend. Success: an inquiry arrives overnight and a good reply is waiting when you wake up.
+**Phase 3 — real business input, and the first real email.**
+Sales: read-only inquiry sync, lead scoring, drafted replies, pipeline. Finance: weekly numbers and Foreman's own spend. Then the send pipeline from §10 in this order — SPF, DKIM and DMARC on the sending domain first; the frozen-payload record and the faithful preview second; suppression, caps and idempotency third; bounce and complaint webhooks fourth; and a week in test mode with every send redirected to your own address before a single message reaches a lead. Success: an inquiry arrives overnight, a good reply is waiting when you wake up, you read it, you approve it, and it lands in their inbox rather than their spam folder.
 
 **Phase 4 — it touches the product.**
 Web Developer on the checkout: branch, edit, test, commit, PR, diff preview, guarded push, with branch protection set on the GitHub side. Second reader on diffs. Marketing and the content calendar feeding Content. Success: a real site change ships from a Foreman branch.
@@ -562,7 +634,7 @@ The ordering change from the localhost plan is deliberate: **auth comes before t
 
 ---
 
-## 15. How this fails, and what's in the design about it
+## 16. How this fails, and what's in the design about it
 
 | Failure | Mitigation |
 |---|---|
@@ -573,6 +645,11 @@ The ordering change from the localhost plan is deliberate: **auth comes before t
 | Agents produce plausible work nobody uses | Written definition of done before a task can be `ready`; COO reviews against it; Finance reports output per dollar per role. |
 | Approval fatigue → rubber-stamping | The L1→L2 ratchet exists so the queue shrinks. Fifty a day in week four means promote tools, not work faster. |
 | An agent does something irreversible | Effect classification in our loop, before execution. Dev agent branch-only. No live-site writes in v1. |
+| **The same email sends twice** | An idempotency key per approval, and a `queued → sending → sent → failed` state machine. A network failure after transmission is the classic cause and the key is the only reliable fix. |
+| **What sent isn't what you approved** | The rendered payload is frozen and hashed at approval time; the sender reads that record verbatim rather than re-rendering from the task. |
+| **A follow-up chases someone who already replied** | A per-recipient cap of three messages in fourteen days, plus inbound reply handling in phase 5 that cancels the sequence automatically. |
+| **Domain reputation quietly degrades** | Authenticated sending domain, bounce and complaint webhooks from day one, permanent suppression on both, and a daily send cap far below the spend cap. |
+| **You approve a queue of twelve without reading them** | The design can't stop this, and loosening the gate would be the wrong response. Send fewer emails. `email.send` stays at L1 so the choice stays yours each time. |
 | Prompt injection via a lead's message | Untrusted input delimited and labelled as data; every consequential action guarded. |
 | Voice drifts into generic slop | Canon in the cached prefix, last-ten-approved pieces in context, rejections appended to the charter. |
 | A deploy interrupts a run | Runs checkpoint before and after every model call; an interrupted run resumes or fails cleanly, never half-executes. |
@@ -581,7 +658,7 @@ The ordering change from the localhost plan is deliberate: **auth comes before t
 
 ---
 
-## 16. Decisions made for you
+## 17. Decisions made for you
 
 | Decision | Why | The alternative |
 |---|---|---|
@@ -592,22 +669,25 @@ The ordering change from the localhost plan is deliberate: **auth comes before t
 | Auth before the second role | An internet-facing app that can push code doesn't get to be half-secured | Ship features first, add auth "soon" |
 | Branch protection on `main`, set in GitHub | The strongest rule shouldn't be enforced by my code | Trust the classifier alone |
 | Concurrency 1 | Two agents in one checkout is a corruption bug waiting to happen | Higher, once tool sets are provably disjoint |
+| Email sends for real, but never above L1 | You read and approve each one, which is what makes it your message rather than a machine's | Drafts you copy out — safer, but you said you want it sent |
+| Transactional provider, not raw SMTP | Hosting IPs have poor reputation; silent spam-foldering is worse than a loud failure | SMTP from the container — free, and invisible when it stops working |
 | Cubekrafts read-only in v1 | The blast radius of a bad write to a live business system isn't worth it in month one | Grant writes per-endpoint later, at L1 |
 
 ### Open questions
 
 1. **Which domain?** `foreman.cubekrafts.com`, or something unrelated to the business? A subdomain is simpler; an unrelated domain leaks nothing about what it is.
 2. **Which GitHub repo does the dev agent work in**, and which commands may it run — `npm test`, `npm run lint`, `npm run build`?
-3. **Email**: real SMTP send-after-approval, or drafts you copy out? Drafts is safer for month one and is a one-line upgrade later.
-4. **Read-only Cubekrafts API token**, or a nightly export the app pulls?
-5. **Daily spend cap?** ($5 default.)
-6. **Region** — nearest you for latency, or nearest the Claude API for throughput? Nearest you; the model call dominates either way.
+3. **Which email provider, and which address does mail come from?** Postmark or Resend; `tarun@cubekrafts.com` or another mailbox you actually watch. You'll need DNS access on the sending domain for SPF, DKIM and DMARC.
+4. **Daily send cap?** (25 default — deliberately far below anything you'd hit legitimately.)
+5. **Read-only Cubekrafts API token**, or a nightly export the app pulls?
+6. **Daily spend cap?** ($5 default.)
+7. **Region** — nearest you for latency, or nearest the Claude API for throughput? Nearest you; the model call dominates either way.
 
 None of these block Phase 0.
 
 ---
 
-## 17. Repo layout
+## 18. Repo layout
 
 ```
   package.json
@@ -632,7 +712,7 @@ Secrets live in the host's secret store. Artifacts live in object storage. Neith
 
 ---
 
-## 18. What I'd build first, given a day
+## 19. What I'd build first, given a day
 
 The tick loop, the tool effect classifier, the audit log, and the approvals inbox — one role, two tools, running on localhost with no auth and no deployment.
 
