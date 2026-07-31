@@ -466,9 +466,11 @@ Two further details worth defending. `run` splits cached from uncached input tok
 
 ## 12. The interface
 
-Eight screens, React + Vite, served by the same service, live over SSE. Built mobile-first, because approvals will mostly happen on a phone.
+Nine screens, React + Vite, served by the same service, live over SSE. Built mobile-first, because approvals will mostly happen on a phone. The first is the one you will actually live in.
 
-**HQ** — today's standup in plain English, active tasks, approvals waiting, spend against cap, four KPI tiles.
+**Talk** — the default screen and the front door: a conversation with the concierge, with a mic button, streamed replies, and inline cards for approvals, numbers and tasks. Everything below is reachable from here by asking. See §13.
+
+**HQ** — today's standup in plain English, active tasks, approvals waiting, spend against cap, four KPI tiles. Where you look when you want the machinery rather than an answer.
 
 **The Org** — a card per role: on/off, current task, model and effort, autonomy sliders per tool, cost this week, last five outputs, edit charter.
 
@@ -488,7 +490,89 @@ Push notifications via the web push API for three things only: an approval that'
 
 ---
 
-## 13. Models, caching, and cost
+## 13. Talking to it
+
+The screens in §12 are the fallback. **The front door is a conversation.** You open Foreman and there is a prompt, not a dashboard — you say what you want, it answers or it dispatches, and the boards are there when you want to see the machinery.
+
+This section is what makes that feel immediate rather than like waiting on a chatbot.
+
+### Two speeds, deliberately separated
+
+The single most important decision here: **the thing you talk to is not the thing that does the work.**
+
+| | Conversation layer | Work layer |
+|---|---|---|
+| Who | The **concierge** — one always-warm agent that owns your thread | COO and the six roles |
+| Answers in | Under a second | Minutes |
+| Model | `claude-haiku-4-5`, escalating to `claude-sonnet-5` when the question deserves it | `claude-opus-5` / `claude-sonnet-5` |
+| Can do | Read anything, answer, dispatch work, surface an approval, steer a running agent | Write code, draft mail, produce artifacts |
+| Cannot do | Any guarded action. It asks the work layer, or it asks you. | Talk to you directly |
+
+If the concierge did the work, every question would wait behind a five-minute Opus run and the whole thing would feel dead. If the roles answered questions, they would lose their charters to small talk. Keeping them separate is what buys both responsiveness and rigour.
+
+### Most questions should not reach a model at all
+
+"What's pending?" "How many leads this week?" "What's the spend?" — these are database queries. Rendering them through a language model adds a second of latency, a fraction of a cent, and a chance of a wrong number.
+
+So the concierge has a **snapshot**: a small in-memory projection of the current state — open approvals, running tasks, today's numbers, the last standup — refreshed on every tick and on every write. A short list of recognised intents answers straight from it, with **no model call**, and renders as a real UI card rather than a sentence. Everything else goes to the model, with the snapshot already in the cached prefix so the model never has to go looking.
+
+Target: **recognised intent answers in under 100 ms. Everything else streams a first token in under 400 ms.** Those numbers are the feature. If they slip, the interactive feeling goes with them, and no amount of good prose recovers it.
+
+### How it stays fast
+
+- **Warm prefix.** The concierge's charter, the company canon, and the snapshot sit in one cached block with a one-hour TTL. It is the one agent that ticks often enough for caching to always hit.
+- **Stream everything.** Tokens to the UI as they arrive, over the SSE channel that already exists. Never a spinner where text could be appearing.
+- **Speak before you finish thinking.** When the concierge decides to dispatch work, it says so immediately — "putting content on it" — and the task creation happens after the sentence, not before it.
+- **Optimistic UI.** Your message appears instantly; approvals mark themselves decided the moment you tap and reconcile when the server confirms.
+- **Precompute the predictable.** The morning briefing is written by the COO at the end of the overnight tick, not composed when you open the app.
+
+### Voice
+
+Speech in and speech out, both **in the browser** — the Web Speech API for recognition and synthesis. No audio ever leaves the device, there is no transcription bill, and it works on a phone.
+
+Push-to-talk by default, because an always-listening microphone in your office is a different product with different consent questions. A wake phrase is a setting you can turn on, off by default.
+
+Spoken replies are **written differently from typed ones**: the concierge is told when the channel is voice, and answers in one or two sentences with the number first, because nobody wants a table read aloud. The full answer still renders on screen.
+
+If browser synthesis sounds too robotic to live with, a hosted voice is a config change behind the same interface — but start with the free one, because latency matters more than timbre here.
+
+### Interrupting, and steering mid-run
+
+JARVIS never says "please wait for the current operation to complete".
+
+- **"Stop"** aborts the current run at the next checkpoint, leaving the task parked rather than half-done.
+- **"Actually, make it shorter"** while content is mid-draft appends a `{ role: "system" }` message to the running agent's conversation. This is a first-class Claude API feature on Opus 5, and it is exactly right here: the instruction lands with operator authority, and — because it goes into `messages` rather than the top-level system prompt — the cached prefix survives, so steering costs almost nothing.
+- **Every long action is cancellable from the same place you started it.**
+
+### When it speaks first
+
+An assistant that interrupts constantly gets muted, which is worse than one that never speaks. So proactive messages are limited, by rule, to five things:
+
+1. The morning briefing, once, when you first open it.
+2. An approval that has waited longer than an hour.
+3. A question an agent has parked — the run is blocked on you.
+4. The spend cap being hit.
+5. The same task failing twice.
+
+Everything else waits to be asked. This list is a setting, and the honest default is fewer.
+
+### How it talks
+
+Terse, specific, and unbothered. The number before the explanation. No "Certainly!", no restating the question, no apology for things that are not its fault. It has opinions when asked for them and says "I don't know" without decoration.
+
+That is a charter like any other role's, and you can edit it — but the default matters, because a verbose assistant is a slow assistant no matter how fast the tokens arrive.
+
+### What this actually costs
+
+The concierge is the cheapest agent in the org despite being the busiest: most turns are Haiku against a fully cached prefix, and a good share never reach a model at all. Budget **$3–8/month** at heavy conversational use, on top of §14. Voice is free.
+
+### What it will not be
+
+It will not anticipate what you want before you say it, it will not hold a flowing conversation that never misunderstands, and it will not have judgement the underlying model lacks. What it can genuinely be is **fast, grounded in real state rather than recollection, and able to act** — which covers most of what makes the fictional version appealing, and the remainder is a film.
+
+---
+
+## 14. Models, caching, and cost
 
 ### Which model for what
 
@@ -557,7 +641,7 @@ For the dev agent's long runs, use a **task budget** (`output_config.task_budget
 
 ---
 
-## 14. HTTP API
+## 15. HTTP API
 
 ```
 POST /auth/passkey/register        first-run only, then disabled
@@ -567,6 +651,12 @@ POST /auth/recovery                single-use code
 POST /auth/logout
 GET  /auth/sessions                active sessions
 POST /auth/sessions/revoke         one, or all
+
+POST /api/talk                     a turn with the concierge; streams the reply
+GET  /api/talk/history             the thread, continuous across devices
+POST /api/talk/interrupt           stop the current run at its next checkpoint
+POST /api/runs/:id/steer           append an operator instruction to a live run
+GET  /api/snapshot                 the precomputed state the concierge answers from
 
 GET  /api/hq                       dashboard payload
 GET  /api/stream                   SSE: runs, approvals, questions, spend
@@ -610,7 +700,7 @@ Every route except `/auth/*` requires a valid session. CSRF protection on all st
 
 ---
 
-## 15. Build order
+## 16. Build order
 
 **Phase 0 — one agent, end to end, on your machine (a weekend).**
 Postgres schema + migrations, the tick loop, our agent loop, the tool runtime with effect classification, the audit log, and one role: Content. Two tools, one guarded action, the approvals inbox, a bare HQ screen. **Run it on localhost for now** — do not deploy anything until phase 1 has auth. Success: you type a goal, an agent writes a post, you approve it, and the whole thing is in the audit log.
@@ -618,8 +708,8 @@ Postgres schema + migrations, the tick loop, our agent loop, the tool runtime wi
 **Phase 1 — auth, then the URL.**
 Passkey registration and sign-in, sessions, rate limiting, the auth log, security headers, Cloudflare in front. Deploy to Fly with Postgres and the volume. Backups configured and a restore tested. Success: you approve something from your phone, on the train.
 
-**Phase 2 — the org appears.**
-COO + the work graph, charters in the app, the review/revise cycle, the standup digest, the Org and Board screens, the autonomy ladder, push notifications. Success: you set one goal and get a sensible plan with tasks you didn't have to write.
+**Phase 2 — the org appears, and you can talk to it.**
+COO + the work graph, charters in the app, the review/revise cycle, the standup digest, the Org and Board screens, the autonomy ladder, push notifications. Then the concierge from §13: the snapshot, the no-model fast path for recognised intents, streamed replies, dispatch-by-conversation, interrupt and steer. Success: you say "how are we doing" and have an answer before you've finished looking at the screen, and "get the pricing page rewritten" creates the right task without you touching a form.
 
 **Phase 3 — real business input, and the first real email.**
 Sales: read-only inquiry sync, lead scoring, drafted replies, pipeline. Finance: weekly numbers and Foreman's own spend. Then the send pipeline from §10 in this order — SPF, DKIM and DMARC on the sending domain first; the frozen-payload record and the faithful preview second; suppression, caps and idempotency third; bounce and complaint webhooks fourth; and a week in test mode with every send redirected to your own address before a single message reaches a lead. Success: an inquiry arrives overnight, a good reply is waiting when you wake up, you read it, you approve it, and it lands in their inbox rather than their spam folder.
@@ -627,14 +717,14 @@ Sales: read-only inquiry sync, lead scoring, drafted replies, pipeline. Finance:
 **Phase 4 — it touches the product.**
 Web Developer on the checkout: branch, edit, test, commit, PR, diff preview, guarded push, with branch protection set on the GitHub side. Second reader on diffs. Marketing and the content calendar feeding Content. Success: a real site change ships from a Foreman branch.
 
-**Phase 5 — it gets better on its own.**
-Metrics loop, weekly review, charter self-tuning from your approve/reject reasons.
+**Phase 5 — voice, and it gets better on its own.**
+Push-to-talk and spoken replies through the browser. The metrics loop, the weekly review, and charter self-tuning from your approve/reject reasons. Success: you ask it something on the drive home without touching the phone.
 
 The ordering change from the localhost plan is deliberate: **auth comes before the second role.** An app on the internet that can push code and send email does not get to be half-secured for a few weeks while you add features.
 
 ---
 
-## 16. How this fails, and what's in the design about it
+## 17. How this fails, and what's in the design about it
 
 | Failure | Mitigation |
 |---|---|
@@ -652,18 +742,24 @@ The ordering change from the localhost plan is deliberate: **auth comes before t
 | **You approve a queue of twelve without reading them** | The design can't stop this, and loosening the gate would be the wrong response. Send fewer emails. `email.send` stays at L1 so the choice stays yours each time. |
 | Prompt injection via a lead's message | Untrusted input delimited and labelled as data; every consequential action guarded. |
 | Voice drifts into generic slop | Canon in the cached prefix, last-ten-approved pieces in context, rejections appended to the charter. |
+| **The conversation feels slow, and you stop using it** | Recognised intents answer from the snapshot with no model call at all; everything else streams a first token inside 400 ms against a warm cached prefix. Those numbers are a feature with a test, not an aspiration. |
+| **It becomes a chatty assistant you mute** | Proactive messages are limited by rule to five situations, and that list is a setting whose honest default is fewer. |
+| **It answers confidently from stale state** | The concierge answers from a snapshot refreshed on every tick and every write, and numbers render as cards from the database rather than as model prose. |
 | A deploy interrupts a run | Runs checkpoint before and after every model call; an interrupted run resumes or fails cleanly, never half-executes. |
 | Context rot on long tasks | Runs checkpointed and summarised rather than accumulated; server-side compaction and context editing for the dev agent's long sessions. |
 | You stop using it in week three | Phase 0 must deliver something you'd miss. If the standup isn't worth reading on day five, fix that before building phase 2. |
 
 ---
 
-## 17. Decisions made for you
+## 18. Decisions made for you
 
 | Decision | Why | The alternative |
 |---|---|---|
 | One always-on container, not serverless | The tick loop and multi-minute agent runs don't fit a function timeout | Vercel + external worker + cron — three parts where one suffices |
 | Postgres, not SQLite | It's hosted now; managed backups and full-text search come with it | SQLite on a volume — fine until the first restore you actually need |
+| Conversation is the front door, dashboards are the fallback | It is the interface you will actually use, and the one that works one-handed on a phone | A dashboard-first app with a chat panel bolted on the side |
+| The concierge cannot take guarded actions itself | Keeps the fast, chatty layer away from anything that reaches a customer | One agent that both talks and acts — simpler, and exactly how you end up with a fast agent sending mail |
+| Voice runs in the browser | No audio leaves the device, no transcription bill, works on a phone today | A hosted speech pipeline — better voice, real latency and real cost |
 | Passkey, no password | Nothing to phish, no reset flow to attack, pleasant on a phone | Password + TOTP — more code, more ways in |
 | We own the agent loop | The classifier is the security boundary of an internet-facing app | The SDK tool runner's hooks — workable, but the boundary lives in someone else's control flow |
 | Auth before the second role | An internet-facing app that can push code doesn't get to be half-secured | Ship features first, add auth "soon" |
@@ -687,7 +783,7 @@ None of these block Phase 0.
 
 ---
 
-## 18. Repo layout
+## 19. Repo layout
 
 ```
   package.json
@@ -712,7 +808,7 @@ Secrets live in the host's secret store. Artifacts live in object storage. Neith
 
 ---
 
-## 19. What I'd build first, given a day
+## 20. What I'd build first, given a day
 
 The tick loop, the tool effect classifier, the audit log, and the approvals inbox — one role, two tools, running on localhost with no auth and no deployment.
 

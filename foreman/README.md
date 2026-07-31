@@ -22,6 +22,12 @@ It *controls* Cubekrafts from the outside, the way an external contractor would:
 - edits a checkout of the site on `foreman/*` branches and opens pull requests, never pushing to `main`
 - proposes; you approve
 
+## Talking to it
+
+The front door is a conversation, not a dashboard. You ask, it answers — recognised questions in under 100ms straight from a live snapshot with no model call, everything else streaming a first token inside 400ms. You can interrupt a running agent mid-sentence, steer it without restarting it, and dispatch work by saying what you want. Voice runs in the browser, so no audio leaves the device.
+
+The thing you talk to is deliberately not the thing that does the work: a fast concierge owns the conversation and can read anything, while the COO and the six roles do the slow, careful part. That split is what buys both responsiveness and rigour.
+
 ## Ground rules
 
 - **One account, ever.** No signup, no invites. Passkey sign-in, one allowed identity, sessions you can revoke from your phone.
@@ -41,9 +47,10 @@ It *controls* Cubekrafts from the outside, the way an external contractor would:
 | §5 | The seven roles and what each one owns |
 | §7 | Permissions, the autonomy ladder, and the approvals inbox |
 | §10 | Sending email — the freeze rule, deliverability, suppression, and consent |
-| §13 | Models, prompt-cache layout, and the cost envelope |
-| §15 | Build order — phase 0 is a weekend, and auth lands before the second role |
-| §17 | Decisions made in advance, and the seven questions that need you |
+| §13 | Talking to it — the concierge, latency budget, voice, interruption, proactivity |
+| §14 | Models, prompt-cache layout, and the cost envelope |
+| §16 | Build order — phase 0 is a weekend, and auth lands before the second role |
+| §18 | Decisions made in advance, and the seven questions that need you |
 
 ## Cost
 
