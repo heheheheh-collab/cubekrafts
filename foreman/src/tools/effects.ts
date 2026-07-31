@@ -4,6 +4,7 @@ import {
   type Disposition,
   type PolicyConfig,
   type RoleName,
+  type RuntimeFacts,
   type ToolCall,
   NEVER_PROMOTABLE,
 } from '../domain/types.ts';
@@ -23,6 +24,9 @@ import { confine } from '../guards/jail.ts';
  *      shape we do not understand is `forbidden`, never `guarded`.
  *   2. No I/O, no clock, no randomness. This must be exhaustively testable, and
  *      a reviewer must be able to read the whole thing in one sitting.
+ *   3. Runtime state arrives in `facts`, never in `call.args`. The args are
+ *      model output; letting the model assert which branch it is on would let
+ *      it authorise its own push.
  */
 
 const forbidden = (reason: string): Classification => ({ effect: 'forbidden', reason });
@@ -38,7 +42,16 @@ export function classify(
   role: RoleName,
   call: ToolCall,
   policy: PolicyConfig,
+  facts: RuntimeFacts = {},
 ): Classification {
+  // Underscore-prefixed keys are reserved for runtime facts and must never
+  // arrive from the model. Their presence means either a bug in the caller or
+  // an attempt to smuggle state past the classifier; either way, refuse.
+  const smuggled = Object.keys(call.args).find((k) => k.startsWith('_'));
+  if (smuggled !== undefined) {
+    return forbidden(`argument ${smuggled} is reserved and may not be model-supplied`);
+  }
+
   const spec = getTool(call.name);
   if (!spec) {
     return forbidden(`no tool named ${call.name} exists`);
@@ -73,10 +86,9 @@ export function classify(
     }
 
     case 'git.commit': {
-      // The branch is runtime state, not an argument, so the caller passes the
-      // checked-out branch in as `_branch`. A call that arrives without it is
-      // refused rather than assumed safe.
-      const branch = readString(call.args, '_branch');
+      // The branch comes from git, via `facts` — never from the model. A call
+      // that arrives without it is refused rather than assumed safe.
+      const branch = facts.currentBranch;
       if (branch === undefined) return forbidden('current branch was not supplied to the classifier');
       if (policy.protectedBranches.includes(branch)) {
         return forbidden(`refusing to commit on protected branch ${branch}`);
@@ -91,7 +103,7 @@ export function classify(
       return safe('reading the working tree');
 
     case 'git.push': {
-      const branch = readString(call.args, '_branch');
+      const branch = facts.currentBranch;
       if (branch === undefined) return forbidden('current branch was not supplied to the classifier');
       if (policy.protectedBranches.includes(branch)) {
         return forbidden(`refusing to push to protected branch ${branch}`);

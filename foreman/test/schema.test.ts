@@ -11,11 +11,14 @@ import { PGlite } from '@electric-sql/pglite';
 
 let db: PGlite;
 
+// Booting Postgres-in-WASM and applying the schema takes the best part of ten
+// seconds on a cold cache, which is vitest's default hook timeout — hence the
+// explicit one. A test that races its own timeout is a test that lies.
 beforeAll(async () => {
   db = new PGlite();
   const sql = readFileSync(new URL('../src/db/migrations/001_init.sql', import.meta.url), 'utf8');
   await db.exec(sql);
-});
+}, 120_000);
 
 afterAll(async () => {
   await db.close();

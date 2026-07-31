@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { classify, disposition, canPromote } from '../src/tools/effects.ts';
 import { DEFAULT_POLICY, type PolicyConfig, type ToolCall } from '../src/domain/types.ts';
 
+const on = (currentBranch: string) => ({ currentBranch });
+
 const policy: PolicyConfig = {
   ...DEFAULT_POLICY,
   allowedRoots: {
@@ -24,7 +26,7 @@ describe('default deny', () => {
 
   it('refuses a real tool the role was not granted', () => {
     // content has no git access at all
-    const c = classify('content', call('git.push', { _branch: 'foreman/x' }), policy);
+    const c = classify('content', call('git.push'), policy, on('foreman/x'));
     expect(c.effect).toBe('forbidden');
     expect(c.reason).toMatch(/not granted to content/);
   });
@@ -87,21 +89,19 @@ describe('filesystem jail', () => {
 describe('git', () => {
   it('allows committing on an agent branch', () => {
     expect(
-      classify('developer', call('git.commit', { message: 'x', _branch: 'foreman/t-12' }), policy)
-        .effect,
+      classify('developer', call('git.commit', { message: 'x' }), policy, on('foreman/t-12')).effect,
     ).toBe('safe');
   });
 
   it('forbids committing on main', () => {
-    const c = classify('developer', call('git.commit', { message: 'x', _branch: 'main' }), policy);
+    const c = classify('developer', call('git.commit', { message: 'x' }), policy, on('main'));
     expect(c.effect).toBe('forbidden');
     expect(c.reason).toMatch(/protected branch/);
   });
 
   it('forbids committing on any branch that is not an agent branch', () => {
     expect(
-      classify('developer', call('git.commit', { message: 'x', _branch: 'release/2.0' }), policy)
-        .effect,
+      classify('developer', call('git.commit', { message: 'x' }), policy, on('release/2.0')).effect,
     ).toBe('forbidden');
   });
 
@@ -115,13 +115,31 @@ describe('git', () => {
   });
 
   it('guards a push on an agent branch rather than allowing it', () => {
-    const c = classify('developer', call('git.push', { title: 't', body: 'b', _branch: 'foreman/t-12' }), policy);
+    const c = classify('developer', call('git.push', { title: 't', body: 'b' }), policy, on('foreman/t-12'));
     expect(c.effect).toBe('guarded');
   });
 
   it('forbids a push to main outright, not merely guarding it', () => {
-    const c = classify('developer', call('git.push', { title: 't', body: 'b', _branch: 'main' }), policy);
+    const c = classify('developer', call('git.push', { title: 't', body: 'b' }), policy, on('main'));
     expect(c.effect).toBe('forbidden');
+  });
+
+  it('refuses a model attempt to assert its own branch', () => {
+    // The spoof: claim a safe branch in args while actually sitting on main.
+    const c = classify(
+      'developer',
+      call('git.push', { title: 't', body: 'b', _branch: 'foreman/safe' }),
+      policy,
+      on('main'),
+    );
+    expect(c.effect).toBe('forbidden');
+    expect(c.reason).toMatch(/reserved/);
+  });
+
+  it('refuses reserved keys on any tool, not just git', () => {
+    expect(
+      classify('developer', call('fs.read', { path: 'a.txt', _root: '/etc' }), policy).effect,
+    ).toBe('forbidden');
   });
 
   it('forbids creating a branch outside the agent prefix', () => {

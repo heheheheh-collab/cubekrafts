@@ -67,7 +67,22 @@ export type Disposition =
 export interface ToolCall {
   id: string;
   name: string;
+  /** Model-supplied, therefore untrusted. Never read runtime state from here. */
   args: Record<string, unknown>;
+}
+
+/**
+ * Facts about the world that the classifier needs but the model must not be
+ * able to assert.
+ *
+ * This is a separate parameter rather than extra keys on `ToolCall.args`
+ * precisely because `args` is model output. If the current branch were read
+ * from `args`, a model could emit `{ _branch: "foreman/safe" }` while sitting
+ * on `main` and classify its own push as permitted.
+ */
+export interface RuntimeFacts {
+  /** The branch actually checked out in the workspace, read from git. */
+  currentBranch?: string;
 }
 
 /** Everything the classifier is allowed to consult. Deliberately explicit. */
@@ -87,11 +102,13 @@ export interface PolicyConfig {
 export const DEFAULT_POLICY: PolicyConfig = {
   allowedRoots: {},
   allowedHosts: [],
+  // `npm ci` is deliberately absent: installing runs dependency lifecycle
+  // scripts, which is arbitrary code execution plus network egress wearing the
+  // costume of a build step. Add it consciously, per workspace, if you must.
   allowedCommands: [
     ['npm', 'test'],
     ['npm', 'run', 'lint'],
     ['npm', 'run', 'build'],
-    ['npm', 'ci'],
   ],
   protectedBranches: ['main', 'master'],
   agentBranchPrefix: 'foreman/',
