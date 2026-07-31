@@ -190,6 +190,13 @@ export async function runAgent(
       }
     }
 
+    if (results.length === 0) {
+      // The model claimed tool use but produced no callable blocks. Pushing an
+      // empty user message would be rejected by the API, and looping again
+      // would just burn a step, so treat it as the end of the turn.
+      return finish({ kind: 'done', text: result.text });
+    }
+
     messages.push({
       role: 'user',
       // Every result goes back in a single user message. Splitting them across
@@ -203,6 +210,8 @@ export async function runAgent(
     });
   }
 
+  // The for-loop leaves `steps` one past the last one actually taken.
+  steps = maxSteps;
   await ctx.audit.record({
     actor: ctx.role,
     action: 'run.exhausted',

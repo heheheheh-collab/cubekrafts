@@ -20,6 +20,8 @@ export interface SafePath {
   ok: boolean;
   /** The lexically resolved path, whether or not it was allowed. */
   path: string;
+  /** The root that contained it, so callers can report a relative path. */
+  root?: string;
   /** The real path of the nearest existing ancestor, when it could be read. */
   realAncestor?: string;
   reason?: string;
@@ -86,5 +88,5 @@ export async function safeResolve(
     return { ok: false, path: finalPath, realAncestor, reason: 'path escapes the workspace' };
   }
 
-  return { ok: true, path: finalPath, realAncestor };
+  return { ok: true, path: finalPath, root, realAncestor };
 }

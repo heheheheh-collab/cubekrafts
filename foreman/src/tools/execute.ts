@@ -156,12 +156,14 @@ async function dispatch(call: ToolCall, ctx: ExecuteContext): Promise<string> {
     }
 
     case 'fs.write': {
-      const path = need(call.args, 'path');
       const content = need(call.args, 'content');
-      const target = await resolveOrThrow(path, roots);
-      await mkdir(dirname(target), { recursive: true });
-      await writeFile(target, content, 'utf8');
-      return `wrote ${content.length} characters to ${relative(roots[0] ?? '/', target)}`;
+      const safe = await safeResolveOrThrow(need(call.args, 'path'), roots);
+      await mkdir(dirname(safe.path), { recursive: true });
+      await writeFile(safe.path, content, 'utf8');
+      // Report the path relative to the root that actually matched, not the
+      // first configured one — a role with two roots would otherwise be told
+      // it wrote to a path that reads like ../../elsewhere.
+      return `wrote ${content.length} characters to ${relative(safe.root ?? '/', safe.path)}`;
     }
 
     case 'fs.list': {
@@ -217,7 +219,11 @@ async function dispatch(call: ToolCall, ctx: ExecuteContext): Promise<string> {
 }
 
 async function resolveOrThrow(path: string, roots: readonly string[]): Promise<string> {
+  return (await safeResolveOrThrow(path, roots)).path;
+}
+
+async function safeResolveOrThrow(path: string, roots: readonly string[]) {
   const safe = await safeResolve(path, roots);
   if (!safe.ok) throw new PolicyViolation(safe.reason ?? 'path is outside the workspace');
-  return safe.path;
+  return safe;
 }

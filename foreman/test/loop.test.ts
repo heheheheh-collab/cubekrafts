@@ -196,6 +196,18 @@ describe('endings that are not success', () => {
     const r = await runAgent(user, ctx({ claude, maxSteps: 3 }));
     expect(r.outcome).toMatchObject({ kind: 'exhausted' });
     expect(claude.calls()).toBe(3);
+    // and it reports the steps it actually took, not one past the end
+    expect(r.steps).toBe(3);
+  });
+
+  it('ends the turn rather than sending an empty tool-result message', async () => {
+    // A turn that claims tool use but carries no callable blocks would
+    // otherwise push a user message with an empty content array, which the
+    // API rejects.
+    const claude = scripted([{ finish: 'tool_calls', toolCalls: [], text: 'thinking aloud' }]);
+    const r = await runAgent(user, ctx({ claude }));
+    expect(r.outcome).toEqual({ kind: 'done', text: 'thinking aloud' });
+    expect(claude.calls()).toBe(1);
   });
 });
 
