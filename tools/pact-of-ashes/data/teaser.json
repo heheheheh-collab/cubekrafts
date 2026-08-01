@@ -1,0 +1,901 @@
+{
+ "meta": {
+  "title": "The Pact of Ashes",
+  "chapters": 77,
+  "sections": 78,
+  "words": 60534,
+  "question": "What is the real cost of devotion?",
+  "invitation": "It will start when you say yes — and like all true bargains, it will require something back of you before it is finished."
+ },
+ "sections": [
+  {
+   "id": "prologue",
+   "kind": "prologue",
+   "number": null,
+   "title": "Prologue",
+   "epigraph": "They had taken her knives.",
+   "words": 1107,
+   "descent": 41
+  },
+  {
+   "id": "chapter-1",
+   "kind": "chapter",
+   "number": 1,
+   "title": "Chapter 1",
+   "epigraph": "The world looked the same, yet nothing felt familiar.",
+   "words": 843,
+   "descent": 41
+  },
+  {
+   "id": "chapter-2",
+   "kind": "chapter",
+   "number": 2,
+   "title": "Chapter 2",
+   "epigraph": "The city lived as if nothing had ever happened.",
+   "words": 629,
+   "descent": 37
+  },
+  {
+   "id": "chapter-3",
+   "kind": "chapter",
+   "number": 3,
+   "title": "Chapter 3",
+   "epigraph": "He drank like a man untouchable.",
+   "words": 676,
+   "descent": 52
+  },
+  {
+   "id": "chapter-4",
+   "kind": "chapter",
+   "number": 4,
+   "title": "Chapter 4",
+   "epigraph": "He walked the streets like a king wearing stolen crowns.",
+   "words": 843,
+   "descent": 36
+  },
+  {
+   "id": "chapter-5",
+   "kind": "chapter",
+   "number": 5,
+   "title": "Chapter 5",
+   "epigraph": "The tavern doors slammed shut behind him, muffling the roar of drunk laughter.",
+   "words": 802,
+   "descent": 30
+  },
+  {
+   "id": "chapter-6",
+   "kind": "chapter",
+   "number": 6,
+   "title": "Chapter 6",
+   "epigraph": "The manor was supposed to be a fortress.",
+   "words": 882,
+   "descent": 50
+  },
+  {
+   "id": "chapter-7",
+   "kind": "chapter",
+   "number": 7,
+   "title": "Chapter 7",
+   "epigraph": "Varos had sent half his men into the streets, swearing there were intruders.",
+   "words": 902,
+   "descent": 59
+  },
+  {
+   "id": "chapter-8",
+   "kind": "chapter",
+   "number": 8,
+   "title": "Chapter 8",
+   "epigraph": "The city lights sprawled beneath Marcus Hale's office like a carpet of dying stars.",
+   "words": 718,
+   "descent": 45
+  },
+  {
+   "id": "chapter-9",
+   "kind": "chapter",
+   "number": 9,
+   "title": "Chapter 9",
+   "epigraph": "Marcus Hale lived by ritual.",
+   "words": 509,
+   "descent": 13
+  },
+  {
+   "id": "chapter-10",
+   "kind": "chapter",
+   "number": 10,
+   "title": "Chapter 10",
+   "epigraph": "Kate sat on the rooftop's edge, legs dangling over the abyss, the city breathing beneath her.",
+   "words": 783,
+   "descent": 49
+  },
+  {
+   "id": "chapter-11",
+   "kind": "chapter",
+   "number": 11,
+   "title": "Chapter 11",
+   "epigraph": "The boardroom was Marcus Hale's throne room.",
+   "words": 775,
+   "descent": 40
+  },
+  {
+   "id": "chapter-12",
+   "kind": "chapter",
+   "number": 12,
+   "title": "Chapter 12",
+   "epigraph": "Marcus Hale hadn't slept.",
+   "words": 827,
+   "descent": 28
+  },
+  {
+   "id": "chapter-13",
+   "kind": "chapter",
+   "number": 13,
+   "title": "Chapter 13",
+   "epigraph": "The atrium was engineered to impress.",
+   "words": 2749,
+   "descent": 19
+  },
+  {
+   "id": "chapter-14",
+   "kind": "chapter",
+   "number": 14,
+   "title": "Chapter 14",
+   "epigraph": "Marcus Hale did not leave through the front doors.",
+   "words": 517,
+   "descent": 24
+  },
+  {
+   "id": "chapter-15",
+   "kind": "chapter",
+   "number": 15,
+   "title": "Chapter 15",
+   "epigraph": "Kate had learned patience in a cell.",
+   "words": 904,
+   "descent": 37
+  },
+  {
+   "id": "chapter-16",
+   "kind": "chapter",
+   "number": 16,
+   "title": "Chapter 16",
+   "epigraph": "Rain had started without anyone noticing.",
+   "words": 2125,
+   "descent": 30
+  },
+  {
+   "id": "chapter-17",
+   "kind": "chapter",
+   "number": 17,
+   "title": "Chapter 17",
+   "epigraph": "The city breathed like a wounded animal that night.",
+   "words": 851,
+   "descent": 45
+  },
+  {
+   "id": "chapter-18",
+   "kind": "chapter",
+   "number": 18,
+   "title": "Chapter 18",
+   "epigraph": "The table was glass.",
+   "words": 770,
+   "descent": 45
+  },
+  {
+   "id": "chapter-19",
+   "kind": "chapter",
+   "number": 19,
+   "title": "Chapter 19",
+   "epigraph": "The meeting dissolved like smoke.",
+   "words": 982,
+   "descent": 45
+  },
+  {
+   "id": "chapter-20",
+   "kind": "chapter",
+   "number": 20,
+   "title": "Chapter 20",
+   "epigraph": "The High Table never gave orders directly.",
+   "words": 689,
+   "descent": 56
+  },
+  {
+   "id": "chapter-21",
+   "kind": "chapter",
+   "number": 21,
+   "title": "Chapter 21",
+   "epigraph": "The High Table never gave orders directly.",
+   "words": 688,
+   "descent": 54
+  },
+  {
+   "id": "chapter-22",
+   "kind": "chapter",
+   "number": 22,
+   "title": "Chapter 22",
+   "epigraph": "The city did not sleep the night the hunters arrived.",
+   "words": 883,
+   "descent": 54
+  },
+  {
+   "id": "chapter-23",
+   "kind": "chapter",
+   "number": 23,
+   "title": "Chapter 23",
+   "epigraph": "The subway corpse still swung in the city's imagination when the hunters began to move.",
+   "words": 556,
+   "descent": 63
+  },
+  {
+   "id": "chapter-24",
+   "kind": "chapter",
+   "number": 24,
+   "title": "Chapter 24",
+   "epigraph": "The city woke to smoke again.",
+   "words": 841,
+   "descent": 88
+  },
+  {
+   "id": "chapter-25",
+   "kind": "chapter",
+   "number": 25,
+   "title": "Chapter 25",
+   "epigraph": "Tonight, the cold seeped deeper than usual.",
+   "words": 816,
+   "descent": 59
+  },
+  {
+   "id": "chapter-26",
+   "kind": "chapter",
+   "number": 26,
+   "title": "Chapter 26",
+   "epigraph": "Sable never rushed a hunt.",
+   "words": 434,
+   "descent": 42
+  },
+  {
+   "id": "chapter-27",
+   "kind": "chapter",
+   "number": 27,
+   "title": "Chapter 27",
+   "epigraph": "Sable believed every hunt had a rhythm.",
+   "words": 475,
+   "descent": 51
+  },
+  {
+   "id": "chapter-28",
+   "kind": "chapter",
+   "number": 28,
+   "title": "Chapter 28",
+   "epigraph": "Kate had always trusted shadows.",
+   "words": 520,
+   "descent": 48
+  },
+  {
+   "id": "chapter-29",
+   "kind": "chapter",
+   "number": 29,
+   "title": "Chapter 29",
+   "epigraph": "Kate didn't like running.",
+   "words": 463,
+   "descent": 9
+  },
+  {
+   "id": "chapter-30",
+   "kind": "chapter",
+   "number": 30,
+   "title": "Chapter 30",
+   "epigraph": "The chair stayed in the tunnel for three days.",
+   "words": 499,
+   "descent": 46
+  },
+  {
+   "id": "chapter-31",
+   "kind": "chapter",
+   "number": 31,
+   "title": "Chapter 31",
+   "epigraph": "Kate didn't remember walking back to the tunnels.",
+   "words": 413,
+   "descent": 43
+  },
+  {
+   "id": "chapter-32",
+   "kind": "chapter",
+   "number": 32,
+   "title": "Chapter 32",
+   "epigraph": "Sable chose the playground because nothing about it looked like a threat.",
+   "words": 2925,
+   "descent": 40
+  },
+  {
+   "id": "chapter-33",
+   "kind": "chapter",
+   "number": 33,
+   "title": "Chapter 33",
+   "epigraph": "The chamber was colder than usual.",
+   "words": 522,
+   "descent": 13
+  },
+  {
+   "id": "chapter-34",
+   "kind": "chapter",
+   "number": 34,
+   "title": "Chapter 34",
+   "epigraph": "Kate woke to restraints.",
+   "words": 567,
+   "descent": 46
+  },
+  {
+   "id": "chapter-35",
+   "kind": "chapter",
+   "number": 35,
+   "title": "Chapter 35",
+   "epigraph": "The straps no longer hurt.",
+   "words": 373,
+   "descent": 12
+  },
+  {
+   "id": "chapter-36",
+   "kind": "chapter",
+   "number": 36,
+   "title": "Chapter 36",
+   "epigraph": "The room was too quiet.",
+   "words": 578,
+   "descent": 26
+  },
+  {
+   "id": "chapter-37",
+   "kind": "chapter",
+   "number": 37,
+   "title": "Chapter 37",
+   "epigraph": "The ceiling light hummed, steady and soft.",
+   "words": 497,
+   "descent": 39
+  },
+  {
+   "id": "chapter-38",
+   "kind": "chapter",
+   "number": 38,
+   "title": "Chapter 38",
+   "epigraph": "The chamber emptied with practiced efficiency.",
+   "words": 556,
+   "descent": 23
+  },
+  {
+   "id": "chapter-39",
+   "kind": "chapter",
+   "number": 39,
+   "title": "Chapter 39",
+   "epigraph": "he hum of the ceiling light drilled into the silence, steady as a pulse.",
+   "words": 528,
+   "descent": 41
+  },
+  {
+   "id": "chapter-40",
+   "kind": "chapter",
+   "number": 40,
+   "title": "Chapter 40",
+   "epigraph": "The room exhaled when they left.",
+   "words": 479,
+   "descent": 47
+  },
+  {
+   "id": "chapter-41",
+   "kind": "chapter",
+   "number": 41,
+   "title": "Chapter 41",
+   "epigraph": "The door opened without urgency.",
+   "words": 439,
+   "descent": 29
+  },
+  {
+   "id": "chapter-42",
+   "kind": "chapter",
+   "number": 42,
+   "title": "Chapter 42",
+   "epigraph": "The straps had stopped feeling like restraints.",
+   "words": 586,
+   "descent": 48
+  },
+  {
+   "id": "chapter-43",
+   "kind": "chapter",
+   "number": 43,
+   "title": "Chapter 43",
+   "epigraph": "The chamber air was stale, thick with metal and dust.",
+   "words": 769,
+   "descent": 43
+  },
+  {
+   "id": "chapter-44",
+   "kind": "chapter",
+   "number": 44,
+   "title": "Chapter 44",
+   "epigraph": "The room had grown smaller.",
+   "words": 714,
+   "descent": 45
+  },
+  {
+   "id": "chapter-45",
+   "kind": "chapter",
+   "number": 45,
+   "title": "Chapter 45",
+   "epigraph": "The air smelled of iron.",
+   "words": 769,
+   "descent": 78
+  },
+  {
+   "id": "chapter-46",
+   "kind": "chapter",
+   "number": 46,
+   "title": "Chapter 46",
+   "epigraph": "The chamber was silent now, save for the steady drip of blood.",
+   "words": 554,
+   "descent": 53
+  },
+  {
+   "id": "chapter-47",
+   "kind": "chapter",
+   "number": 47,
+   "title": "Chapter 47",
+   "epigraph": "The report lay in the center of the glass table, pages damp with blood.",
+   "words": 449,
+   "descent": 53
+  },
+  {
+   "id": "chapter-48",
+   "kind": "chapter",
+   "number": 48,
+   "title": "Chapter 48",
+   "epigraph": "The night air struck her like water.",
+   "words": 520,
+   "descent": 48
+  },
+  {
+   "id": "chapter-49",
+   "kind": "chapter",
+   "number": 49,
+   "title": "Chapter 49",
+   "epigraph": "The city did not sleep.",
+   "words": 768,
+   "descent": 69
+  },
+  {
+   "id": "chapter-50",
+   "kind": "chapter",
+   "number": 50,
+   "title": "Chapter 50",
+   "epigraph": "The first body was found in an alley behind a gambling den.",
+   "words": 598,
+   "descent": 38
+  },
+  {
+   "id": "chapter-51",
+   "kind": "chapter",
+   "number": 51,
+   "title": "Chapter 51",
+   "epigraph": "The city pulsed beneath her, restless and unaware.",
+   "words": 617,
+   "descent": 58
+  },
+  {
+   "id": "chapter-52",
+   "kind": "chapter",
+   "number": 52,
+   "title": "Chapter 52",
+   "epigraph": "The city was louder now.",
+   "words": 847,
+   "descent": 36
+  },
+  {
+   "id": "chapter-53",
+   "kind": "chapter",
+   "number": 53,
+   "title": "Chapter 53",
+   "epigraph": "The tower's glass walls shook faintly with the noise from below.",
+   "words": 419,
+   "descent": 38
+  },
+  {
+   "id": "chapter-55",
+   "kind": "chapter",
+   "number": 55,
+   "title": "Chapter 55",
+   "epigraph": "By dawn, the story was already written.",
+   "words": 666,
+   "descent": 61
+  },
+  {
+   "id": "chapter-56",
+   "kind": "chapter",
+   "number": 56,
+   "title": "Chapter 56",
+   "epigraph": "The fires had not stopped.",
+   "words": 774,
+   "descent": 57
+  },
+  {
+   "id": "chapter-57",
+   "kind": "chapter",
+   "number": 57,
+   "title": "Chapter 57",
+   "epigraph": "She stopped without thinking.",
+   "words": 3190,
+   "descent": 32
+  },
+  {
+   "id": "chapter-58",
+   "kind": "chapter",
+   "number": 58,
+   "title": "Chapter 58",
+   "epigraph": "Her arms screamed with fatigue, her wrists throbbed with every jolt, but she didn't stop.",
+   "words": 869,
+   "descent": 23
+  },
+  {
+   "id": "chapter-59",
+   "kind": "chapter",
+   "number": 59,
+   "title": "Chapter 59",
+   "epigraph": "The world outside still burned, but here, in the hollow bones of an abandoned apartment, there was silence.",
+   "words": 744,
+   "descent": 44
+  },
+  {
+   "id": "chapter-60",
+   "kind": "chapter",
+   "number": 60,
+   "title": "Chapter 60",
+   "epigraph": "Kate woke to the sound of breathing that wasn't hers.",
+   "words": 546,
+   "descent": 0
+  },
+  {
+   "id": "chapter-61",
+   "kind": "chapter",
+   "number": 61,
+   "title": "Chapter 61",
+   "epigraph": "Morning bled into the boarded room like smoke through cracks.",
+   "words": 612,
+   "descent": 47
+  },
+  {
+   "id": "chapter-62",
+   "kind": "chapter",
+   "number": 62,
+   "title": "Chapter 62",
+   "epigraph": "Night pressed close to the room, heavy with ash and the distant echoes of gunfire.",
+   "words": 658,
+   "descent": 39
+  },
+  {
+   "id": "chapter-63",
+   "kind": "chapter",
+   "number": 63,
+   "title": "Chapter 63",
+   "epigraph": "The room was so quiet she could hear the groan of the old building itself.",
+   "words": 788,
+   "descent": 35
+  },
+  {
+   "id": "chapter-64",
+   "kind": "chapter",
+   "number": 64,
+   "title": "Chapter 64",
+   "epigraph": "The city still smoldered.",
+   "words": 619,
+   "descent": 52
+  },
+  {
+   "id": "chapter-65",
+   "kind": "chapter",
+   "number": 65,
+   "title": "Chapter 65",
+   "epigraph": "Kate lay amid splinters and dust, blood sticking to her skin where the blast had flayed it open.",
+   "words": 548,
+   "descent": 100
+  },
+  {
+   "id": "chapter-67",
+   "kind": "chapter",
+   "number": 67,
+   "title": "Chapter 67",
+   "epigraph": "The ruins still smoked.",
+   "words": 476,
+   "descent": 90
+  },
+  {
+   "id": "chapter-68",
+   "kind": "chapter",
+   "number": 68,
+   "title": "Chapter 68",
+   "epigraph": "The city smelled of smoke and wet concrete.",
+   "words": 551,
+   "descent": 80
+  },
+  {
+   "id": "chapter-69",
+   "kind": "chapter",
+   "number": 69,
+   "title": "Chapter 69",
+   "epigraph": "Rain fell steady, turning ash to mud in the gutters.",
+   "words": 476,
+   "descent": 78
+  },
+  {
+   "id": "chapter-70",
+   "kind": "chapter",
+   "number": 70,
+   "title": "Chapter 70",
+   "epigraph": "The city was quieter now.",
+   "words": 442,
+   "descent": 58
+  },
+  {
+   "id": "chapter-71",
+   "kind": "chapter",
+   "number": 71,
+   "title": "Chapter 71",
+   "epigraph": "The city no longer roared.",
+   "words": 574,
+   "descent": 39
+  },
+  {
+   "id": "chapter-72",
+   "kind": "chapter",
+   "number": 72,
+   "title": "Chapter 72",
+   "epigraph": "Reports lay scattered across the table.",
+   "words": 520,
+   "descent": 34
+  },
+  {
+   "id": "chapter-73",
+   "kind": "chapter",
+   "number": 73,
+   "title": "Chapter 73",
+   "epigraph": "The stairwell stank of mildew and piss.",
+   "words": 531,
+   "descent": 79
+  },
+  {
+   "id": "chapter-74",
+   "kind": "chapter",
+   "number": 74,
+   "title": "Chapter 74",
+   "epigraph": "Tonight, that reflection looked brittle.",
+   "words": 1089,
+   "descent": 35
+  },
+  {
+   "id": "chapter-75",
+   "kind": "chapter",
+   "number": 75,
+   "title": "Chapter 75",
+   "epigraph": "The city no longer screamed.",
+   "words": 907,
+   "descent": 73
+  },
+  {
+   "id": "chapter-76",
+   "kind": "chapter",
+   "number": 76,
+   "title": "Chapter 76",
+   "epigraph": "The Judge lived in silence, but not the kind Kate carried.",
+   "words": 613,
+   "descent": 49
+  },
+  {
+   "id": "chapter-77",
+   "kind": "chapter",
+   "number": 77,
+   "title": "Chapter 77",
+   "epigraph": "The silver-haired woman had always known how to make silence feel like her ally.",
+   "words": 956,
+   "descent": 24
+  },
+  {
+   "id": "chapter-79",
+   "kind": "chapter",
+   "number": 79,
+   "title": "Chapter 79",
+   "epigraph": "The gray-suited man lived in ledgers.",
+   "words": 679,
+   "descent": 68
+  },
+  {
+   "id": "epilogue",
+   "kind": "epilogue",
+   "number": null,
+   "title": "Epilogue",
+   "epigraph": "When the gray-suited man fell, there was no fight left in him.",
+   "words": 527,
+   "descent": 79
+  }
+ ],
+ "whispers": [
+  "Don't forget. Don't forgive. Kill.",
+  "Why do you look so lost, sister?",
+  "Crying is for the living.",
+  "Ink doesn't decide. Ash does.",
+  "Let them think this is surrender.",
+  "Let her clutch the leash tighter.",
+  "I have never been more proud."
+ ],
+ "quotes": [
+  {
+   "text": "The Devil did not roar. The Devil wore her brother's voice.",
+   "section": "prologue"
+  },
+  {
+   "text": "Power was not respect. Power was fear.",
+   "section": "chapter-4"
+  },
+  {
+   "text": "Iron gates heavy as tomb doors.",
+   "section": "chapter-6"
+  },
+  {
+   "text": "Then the torch nearest the door sputtered out.",
+   "section": "chapter-7"
+  },
+  {
+   "text": "It hurt more than the blade had.",
+   "section": "chapter-13"
+  },
+  {
+   "text": "How do you kill someone who is already dead?",
+   "section": "chapter-20"
+  },
+  {
+   "text": "Men respect fire, because it erases everything it touches.",
+   "section": "chapter-22"
+  },
+  {
+   "text": "He doesn't know what silence is.",
+   "section": "chapter-34"
+  },
+  {
+   "text": "The judge's pearls clicked once more.",
+   "section": "chapter-47"
+  },
+  {
+   "text": "He closed the ledger with a snap.",
+   "section": "chapter-64"
+  }
+ ],
+ "characters": [
+  {
+   "id": "kate",
+   "name": "Kate",
+   "role": "The one who came back",
+   "line": "They had taken her knives. They had taken her freedom.",
+   "brief": "An assassin who died badly in a dungeon and did not stay dead. What walks the city now wears her face and moves like her, and every so often it is still her.",
+   "redacted": "what is left of her by the last page"
+  },
+  {
+   "id": "kael",
+   "name": "Kael",
+   "role": "The brother",
+   "line": "You couldn't save me.",
+   "brief": "They killed him first, slowly, and made her watch. Everything that follows is the shape of that hour.",
+   "redacted": "whether his voice is ever really his"
+  },
+  {
+   "id": "devil",
+   "name": "The Devil",
+   "role": "The one that answered",
+   "line": "The Devil wore her brother's face.",
+   "brief": "It does not roar. It does not bargain loudly. It speaks in the voice you would forgive anything, and it is very patient.",
+   "redacted": "the price, and when it is collected"
+  },
+  {
+   "id": "varos",
+   "name": "Varos",
+   "role": "A king in stolen crowns",
+   "line": "He walked the streets like a king wearing stolen crowns.",
+   "brief": "Loud, greedy, feared. He mistook the silence around him for obedience. It was not obedience.",
+   "redacted": "how long the manor held"
+  },
+  {
+   "id": "hale",
+   "name": "Marcus Hale",
+   "role": "The tower",
+   "line": "Marcus Hale lived by ritual.",
+   "brief": "Hale Industries glitters above the filth like it was never made of it. Black coffee, two sugars, every morning at five-thirty, without an alarm.",
+   "redacted": "which ritual he breaks first"
+  },
+  {
+   "id": "jackson",
+   "name": "Jackson",
+   "role": "Head of security",
+   "line": "Knife work. Clean. Deliberate.",
+   "brief": "Paid to see what is coming. Square shoulders, tailored suit, earpiece coiled tight. He is very good at his job.",
+   "redacted": "whether good was enough"
+  },
+  {
+   "id": "kraye",
+   "name": "Kraye",
+   "role": "Hunter",
+   "line": "He didn't drink. Didn't laugh.",
+   "brief": "A jaw like cracked stone and a right hand always gloved, burned years ago in a house fire nobody called an accident.",
+   "redacted": "what he finds"
+  },
+  {
+   "id": "sable",
+   "name": "Sable",
+   "role": "Hunter",
+   "line": "Beautiful the way broken glass is beautiful.",
+   "brief": "Once intelligence. She knows how to vanish and how to pry open the things people bury. Nails painted black.",
+   "redacted": "which side she is standing on at the end"
+  },
+  {
+   "id": "icarus",
+   "name": "Icarus",
+   "role": "Hunter",
+   "line": "Not because he flew too high, but because he didn't care if he burned.",
+   "brief": "Barely past twenty, with older eyes than anyone in the room. Raised on the Council's money and their violence.",
+   "redacted": "how close he gets"
+  },
+  {
+   "id": "judge",
+   "name": "The Judge",
+   "role": "The Council",
+   "line": "She rechecked the locks twice.",
+   "brief": "Hers is the silence of discipline and order. She polishes her pearls. She stacks her papers square. She mistakes routine for law.",
+   "redacted": "the night the routine fails"
+  },
+  {
+   "id": "silver",
+   "name": "The Silver-Haired Woman",
+   "role": "The Council",
+   "line": "Her voice was quiet, which made it more dangerous.",
+   "brief": "She leans on the glass and leaves smudges she does not bother to wipe. Sharp, merciless calm. She reads her own reflection as truth.",
+   "redacted": "what the mirrors were hiding"
+  },
+  {
+   "id": "scribe",
+   "name": "The Gray-Suited Man",
+   "role": "The Council",
+   "line": "The gray-suited man lived in ledgers.",
+   "brief": "Fountain pen uncapped, page turned, date written in a hand so careful it might as well be carved. The world is chaos; the ledger makes it clean.",
+   "redacted": "whose scripture he was actually keeping"
+  }
+ ],
+ "ledger": [
+  {
+   "name": "Varos",
+   "epithet": "the stolen crown"
+  },
+  {
+   "name": "Marcus Hale",
+   "epithet": "the tower"
+  },
+  {
+   "name": "Kraye",
+   "epithet": "the gloved hand"
+  },
+  {
+   "name": "Sable",
+   "epithet": "the broken glass"
+  },
+  {
+   "name": "Icarus",
+   "epithet": "the boy who burned"
+  },
+  {
+   "name": "The Banker",
+   "epithet": "the trembling hand"
+  },
+  {
+   "name": "The Judge",
+   "epithet": "the counted pearls"
+  },
+  {
+   "name": "The Silver-Haired",
+   "epithet": "the smudged glass"
+  },
+  {
+   "name": "The Gray Suit",
+   "epithet": "the closing ledger"
+  }
+ ]
+}
