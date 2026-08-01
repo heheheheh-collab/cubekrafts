@@ -1,6 +1,7 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { execScript, type Sql } from './sql.ts';
 
 /**
@@ -34,7 +35,9 @@ function checksum(body: string): string {
 }
 
 export function defaultMigrationsDir(): string {
-  return new URL('./migrations/', import.meta.url).pathname;
+  // fileURLToPath rather than .pathname: the latter leaves percent-encoding in
+  // place, so a checkout under a path with a space in it silently fails to read.
+  return fileURLToPath(new URL('./migrations/', import.meta.url));
 }
 
 export async function migrate(

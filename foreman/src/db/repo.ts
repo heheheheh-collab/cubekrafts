@@ -43,8 +43,11 @@ export async function claimNextTask(
            AND NOT EXISTS (
                  SELECT 1
                    FROM unnest(t.blocked_by) AS dep(id)
-                   JOIN task b ON b.id = dep.id
-                  WHERE b.status <> 'done'
+                   LEFT JOIN task b ON b.id = dep.id
+                  -- A missing dependency counts as unsatisfied. An inner join
+                  -- would drop the row and silently unblock the task, which is
+                  -- the wrong way to fail when a referenced task has vanished.
+                  WHERE b.id IS NULL OR b.status <> 'done'
                )
          ORDER BY t.priority, t.created_at
          FOR UPDATE SKIP LOCKED
@@ -119,6 +122,32 @@ export async function addSpend(
     [input.usd, input.inputTokens, input.outputTokens],
   );
   return Number(rows[0]?.usd ?? 0);
+}
+
+export async function getSetting<T>(sql: Sql, key: string, fallback: T): Promise<T> {
+  const { rows } = await sql.query<{ value: T }>('SELECT value FROM setting WHERE key = $1', [key]);
+  return rows[0]?.value ?? fallback;
+}
+
+export async function setSetting(sql: Sql, key: string, value: unknown): Promise<void> {
+  await sql.query(
+    `INSERT INTO setting (key, value) VALUES ($1, $2)
+     ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`,
+    [key, JSON.stringify(value)],
+  );
+}
+
+export async function setTaskStatus(
+  sql: Sql,
+  taskId: string,
+  status: string,
+  opts: { closed?: boolean } = {},
+): Promise<void> {
+  await sql.query(
+    `UPDATE task SET status = $2, closed_at = CASE WHEN $3 THEN now() ELSE closed_at END
+      WHERE id = $1`,
+    [taskId, status, opts.closed ?? false],
+  );
 }
 
 export async function spendToday(sql: Sql): Promise<number> {
