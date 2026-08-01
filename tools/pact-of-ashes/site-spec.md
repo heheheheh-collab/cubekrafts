@@ -67,14 +67,32 @@ Uppercase appears in exactly one place: the small tracked mono label style.
 
 ## Voice
 
-UI copy matches the cover, not a book review: short declarative sentences, present
-tense, heat and stone, no preciousness or wistfulness. The first pass was restrained
-and literary, which undersold the jacket.
+**The site's own voice nearly disappears.** Label things plainly and let the book's
+real sentences carry the persuasion.
 
-The register, by example — `Seventy-seven beginnings. No endings.` ·
-`Twelve files. Every ending redacted.` · `NOT ONE OF THEM FREE` ·
-`The Council keeps a list. You don't get to see who's crossed out.` ·
-`IT DOESN'T OPEN.`
+Two earlier passes both failed. The first was restrained but literary in a generic
+way. The second over-corrected into poster copy and leant on a single rhetorical
+move — state a number, then withhold something (*"Seventy-eight openings. Every door
+locked."* / *"Twelve files. Every ending redacted."* / *"Ten lines got out. The rest
+is still burning."*). Eight variations on one formula reads as a copywriter
+performing, and several strings taunted the visitor outright (`SEE WHAT YOU CAN'T
+HAVE`, `IT DOESN'T OPEN`, `SIGN IN ASH`), which is adversarial rather than
+seductive.
+
+The deeper fault: that copy competed with the author's prose and lost. The opening
+lines in `teaser.json` are the best writing available anywhere on the site —
+*"The gray-suited man lived in ledgers."* — and our own clever lines were sitting in
+front of them.
+
+So: no taunting, no withholding jokes, no parallel constructions, no scarcity
+language, no line that draws attention to its own cleverness. Plain, quiet,
+confident — the same register as the typography. **If a string could appear on a
+poster, rewrite it.** Where a page needs a line with weight, use the author's, not
+ours: `The gray-suited man lived in ledgers.` heads the Ledger; the preface
+invitation carries the landing page and the pact dialog.
+
+Silence beats commentary. The redacted bars simply do not open — no caption
+explaining that they don't.
 
 The full string-by-string deck lives in `lovable-prompt.md`.
 
@@ -108,11 +126,16 @@ snaps, flickers or stutters.
 ### 1. The Pact — `/`
 Cinematic opening built around the cover art itself, with the page's molten
 atmosphere continuing out of its edges so cover and site read as one surface.
-Author name in gold above, title matching the cover's weight. The hook is the
-book's own invitation; beneath it, the author's driving question. Three figures count up on scroll — 77 chapters, 60,534 words, one
-pact. A single primary CTA, **"Make the Pact"**; there is no "read now" anywhere on
-the site. Below, curated fragments drift up and fade like smoke, never more than two
-on screen, so they read as overheard rather than excerpted.
+The cover already carries a loud title treatment, so the page's own title sits
+quietly beside it in Spectral, with the author's name in a small gold mono label
+above — never a restatement of the cover's lettering at the cover's volume.
+
+The hook is the book's own invitation, given room as the emotional centre of the
+page; beneath it, the author's driving question, attributed and left without
+commentary. Two figures only — 77 chapters, 60,534 words. A single primary CTA,
+**"Make the Pact"**; there is no "read now" anywhere on the site. Below, curated
+fragments drift up and fade like smoke, never more than two on screen, so they read
+as overheard rather than excerpted.
 
 ### 2. First Lines — `/first-lines`
 The centrepiece, and the strongest argument the site can make. All 78 opening
@@ -120,7 +143,7 @@ sentences in order, each alone in the dark with its chapter number beside it. A 
 ignites as it enters the viewport, then dims to smoke as it leaves; only the two or
 three nearest centre are fully lit, so the page reads like embers in a dark room.
 Hovering reveals that section's word count — the size of what's being withheld.
-Ends on *"Seventy-seven beginnings. No endings."*
+Closes plainly: *"The rest of each chapter is in the book."*
 
 Every line is a hook and none of them give anything away.
 
@@ -128,15 +151,14 @@ Every line is a hook and none of them give anything away.
 The Council's names on ruled parchment — aged paper, faint blue rules, red margin
 line, ink bled slightly into the grain. Hovering an entry darkens the ink and starts
 drawing a strikethrough across the name, which **stops halfway and retreats**. It is
-never completed. Footer, in the same hand: *"Some names are underlined. Some are
-crossed out. You do not get to know which."*
+never completed. Footer: *"Their fates are in the book."*
 
 ### 4. Dossiers — `/dossiers`
 Twelve case files — Kate, Kael, the Devil, Varos, Marcus Hale, Jackson, the hunters
 (Kraye, Sable, Icarus) and the Council (the Judge, the silver-haired woman, the
 gray-suited man). Each carries a name, role, one real quoted line, a brief, and an
-oxblood **REDACTED** bar naming what it withholds. Hovering doesn't reveal it; the
-bar flickers, strains and holds. Unrevealable by construction.
+oxblood **REDACTED** bar naming what it withholds. It simply does not open, with no
+caption explaining that it doesn't. Unrevealable by construction.
 
 ### 5. The Descent — `/descent`
 The `descent` index across all 78 sections as a single ember ridgeline against black —
@@ -149,11 +171,13 @@ shape of a descent, with the words removed."*
 The pact is the only thing the site asks for and the only door out of it.
 
 **"Make the Pact"** takes a name and an email, stored in the project database (email
-unique; re-signing updates rather than duplicates). On confirm, an ink-bleed sweep
-resolves into a wax seal with the signer's name burned into it, and the payoff appears:
+unique; re-signing updates rather than duplicates). The dialog carries the author's
+own line — *"It will start when you say yes."* On confirm, an ink-bleed sweep
+resolves into a wax seal with the signer's name burned into it, and the payoff
+appears, stated plainly rather than sold:
 
-> "The pact is signed. The rest is not free."
-> **Take it from here →** *(Amazon listing)*
+> Signed.
+> **FIND IT ON AMAZON**
 
 The store URL lives in one constant, `src/config/book.ts` → `AMAZON_URL`
 (<https://amzn.in/d/0eLYvHUv>), so it swaps in a single place. If ever empty it

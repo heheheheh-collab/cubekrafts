@@ -61,70 +61,72 @@ Uppercase is permitted in exactly one place: the small tracked IBM Plex Mono lab
 
 ## JOB 3 — REPLACE ALL THE COPY
 
-The current writing is restrained and literary. The cover is not restrained. Rewrite every string on the site in a harder voice: short declarative sentences, present tense, heat and stone, no preciousness, no wistfulness. It should sound like the poster, not like a review of the book.
+The copy currently on the site is clever, and that is the problem. It leans on one rhetorical move over and over — state a number, then withhold something ("Seventy-eight openings. Every door locked." / "Twelve files. Every ending redacted.") — and several strings taunt the visitor outright. It reads as a copywriter performing.
 
-Use the deck below verbatim. Anything not listed here that you have written yourself, rewrite to match this register.
+Worse, it competes with the author's own prose and loses. The opening lines in `teaser.json` are the best writing available anywhere on this site. Nothing written by us should sit in front of them.
 
-**On casing in this deck:** strings written in caps below are the small tracked IBM Plex Mono label style — nav items, stat figures, metadata, buttons. Everything that is a real heading or a sentence is set mixed case in Spectral, exactly as written. Do not upper-case the headings.
+**The new rule: the site's own voice nearly disappears.** Label things plainly and let the book's real sentences carry every ounce of persuasion. No taunting, no withholding jokes, no parallel constructions, no scarcity language, no lines that draw attention to their own cleverness. Plain, quiet, confident — the same register as the typography. If a string could appear on a poster, rewrite it.
+
+Use this deck verbatim.
+
+**On casing:** strings in caps are the small tracked IBM Plex Mono label style — nav, metadata, buttons. Everything else is mixed case in Spectral, exactly as written.
 
 **Site-wide**
-- Nav: `FIRST LINES` · `LEDGER` · `DOSSIERS` · `DESCENT` · `MAKE THE PACT`
-- Footer line 1 (mono label): `THE PACT OF ASHES — TARUN MITTAL`
-- Footer line 2: `Seventy-seven chapters. None of them here.`
-- Header seal once signed: `SIGNED — {name}`
+- Nav: `First Lines` · `The Ledger` · `The Files` · `The Descent`, then the button `MAKE THE PACT`
+- Footer: `The Pact of Ashes — Tarun Mittal`
+- Header once signed: `SIGNED — {name}`
 
 **Landing `/`**
-- Eyebrow (mono label): `TARUN MITTAL`
+- Eyebrow (mono): `TARUN MITTAL`
 - Title (Spectral, large, mixed case): `The Pact of Ashes`
-- Deck (directly under the title, Spectral): `She died in a dungeon. Something in the dark offered her a way back. It wore her brother's face.`
-- Invitation block — keep the author's own words, they are the best line on the page: `It will start when you say yes — and like all true bargains, it will require something back of you before it is finished.`
-- Stat band, three figures: `SEVENTY-SEVEN CHAPTERS` · `SIXTY THOUSAND WORDS` · `NOT ONE OF THEM FREE`
-- Primary CTA (mono label): `MAKE THE PACT`
-- Secondary link (mono label): `SEE WHAT YOU CAN'T HAVE` → `/first-lines`
-- Question section heading (Spectral): `The book asks one question`
-- Question, in large display type: `What is the real cost of devotion?`
-- Under it: `It spends seventy-seven chapters refusing to answer kindly.`
-- Fragments section heading (Spectral): `What escaped`
-- Fragments subhead: `Ten lines got out. The rest is still burning.`
+- Deck: `A novel in seventy-seven chapters.`
+- Then the author's own invitation, given room and set as the emotional centre of the page: `It will start when you say yes — and like all true bargains, it will require something back of you before it is finished.`
+- Stat band, two figures only (the third was a sales pitch — drop it): `77 CHAPTERS` · `60,534 WORDS`
+- Primary CTA (mono): `MAKE THE PACT`
+- Secondary link (mono): `READ THE FIRST LINES` → `/first-lines`
+- Question section: set `What is the real cost of devotion?` large, attributed plainly beneath as `— from the preface`. No commentary on it. The question is strong enough alone; anything added weakens it.
+- Fragments section heading (Spectral): `Fragments`
+- Fragments subhead: `Ten lines from the book.`
 
-**The four module cards on the landing page**
-- `First Lines` — `Seventy-eight openings. Every door locked.`
-- `The Ledger` — `The Council keeps a list. You don't get to see who's crossed out.`
-- `Dossiers` — `Twelve files. Every ending redacted.`
-- `The Descent` — `The shape of her fall, with the words removed.`
+**The four module cards on the landing page** — plain descriptions, no promises:
+- `First Lines` — `The opening sentence of every chapter.`
+- `The Ledger` — `The names the Council kept.`
+- `The Files` — `Twelve people, as the book introduces them.`
+- `The Descent` — `The book's tonal arc, chapter by chapter.`
 
 **`/first-lines`**
 - Title (Spectral): `First Lines`
-- Deck: `Every chapter's opening sentence. Nothing after it.`
-- Hover hint (shown once): `Hover a line to see the size of what you're not getting.`
-- Closing line at the end of the procession: `Seventy-seven beginnings. No endings.`
-- Closing CTA (mono label): `THE REST IS ON AMAZON`
+- Deck: `The opening sentence of every chapter, in reading order.`
+- Hover hint (shown once, mono): `HOVER A LINE FOR ITS LENGTH`
+- Closing line: `The rest of each chapter is in the book.`
+- Closing CTA (mono): `FIND IT ON AMAZON`
 
 **`/ledger`**
 - Title (Spectral): `The Ledger`
-- Deck: `The gray-suited man believed the world could be kept in a book. Every name. Every fate. Underlined, and finished.`
-- Footer, in the same hand: `Some names are underlined. Some are crossed out. You do not get to know which.`
+- Deck — use the author's real line, it is better than anything we would write: `The gray-suited man lived in ledgers.`
+- Under it, plain: `The names he kept.`
+- Footer: `Their fates are in the book.`
 
 **`/dossiers`**
 - Title (Spectral): `The Files`
-- Deck: `Twelve people. What happens to them is not on this page.`
+- Deck: `Twelve people, as the book introduces them.`
 - Redacted bar label: `REDACTED — {redacted}`
-- Text shown when someone tries to reveal a bar: `IT DOESN'T OPEN.`
+- Nothing appears when someone tries to reveal a bar. The bar simply does not open. Do not add a message; a silent refusal is stronger than a caption about the refusal.
 
 **`/descent`**
 - Title (Spectral): `The Descent`
-- Deck: `Seventy-eight sections, measured for how dark they run.`
-- Caption under the graph: `The shape of a descent, with the words removed.`
+- Deck: `Every section scored for how dark it runs, in reading order.`
+- Caption under the graph: `The shape of the book, without its words.`
 
 **The pact dialog**
 - Title (Spectral): `Make the Pact`
-- Body: `Sign it. Like all true bargains, it will require something back of you.`
-- Field labels: `THE NAME YOU SIGN WITH` and `WHERE TO REACH YOU`
-- Submit button (mono label): `SIGN IN ASH`
-- After signing, on the seal: `The pact is signed. The rest is not free.`
-- Payoff button: `TAKE IT FROM HERE →` linking to `AMAZON_URL`
+- Body — the author's own words again: `It will start when you say yes.`
+- Field labels (mono): `NAME` and `EMAIL`
+- Submit button (mono): `SIGN`
+- After signing, on the seal (Spectral): `Signed.`
+- Payoff button (mono, gold): `FIND IT ON AMAZON` → `AMAZON_URL`
 
-Do not invent fiction anywhere. The quoted fragments, opening lines and character copy all come from `teaser.json` and nothing else — the deck above is UI copy, which is yours to set, but the book's own words are not to be rewritten or added to.
+Do not invent fiction anywhere. Quoted fragments, opening lines and character copy come from `teaser.json` verbatim — the deck above is UI copy, which is ours to set, but the book's words are never rewritten, extended, or added to.
 
 ## JOB 4 — MAKE IT FLOW, NOT GLITCH
 
