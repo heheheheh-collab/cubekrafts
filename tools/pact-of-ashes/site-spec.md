@@ -15,26 +15,65 @@ never sent.
 No invented prose anywhere. UI copy is written freely; fiction comes only from
 `teaser.json`.
 
+## Book
+
+**The Pact of Ashes** by **Tarun Mittal**. 77 chapters, 60,534 words.
+Store listing: <https://amzn.in/d/0eLYvHUv> — held in one constant,
+`src/config/book.ts` → `AMAZON_URL`.
+
 ## Design language
 
-Ash, ember, candlelight, dried blood. A burnt page held up to a candle.
+**The cover is the design system.** See `cover.jpg`. It is a movie poster, not a
+literary jacket: molten, heavy, saturated. A colossal cracked stone hand, palm up,
+glowing orange through its fissures; a woman burning in the palm, dissolving upward
+into embers; charred ground flecked with live coals; grey smoke plumes; dark ivy
+framing the corners. Everything on the site should feel lit from inside by
+something molten.
+
+An earlier iteration used muted ash-grey and a fine Cormorant Garamond serif. That
+was elegant and wrong — it read as a different book. Hotter and heavier is correct.
 
 - Semantic HSL design tokens only — no hardcoded colours in components.
-- Base: near-black charcoal, warm smoke greys, bone/parchment foreground.
-- Two accents with fixed meaning: **ember** (orange-gold) = interaction and life;
-  **oxblood** (deep crimson) = death, the Devil, irreversible things.
-- Type: Cormorant Garamond display serif for titles; Inter, tracked wide and
-  uppercase, for UI labels.
-- Texture always: film grain + vignette. Never a flat background.
-- Motion: slow and weighted, never bouncy. `prefers-reduced-motion` disables
-  particles and long transitions without ever hiding content.
+- `--void` charred near-black · `--magma` molten orange-red, the primary accent,
+  and it should genuinely glow · `--blood` the deep crimson of the hand ·
+  `--gold` the author-name gold, reserved for the highest-value elements only
+  (the Amazon CTA, the pact seal) · `--bone` dirty off-white body text ·
+  `--smoke` plume grey for muted text and rules.
+- Type: heavy condensed uppercase display (Oswald 600/700, Anton or Archivo Black)
+  with tight leading and wide tracking on small labels. Headings should feel
+  stamped, not calligraphed. Clean readable face for body copy.
+- Texture: **glowing cracks through dark stone** is the structural motif. Section
+  dividers are lava fissures, not hairline rules; panel borders look like cracks in
+  charred rock lit faintly from within. Grain and deep vignette throughout, drifting
+  smoke, rising ember flecks. Never a flat background.
+
+## Motion
+
+It should feel like smoke and lava — continuous, heavy, liquid. Nothing jumps,
+snaps, flickers or stutters.
+
+- **No flicker effects.** Opacity jitter reads as broken, not atmospheric. Glow
+  breathes on a long slow sine.
+- Animate `transform` and `opacity` only; `will-change` on animated layers. Never
+  animate layout properties or filters on scroll.
+- Durations 600–1200ms on a smooth ease-out. Nothing linear, bouncy, or under 300ms.
+- Scroll animation is **continuous, not triggered** — driven by scroll progress and
+  distance from viewport centre, so elements ease through rather than snapping on at
+  a threshold.
+- One shared `requestAnimationFrame` loop with throttled scroll reads. Competing
+  loops and unthrottled scroll handlers are the usual cause of stutter. Cap particle
+  count; pause when the tab is hidden.
+- No layout shift: reserve space for the cover and anything else that loads in.
+- `prefers-reduced-motion` disables particles and scroll animation without ever
+  hiding content.
 
 ## Pages
 
 ### 1. The Pact — `/`
-Cinematic opening: title settling out of smoke over a drifting ash field, ember glow
-breathing behind it. The hook is the book's own invitation; beneath it, the author's
-driving question. Three figures count up on scroll — 77 chapters, 60,534 words, one
+Cinematic opening built around the cover art itself, with the page's molten
+atmosphere continuing out of its edges so cover and site read as one surface.
+Author name in gold above, title matching the cover's weight. The hook is the
+book's own invitation; beneath it, the author's driving question. Three figures count up on scroll — 77 chapters, 60,534 words, one
 pact. A single primary CTA, **"Make the Pact"**; there is no "read now" anywhere on
 the site. Below, curated fragments drift up and fade like smoke, never more than two
 on screen, so they read as overheard rather than excerpted.
@@ -80,10 +119,11 @@ resolves into a wax seal with the signer's name burned into it, and the payoff a
 > "The pact is signed. The rest is not free."
 > **Take it from here →** *(Amazon listing)*
 
-The store URL lives in one constant, `src/config/book.ts` → `AMAZON_URL`, so it swaps
-in a single place. While empty it renders as a quiet disabled "Listing coming" state —
-never a dead href. Signed readers are remembered in localStorage; their seal sits in
-the header and carries the CTA site-wide.
+The store URL lives in one constant, `src/config/book.ts` → `AMAZON_URL`
+(<https://amzn.in/d/0eLYvHUv>), so it swaps in a single place. If ever empty it
+renders as a quiet disabled "Listing coming" state — never a dead href. Signed
+readers are remembered in localStorage; their seal sits in the header and carries
+the CTA site-wide.
 
 ## Non-negotiables
 
