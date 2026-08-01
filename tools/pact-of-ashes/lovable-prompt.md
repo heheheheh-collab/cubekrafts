@@ -2,7 +2,7 @@ Paste the block below into the Lovable chat, and attach `cover.jpg` from this di
 
 ---
 
-The real book cover is attached. Retheme the entire site to match it, fix the motion, and wire up the store link. Four jobs.
+The real book cover is attached. Retheme the entire site to match it, rewrite all the copy, fix the motion, and wire up the store link. Five jobs.
 
 ## JOB 1 — HARD FACTS TO SET NOW
 
@@ -46,7 +46,72 @@ Kill the muted ash-grey palette. Everything should feel lit from inside by somet
 
 **Hero** — use the cover image itself. Show it properly (it's a beautiful piece of art), with the page's molten atmosphere continuing out of its edges so the cover and the site read as one surface. Author name in gold above, title treatment matching the cover's weight.
 
-## JOB 3 — MAKE IT FLOW, NOT GLITCH
+## JOB 3 — REPLACE ALL THE COPY
+
+The current writing is restrained and literary. The cover is not restrained. Rewrite every string on the site in a harder voice: short declarative sentences, present tense, heat and stone, no preciousness, no wistfulness. It should sound like the poster, not like a review of the book.
+
+Use the deck below verbatim. Anything not listed here that you have written yourself, rewrite to match this register.
+
+**Site-wide**
+- Nav: `FIRST LINES` · `LEDGER` · `DOSSIERS` · `DESCENT` · `MAKE THE PACT`
+- Footer line 1: `THE PACT OF ASHES — TARUN MITTAL`
+- Footer line 2: `Seventy-seven chapters. None of them here.`
+- Header seal once signed: `SIGNED — {name}`
+
+**Landing `/`**
+- Eyebrow: `TARUN MITTAL`
+- Title: `THE PACT OF ASHES`
+- Deck (directly under the title): `She died in a dungeon. Something in the dark offered her a way back. It wore her brother's face.`
+- Invitation block — keep the author's own words, they are the best line on the page: `It will start when you say yes — and like all true bargains, it will require something back of you before it is finished.`
+- Stat band, three figures: `SEVENTY-SEVEN CHAPTERS` · `SIXTY THOUSAND WORDS` · `NOT ONE OF THEM FREE`
+- Primary CTA: `MAKE THE PACT`
+- Secondary link: `SEE WHAT YOU CAN'T HAVE` → `/first-lines`
+- Question section heading: `THE BOOK ASKS ONE QUESTION`
+- Question, in large display type: `What is the real cost of devotion?`
+- Under it: `It spends seventy-seven chapters refusing to answer kindly.`
+- Fragments section heading: `WHAT ESCAPED`
+- Fragments subhead: `Ten lines got out. The rest is still burning.`
+
+**The four module cards on the landing page**
+- `FIRST LINES` — `Seventy-eight openings. Every door locked.`
+- `THE LEDGER` — `The Council keeps a list. You don't get to see who's crossed out.`
+- `DOSSIERS` — `Twelve files. Every ending redacted.`
+- `THE DESCENT` — `The shape of her fall, with the words removed.`
+
+**`/first-lines`**
+- Title: `FIRST LINES`
+- Deck: `Every chapter's opening sentence. Nothing after it.`
+- Hover hint (shown once): `Hover a line to see the size of what you're not getting.`
+- Closing line at the end of the procession: `Seventy-seven beginnings. No endings.`
+- Closing CTA: `THE REST IS ON AMAZON`
+
+**`/ledger`**
+- Title: `THE LEDGER`
+- Deck: `The gray-suited man believed the world could be kept in a book. Every name. Every fate. Underlined, and finished.`
+- Footer, in the same hand: `Some names are underlined. Some are crossed out. You do not get to know which.`
+
+**`/dossiers`**
+- Title: `THE FILES`
+- Deck: `Twelve people. What happens to them is not on this page.`
+- Redacted bar label: `REDACTED — {redacted}`
+- Text shown when someone tries to reveal a bar: `IT DOESN'T OPEN.`
+
+**`/descent`**
+- Title: `THE DESCENT`
+- Deck: `Seventy-eight sections, measured for how dark they run.`
+- Caption under the graph: `The shape of a descent, with the words removed.`
+
+**The pact dialog**
+- Title: `MAKE THE PACT`
+- Body: `Sign it. Like all true bargains, it will require something back of you.`
+- Field labels: `THE NAME YOU SIGN WITH` and `WHERE TO REACH YOU`
+- Submit button: `SIGN IN ASH`
+- After signing, on the seal: `The pact is signed. The rest is not free.`
+- Payoff button: `TAKE IT FROM HERE →` linking to `AMAZON_URL`
+
+Do not invent fiction anywhere. The quoted fragments, opening lines and character copy all come from `teaser.json` and nothing else — the deck above is UI copy, which is yours to set, but the book's own words are not to be rewritten or added to.
+
+## JOB 4 — MAKE IT FLOW, NOT GLITCH
 
 The site currently feels glitchy and stuttery. It must feel like smoke and lava: continuous, heavy, liquid. Nothing should ever jump, snap, flicker or stutter.
 
@@ -59,7 +124,7 @@ The site currently feels glitchy and stuttery. It must feel like smoke and lava:
 - **Page transitions fade** through the molten dark rather than cutting.
 - Keep full `prefers-reduced-motion` support: no particles, no scroll animation, instant states, content always readable.
 
-## JOB 4 — AUDIT AND FIX
+## JOB 5 — AUDIT AND FIX
 
 Verify these rather than assuming, and repair anything that fails:
 1. `public/novel.json` must not exist — delete it if it's still there.

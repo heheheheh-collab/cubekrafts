@@ -47,6 +47,24 @@ was elegant and wrong — it read as a different book. Hotter and heavier is cor
   charred rock lit faintly from within. Grain and deep vignette throughout, drifting
   smoke, rising ember flecks. Never a flat background.
 
+## Voice
+
+UI copy matches the cover, not a book review: short declarative sentences, present
+tense, heat and stone, no preciousness or wistfulness. The first pass was restrained
+and literary, which undersold the jacket.
+
+The register, by example — `Seventy-seven beginnings. No endings.` ·
+`Twelve files. Every ending redacted.` · `NOT ONE OF THEM FREE` ·
+`The Council keeps a list. You don't get to see who's crossed out.` ·
+`IT DOESN'T OPEN.`
+
+The full string-by-string deck lives in `lovable-prompt.md`.
+
+One hard rule: UI copy is ours to write, the book's words are not. Every quoted
+fragment, opening line and character line comes from `teaser.json` verbatim. Never
+add to it, never rewrite it, never invent a line in the author's voice — including
+to fill an empty-looking section.
+
 ## Motion
 
 It should feel like smoke and lava — continuous, heavy, liquid. Nothing jumps,
