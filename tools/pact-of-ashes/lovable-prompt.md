@@ -12,9 +12,11 @@ The real book cover is attached. Retheme the entire site to match it, rewrite al
 
 ## JOB 2 — MATCH THE COVER (this is the main job)
 
-The current site is elegant, muted, ash-grey with a fine Cormorant serif. **The cover is not that.** The cover is a movie poster: molten, heavy, saturated, brutal. The site currently looks like a different book. Fix that.
+The current site is muted ash-grey and looks like a different book. The cover is molten, heavy and saturated, and the site's **colour, texture and atmosphere** should come from it.
 
-Study the attached image. What defines it:
+Its **typography** should not — see the Type section below. Loud art, quiet type. That contrast is deliberate and it is the whole design idea: the cover carries the volume, the site gets out of its way.
+
+Study the attached image. What defines it (this is description of the artwork, not a list of things to imitate in type):
 - A colossal cracked stone hand, palm up, **glowing molten orange through its fissures** — like cooling lava.
 - A woman standing in the palm, her whole body burning red-orange, dissolving upward into embers.
 - Charcoal-black ground of charred rock with **bright ember flecks** scattered through it.
@@ -35,7 +37,18 @@ Study the attached image. What defines it:
 
 Kill the muted ash-grey palette. Everything should feel lit from inside by something molten.
 
-**Type** — replace Cormorant Garamond as the display face. The cover is heavy condensed uppercase, not a fine old-style serif. Use a heavy condensed display (Oswald 600/700, Anton, or Archivo Black — pick whichever sits closest to the cover) for all headings, uppercase, tight leading, wide tracking on small labels. Keep a clean readable face for body copy. Headings should feel stamped, not calligraphed.
+**Type** — the colour and texture match the cover. The typography deliberately does not. The art is loud, so the type stays quiet and lets it carry the volume. This is the single most important instruction in this brief: it is very easy to drift back to the genre default, and the genre default is exactly what is being rejected.
+
+Set it like a literary press would, with severity and restraint:
+
+- **Spectral** for everything textual — display and body both. Large sizes for headings, generous leading, real margins, a lot of negative space. Confidence through restraint.
+- **IBM Plex Mono**, small and tracked, for labels, chapter numbers, word counts, and any metadata. That clerical note is the one flourish; it echoes the ledger the book turns on.
+- The title is **mixed case**: `The Pact of Ashes`. Not all-caps. Set large, but never shouting.
+- **No effects on type whatsoever.** No glow, no text-shadow, no gradient fills, no cracked or distressed letterforms, no per-letter animation, no letter-spacing on large display sizes. The molten treatment belongs to the background, the dividers and the art — never to the letters.
+
+Banned outright, including as "close enough" substitutes: Anton, Oswald, Bebas Neue, Archivo Black, Cinzel, Playfair Display, Cormorant Garamond, and any condensed face. Also banned: all-caps headings, and heavy weights used to create emphasis. If a heading needs more presence, make it larger or give it more space — never heavier, never wider-tracked, never louder.
+
+Uppercase is permitted in exactly one place: the small tracked IBM Plex Mono label style. Everywhere else, sentence or title case.
 
 **Texture** — the signature motif is **glowing cracks through dark stone**. Use it as the site's structural language:
 - Section dividers are lava fissures, not hairline rules.
@@ -44,7 +57,7 @@ Kill the muted ash-grey palette. Everything should feel lit from inside by somet
 - Ember flecks replace generic ash motes — small, warm, glowing, rising.
 - Consider dark ivy silhouettes at the top corners of the hero, echoing the cover framing.
 
-**Hero** — use the cover image itself. Show it properly (it's a beautiful piece of art), with the page's molten atmosphere continuing out of its edges so the cover and the site read as one surface. Author name in gold above, title treatment matching the cover's weight.
+**Hero** — use the cover image itself. Show it properly and give it room (it's a beautiful piece of art), with the page's molten atmosphere continuing out of its edges so the cover and the site read as one surface. The cover already contains a loud title treatment, so the page's own title sits quietly beside or beneath it in Spectral, mixed case, with the author's name in the small gold mono label above. Do not restate the cover's lettering at the cover's volume — that competition is what made the old hero feel generic.
 
 ## JOB 3 — REPLACE ALL THE COPY
 
@@ -52,60 +65,62 @@ The current writing is restrained and literary. The cover is not restrained. Rew
 
 Use the deck below verbatim. Anything not listed here that you have written yourself, rewrite to match this register.
 
+**On casing in this deck:** strings written in caps below are the small tracked IBM Plex Mono label style — nav items, stat figures, metadata, buttons. Everything that is a real heading or a sentence is set mixed case in Spectral, exactly as written. Do not upper-case the headings.
+
 **Site-wide**
 - Nav: `FIRST LINES` · `LEDGER` · `DOSSIERS` · `DESCENT` · `MAKE THE PACT`
-- Footer line 1: `THE PACT OF ASHES — TARUN MITTAL`
+- Footer line 1 (mono label): `THE PACT OF ASHES — TARUN MITTAL`
 - Footer line 2: `Seventy-seven chapters. None of them here.`
 - Header seal once signed: `SIGNED — {name}`
 
 **Landing `/`**
-- Eyebrow: `TARUN MITTAL`
-- Title: `THE PACT OF ASHES`
-- Deck (directly under the title): `She died in a dungeon. Something in the dark offered her a way back. It wore her brother's face.`
+- Eyebrow (mono label): `TARUN MITTAL`
+- Title (Spectral, large, mixed case): `The Pact of Ashes`
+- Deck (directly under the title, Spectral): `She died in a dungeon. Something in the dark offered her a way back. It wore her brother's face.`
 - Invitation block — keep the author's own words, they are the best line on the page: `It will start when you say yes — and like all true bargains, it will require something back of you before it is finished.`
 - Stat band, three figures: `SEVENTY-SEVEN CHAPTERS` · `SIXTY THOUSAND WORDS` · `NOT ONE OF THEM FREE`
-- Primary CTA: `MAKE THE PACT`
-- Secondary link: `SEE WHAT YOU CAN'T HAVE` → `/first-lines`
-- Question section heading: `THE BOOK ASKS ONE QUESTION`
+- Primary CTA (mono label): `MAKE THE PACT`
+- Secondary link (mono label): `SEE WHAT YOU CAN'T HAVE` → `/first-lines`
+- Question section heading (Spectral): `The book asks one question`
 - Question, in large display type: `What is the real cost of devotion?`
 - Under it: `It spends seventy-seven chapters refusing to answer kindly.`
-- Fragments section heading: `WHAT ESCAPED`
+- Fragments section heading (Spectral): `What escaped`
 - Fragments subhead: `Ten lines got out. The rest is still burning.`
 
 **The four module cards on the landing page**
-- `FIRST LINES` — `Seventy-eight openings. Every door locked.`
-- `THE LEDGER` — `The Council keeps a list. You don't get to see who's crossed out.`
-- `DOSSIERS` — `Twelve files. Every ending redacted.`
-- `THE DESCENT` — `The shape of her fall, with the words removed.`
+- `First Lines` — `Seventy-eight openings. Every door locked.`
+- `The Ledger` — `The Council keeps a list. You don't get to see who's crossed out.`
+- `Dossiers` — `Twelve files. Every ending redacted.`
+- `The Descent` — `The shape of her fall, with the words removed.`
 
 **`/first-lines`**
-- Title: `FIRST LINES`
+- Title (Spectral): `First Lines`
 - Deck: `Every chapter's opening sentence. Nothing after it.`
 - Hover hint (shown once): `Hover a line to see the size of what you're not getting.`
 - Closing line at the end of the procession: `Seventy-seven beginnings. No endings.`
-- Closing CTA: `THE REST IS ON AMAZON`
+- Closing CTA (mono label): `THE REST IS ON AMAZON`
 
 **`/ledger`**
-- Title: `THE LEDGER`
+- Title (Spectral): `The Ledger`
 - Deck: `The gray-suited man believed the world could be kept in a book. Every name. Every fate. Underlined, and finished.`
 - Footer, in the same hand: `Some names are underlined. Some are crossed out. You do not get to know which.`
 
 **`/dossiers`**
-- Title: `THE FILES`
+- Title (Spectral): `The Files`
 - Deck: `Twelve people. What happens to them is not on this page.`
 - Redacted bar label: `REDACTED — {redacted}`
 - Text shown when someone tries to reveal a bar: `IT DOESN'T OPEN.`
 
 **`/descent`**
-- Title: `THE DESCENT`
+- Title (Spectral): `The Descent`
 - Deck: `Seventy-eight sections, measured for how dark they run.`
 - Caption under the graph: `The shape of a descent, with the words removed.`
 
 **The pact dialog**
-- Title: `MAKE THE PACT`
+- Title (Spectral): `Make the Pact`
 - Body: `Sign it. Like all true bargains, it will require something back of you.`
 - Field labels: `THE NAME YOU SIGN WITH` and `WHERE TO REACH YOU`
-- Submit button: `SIGN IN ASH`
+- Submit button (mono label): `SIGN IN ASH`
 - After signing, on the seal: `The pact is signed. The rest is not free.`
 - Payoff button: `TAKE IT FROM HERE →` linking to `AMAZON_URL`
 

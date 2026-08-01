@@ -31,7 +31,24 @@ framing the corners. Everything on the site should feel lit from inside by
 something molten.
 
 An earlier iteration used muted ash-grey and a fine Cormorant Garamond serif. That
-was elegant and wrong — it read as a different book. Hotter and heavier is correct.
+was elegant and wrong — it read as a different book. Hotter and heavier is correct
+for colour and texture.
+
+**Typography is the deliberate exception: loud art, quiet type.** The cover carries
+the volume; the type gets out of its way. Two passes both failed by reaching for the
+genre shelf — Cormorant Garamond is the stock "literary" choice, and heavy condensed
+caps (Anton, Oswald, Bebas Neue) is the stock "dark thriller poster" choice. Both
+read as generic. All-caps condensed in particular is what you reach for when the
+design isn't carrying itself, and this is a book about someone being quietly
+hollowed out — the horror is intimate, not loud.
+
+Banned outright, including as near-substitutes: Anton, Oswald, Bebas Neue, Archivo
+Black, Cinzel, Playfair Display, Cormorant Garamond, any condensed face, all-caps
+headings, and heavy weights used for emphasis. A heading that needs presence gets
+more size or more space — never more weight. No effects on type at all: no glow,
+text-shadow, gradient fill, distressed letterforms or per-letter animation. The
+molten treatment belongs to backgrounds, dividers and art, never to letters.
+Uppercase appears in exactly one place: the small tracked mono label style.
 
 - Semantic HSL design tokens only — no hardcoded colours in components.
 - `--void` charred near-black · `--magma` molten orange-red, the primary accent,
@@ -39,9 +56,10 @@ was elegant and wrong — it read as a different book. Hotter and heavier is cor
   `--gold` the author-name gold, reserved for the highest-value elements only
   (the Amazon CTA, the pact seal) · `--bone` dirty off-white body text ·
   `--smoke` plume grey for muted text and rules.
-- Type: heavy condensed uppercase display (Oswald 600/700, Anton or Archivo Black)
-  with tight leading and wide tracking on small labels. Headings should feel
-  stamped, not calligraphed. Clean readable face for body copy.
+- Type: **Spectral** throughout, set like a literary press — large headings,
+  generous leading, real margins, mixed case. **IBM Plex Mono**, small and tracked,
+  for labels, chapter numbers and word counts; that clerical note is the one
+  flourish, and it echoes the ledger the book turns on.
 - Texture: **glowing cracks through dark stone** is the structural motif. Section
   dividers are lava fissures, not hairline rules; panel borders look like cracks in
   charred rock lit faintly from within. Grain and deep vignette throughout, drifting
