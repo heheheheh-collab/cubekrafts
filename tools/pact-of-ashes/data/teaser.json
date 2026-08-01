@@ -722,44 +722,52 @@
  ],
  "quotes": [
   {
-   "text": "The Devil did not roar. The Devil wore her brother's voice.",
-   "section": "prologue"
+   "text": "She had not clawed her way out of death to heal, or to find peace.",
+   "section": "chapter-1"
   },
   {
-   "text": "Power was not respect. Power was fear.",
+   "text": "Her shadow would be the last thing he ever knew.",
    "section": "chapter-4"
   },
   {
-   "text": "Iron gates heavy as tomb doors.",
-   "section": "chapter-6"
+   "text": "He turned the pages slowly, names written in clean columns, debts owed, debts collected.",
+   "section": "chapter-14"
   },
   {
-   "text": "Then the torch nearest the door sputtered out.",
-   "section": "chapter-7"
-  },
-  {
-   "text": "It hurt more than the blade had.",
-   "section": "chapter-13"
+   "text": "She would make the city itself drown in their blood.",
+   "section": "chapter-17"
   },
   {
    "text": "How do you kill someone who is already dead?",
    "section": "chapter-20"
   },
   {
-   "text": "Men respect fire, because it erases everything it touches.",
-   "section": "chapter-22"
+   "text": "Because prey that is hunted is prey that must strike harder to survive.",
+   "section": "chapter-20"
   },
   {
-   "text": "He doesn't know what silence is.",
-   "section": "chapter-34"
+   "text": "The Council thought she was finished.",
+   "section": "chapter-40"
   },
   {
-   "text": "The judge's pearls clicked once more.",
-   "section": "chapter-47"
+   "text": "The spider waits at the edge, Katie.",
+   "section": "chapter-45"
   },
   {
-   "text": "He closed the ledger with a snap.",
-   "section": "chapter-64"
+   "text": "They know his name is the only blade sharper than yours.",
+   "section": "chapter-56"
+  },
+  {
+   "text": "For a moment, she let herself be his sister again.",
+   "section": "chapter-58"
+  },
+  {
+   "text": "High above, the Council sat in glass.",
+   "section": "chapter-61"
+  },
+  {
+   "text": "Fear belonged to lesser men, the kind who needed pearls or smiles to carry them.",
+   "section": "chapter-79"
   }
  ],
  "characters": [
@@ -792,7 +800,7 @@
    "name": "Varos",
    "role": "A king in stolen crowns",
    "line": "He walked the streets like a king wearing stolen crowns.",
-   "brief": "Loud, greedy, feared. He mistook the silence around him for obedience. It was not obedience.",
+   "brief": "Loud, greedy, feared. He mistook the silence around him for obedience.",
    "redacted": "how long the manor held"
   },
   {

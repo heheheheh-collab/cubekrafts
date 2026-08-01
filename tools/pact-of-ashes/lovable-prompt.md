@@ -2,7 +2,9 @@ Paste the block below into the Lovable chat, and attach `cover.jpg` from this di
 
 ---
 
-The real book cover is attached. Retheme the entire site to match it, rewrite all the copy, fix the motion, and wire up the store link. Five jobs.
+The real book cover is attached, along with a revised `teaser.json`. Retheme the site to match the cover, rewrite all the copy, fix the motion, wire up the store link, and polish. Six jobs.
+
+Also replace `public/teaser.json` with the attached version — the curated `quotes[]` have been re-picked from the manuscript and are stronger, and one character brief has been tightened. Everything else in it is unchanged.
 
 ## JOB 1 — HARD FACTS TO SET NOW
 
@@ -86,18 +88,17 @@ Use this deck verbatim.
 - Secondary link (mono): `READ THE FIRST LINES` → `/first-lines`
 - Question section: set `What is the real cost of devotion?` large, attributed plainly beneath as `— from the preface`. No commentary on it. The question is strong enough alone; anything added weakens it.
 - Fragments section heading (Spectral): `Fragments`
-- Fragments subhead: `Ten lines from the book.`
+- Fragments subhead: `Twelve lines from the book.`
 
 **The four module cards on the landing page** — plain descriptions, no promises:
 - `First Lines` — `The opening sentence of every chapter.`
 - `The Ledger` — `The names the Council kept.`
 - `The Files` — `Twelve people, as the book introduces them.`
-- `The Descent` — `The book's tonal arc, chapter by chapter.`
+- `The Descent` — `How dark each chapter runs.`
 
 **`/first-lines`**
 - Title (Spectral): `First Lines`
 - Deck: `The opening sentence of every chapter, in reading order.`
-- Hover hint (shown once, mono): `HOVER A LINE FOR ITS LENGTH`
 - Closing line: `The rest of each chapter is in the book.`
 - Closing CTA (mono): `FIND IT ON AMAZON`
 
@@ -115,13 +116,14 @@ Use this deck verbatim.
 
 **`/descent`**
 - Title (Spectral): `The Descent`
-- Deck: `Every section scored for how dark it runs, in reading order.`
+- Deck: `Each chapter measured for how dark it runs, in reading order.`
 - Caption under the graph: `The shape of the book, without its words.`
 
 **The pact dialog**
 - Title (Spectral): `Make the Pact`
 - Body — the author's own words again: `It will start when you say yes.`
 - Field labels (mono): `NAME` and `EMAIL`
+- Under the fields, small and plain — this is the only place the site asks for anything, so say what happens to it: `Your email is only used to tell you about this book. Nothing else, no one else.`
 - Submit button (mono): `SIGN`
 - After signing, on the seal (Spectral): `Signed.`
 - Payoff button (mono, gold): `FIND IT ON AMAZON` → `AMAZON_URL`
@@ -152,3 +154,27 @@ Verify these rather than assuming, and repair anything that fails:
 Also rewrite the project description and the page `<title>`/meta description. They still describe the old build — "a complete, interactive reading of the novel", "customizable reading settings", "a chapter drawer with progress tracking". That is now exactly wrong. Describe what it actually is: a teaser site for Tarun Mittal's 77-chapter dark fantasy revenge novel that deliberately withholds the text, offering opening lines, redacted dossiers, the Council's ledger and a tonal-arc visualisation, converting through a signed pact to the Amazon listing.
 
 Reply with a short factual report on the four audit points.
+
+## JOB 6 — POLISH
+
+Details that decide whether this reads as a real book's site or a demo.
+
+**The form is the only thing the site asks for, so it must be flawless.** Inline validation on blur, not on every keystroke. A visible loading state on submit. A real error message if the write fails, with the typed values preserved — never a silent failure, never a cleared form. A duplicate email is a success, not an error: the person already signed. Full keyboard operation, focus moved into the dialog on open and returned to the trigger on close, `Esc` to dismiss.
+
+**Accessibility, which atmospheric sites usually fail.**
+- Body text must clear 4.5:1 against its actual background — check the bone-on-charcoal and especially the smoke-grey muted text, which is the likely failure. Fix by lightening the text, not by dimming the atmosphere.
+- Visible focus rings everywhere, in ember, never `outline: none` without a replacement.
+- Decorative canvases and the grain overlay get `aria-hidden="true"`.
+- The redacted bars must announce as redacted to a screen reader — `aria-label="Redacted"` — rather than reading out as empty or, worse, exposing the withheld text to assistive tech. There is nothing to expose, so confirm the label carries the meaning.
+- Every interactive element is a real `button` or `a`, never a `div` with a click handler.
+- The `/first-lines` procession must be fully readable with JavaScript animation disabled.
+
+**Sharing.** This link will get pasted into WhatsApp and Instagram, and the preview is the whole first impression. Proper OG and Twitter card tags, the cover as the image, sized so it isn't cropped badly. Add JSON-LD `Book` structured data — name, author Tarun Mittal, numberOfPages/wordCount, the Amazon URL as `offers`. Real `<title>` and description on every route, not just the home page.
+
+**Performance.** Preload the two font families and subset them; nothing else. Serve the cover responsively and compress it — it is the largest asset and it is above the fold. Lazy-load anything below. The ember canvas caps its particle count on small screens and stops entirely when the tab is hidden.
+
+**Loose ends.**
+- The Amazon link opens in a new tab with `rel="noopener noreferrer"`.
+- A themed 404 that offers a way back, in the same quiet voice — no joke copy.
+- Favicon from the cover.
+- Check the whole site at 360px wide. The cover, the ledger page and the descent graph are the three most likely to break.
