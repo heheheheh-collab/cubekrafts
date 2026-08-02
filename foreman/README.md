@@ -88,7 +88,11 @@ npm run typecheck
 
 ## Deploying
 
-`fly.toml` and the `Dockerfile` are ready; the commands are in the header of `fly.toml`. One machine, never scaled to zero, because a machine that stopped cannot tick at 3am.
+`fly.toml` and the `Dockerfile` are ready; the commands are in the header of `fly.toml`. One machine, never scaled to zero, because a machine that stopped cannot tick at 3am. Budget roughly $5–10/month for the machine and volume, separate from model spend.
+
+You do not need Fly's own Postgres — a free Neon or Supabase database works, and Foreman only wants a `DATABASE_URL`. If you use Supabase, make it a **new** project rather than the one behind QuoteCraft Pro.
+
+**Try it locally first.** `npm start` works with nothing but a database and an API key, and twenty minutes with it is a better basis for opening a hosting account than a README is. What localhost cannot do is the point of hosting it: work overnight, and be there on your phone.
 
 **The address is free and needs no domain**: `https://cubekrafts-foreman.fly.dev`, with a real certificate, already set as `FOREMAN_ORIGIN`. That is a proper domain for our purposes rather than a shared one — `fly.dev` is on the [Public Suffix List](https://publicsuffix.org/), so the subdomain is its own registrable domain. Cookies cannot be read by another Fly app, and WebAuthn accepts it as a relying party ID, so passkeys work on it exactly as they would on a domain you bought.
 
