@@ -2,10 +2,12 @@ import type { PolicyConfig, RoleName, RuntimeFacts } from '../domain/types.ts';
 import type { Sql } from '../db/sql.ts';
 import type { Claude } from '../claude/client.ts';
 import type { ToolSinks } from '../tools/execute.ts';
+import type { Workspace } from '../tools/workspace.ts';
 import { modelFor, type Effort, type Tier } from '../claude/catalog.ts';
 import { runAgent, type Outcome } from '../agents/loop.ts';
 import { parkRun, saveMessages } from '../agents/approvals.ts';
 import { supervise } from './supervise.ts';
+import { stableSystemWithLessons } from '../agents/learned.ts';
 import { PgAudit } from '../db/repo.ts';
 import {
   addSpend,
@@ -47,6 +49,8 @@ export interface TickDeps {
   facts?: RuntimeFacts;
   roles: Partial<Record<RoleName, RoleConfig>>;
   sinks?: Partial<ToolSinks>;
+  /** The checkout the developer works in, when one is configured. */
+  workspace?: Workspace;
   signal?: AbortSignal;
   /** Overridden in tests; the real one reads the wall clock. */
   now?: () => Date;
@@ -120,6 +124,21 @@ function summarise(outcome: Outcome): string {
       return outcome.reason;
     case 'exhausted':
       return outcome.reason;
+  }
+}
+
+/**
+ * The role's cacheable prefix, with whatever it has been taught.
+ *
+ * Falls back to the configured blocks when the role has no charter to attach
+ * lessons to — a test role, or one added to the roster before its charter is
+ * written.
+ */
+async function stableSystemFor(deps: TickDeps, role: RoleConfig): Promise<string[]> {
+  try {
+    return await stableSystemWithLessons(deps.sql, role.name);
+  } catch {
+    return role.stableSystem;
   }
 }
 
@@ -202,7 +221,11 @@ export async function tick(deps: TickDeps): Promise<TickResult> {
       audit,
       autonomy: () => 'approve',
       ...(deps.sinks ? { sinks: deps.sinks } : {}),
-      stableSystem: role.stableSystem,
+      ...(deps.workspace ? { workspace: deps.workspace, readFacts: () => deps.workspace!.facts() } : {}),
+      // Rebuilt per run rather than at boot, so a rejection this morning is
+      // in front of the role this afternoon without a restart.
+      stableSystem: await stableSystemFor(deps, role),
+      
       ...(deps.signal ? { signal: deps.signal } : {}),
     });
   } catch (err) {

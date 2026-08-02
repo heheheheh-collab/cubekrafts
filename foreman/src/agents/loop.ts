@@ -5,6 +5,7 @@ import { runTool, PolicyViolation, type ToolSinks } from '../tools/execute.ts';
 import { toolsFor } from '../tools/registry.ts';
 import { addUsage, NO_USAGE, type Effort, type ModelEntry, type Usage } from '../claude/catalog.ts';
 import type { Claude, Message, TurnResult } from '../claude/client.ts';
+import type { Workspace } from '../tools/workspace.ts';
 
 /**
  * The agent loop.
@@ -48,6 +49,17 @@ export interface LoopContext {
   /** Autonomy per tool for this role. Missing means the spec default applies. */
   autonomy: (tool: string) => Autonomy;
   sinks?: Partial<ToolSinks>;
+  /** The checkout git and shell tools operate in. */
+  workspace?: Workspace;
+  /**
+   * Re-read runtime state before each batch of tool calls.
+   *
+   * The branch is the reason this exists. An agent checks out `foreman/t-12`
+   * partway through a turn, and the facts captured when the run started no
+   * longer describe the world the next call will act on — so the classifier
+   * would be deciding about a branch that is not the one checked out.
+   */
+  readFacts?: () => Promise<RuntimeFacts>;
   /** Stable, cacheable prefix: tool preamble, charter, canon. */
   stableSystem: string[];
   volatileSystem?: string[];
@@ -140,9 +152,13 @@ export async function runAgent(
     // the first that needs the founder — executing the safe ones and queueing
     // the rest leaves a half-finished turn nobody can reason about.
     const results: Array<{ id: string; content: string; isError: boolean }> = [];
+    // Read once per batch rather than once per run: the world can move
+    // between turns, and a stale branch is the difference between refusing a
+    // push to main and permitting one.
+    const facts = ctx.readFacts ? await ctx.readFacts() : ctx.facts;
 
     for (const call of result.toolCalls) {
-      const verdict = classify(ctx.role, call, ctx.policy, ctx.facts);
+      const verdict = classify(ctx.role, call, ctx.policy, facts);
       const decision = disposition(verdict, ctx.autonomy(call.name));
 
       if (decision.action === 'refuse') {
@@ -169,10 +185,11 @@ export async function runAgent(
         const out = await runTool(call, {
           role: ctx.role,
           policy: ctx.policy,
-          facts: ctx.facts,
+          facts,
           audit: ctx.audit,
           runId: ctx.runId,
           ...(ctx.sinks ? { sinks: ctx.sinks } : {}),
+          ...(ctx.workspace ? { workspace: ctx.workspace } : {}),
         });
         results.push({ id: call.id, content: out.output, isError: !out.ok });
       } catch (err) {

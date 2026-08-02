@@ -405,6 +405,41 @@ input:focus {
   cursor: default;
 }
 
+/* The message itself, laid out like a message rather than a field dump. */
+.letter {
+  margin-top: 12px;
+  padding: 12px 14px;
+  background: var(--panel-2);
+  border-left: 2px solid var(--waiting);
+  border-radius: 0 8px 8px 0;
+}
+
+.letter .to {
+  font-size: 12px;
+  color: var(--faint);
+}
+
+.letter .subject {
+  margin: 2px 0 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.letter .body {
+  font-size: 14px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  max-height: 40vh;
+  overflow-y: auto;
+}
+
+.letter .meta {
+  margin-top: 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  color: var(--faint);
+}
+
 .rows {
   display: grid;
   gap: 2px;

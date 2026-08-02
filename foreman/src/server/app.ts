@@ -14,6 +14,11 @@ import { clientIp } from '../auth/log.ts';
 import { authRoutes } from './auth-routes.ts';
 import { configFromEnv, type WebAuthnConfig } from '../auth/passkey.ts';
 import { defaultWebDir, serveAsset } from './static.ts';
+import { safeEqual } from '../auth/session.ts';
+import { loadMessage, suppress } from '../email/messages.ts';
+import { recordProviderEvent, type ProviderEventKind } from '../email/send.ts';
+import { buildStandup } from '../scheduler/standup.ts';
+import { buildArchive } from './export.ts';
 
 /**
  * The HTTP surface.
@@ -35,6 +40,40 @@ export interface AppDeps {
   webDir?: string | null;
   /** The concierge's model path. Absent means only the fast path exists. */
   ask?: (text: string, snapshot: Snapshot) => Promise<AskResult>;
+  /** Shared secret for the provider's bounce webhook. Absent disables the route. */
+  webhookSecret?: string;
+}
+
+/**
+ * Attach the actual message to an email approval.
+ *
+ * One extra query on a list that is almost always shorter than five, in
+ * exchange for the founder seeing the text they are agreeing to send.
+ */
+async function withEmailBodies(
+  sql: Sql,
+  pending: Awaited<ReturnType<typeof listPending>>,
+): Promise<unknown[]> {
+  return Promise.all(
+    pending.map(async (item) => {
+      if (item.tool !== 'email.send') return item;
+      const draftId = item.args['draft_id'];
+      if (typeof draftId !== 'string') return item;
+      const message = await loadMessage(sql, draftId);
+      if (!message) return { ...item, email: { missing: true } };
+      return {
+        ...item,
+        email: {
+          to: message.toAddress,
+          subject: message.subject,
+          body: message.body,
+          // Shown so the founder can see that what they are reading is what
+          // was frozen, rather than taking it on faith.
+          hash: message.payloadHash.slice(0, 12),
+        },
+      };
+    }),
+  );
 }
 
 /** Everything the concierge answers from, read fresh. */
@@ -136,8 +175,80 @@ export function buildRoutes(deps: AppDeps): Route[] {
       json(res, 200, { speech: result.speech, did: result.did, runId: result.runId });
     }),
 
+    // Approvals carry the thing being approved, not a description of it. An
+    // email you cannot read in full is an email you cannot meaningfully
+    // approve, and the whole design rests on the founder having read it.
     route('GET', '/api/approvals', 'session', async ({ res }) => {
-      json(res, 200, await listPending(sql));
+      json(res, 200, await withEmailBodies(sql, await listPending(sql)));
+    }),
+
+    // What the provider tells us afterwards. Public because the provider has
+    // no session, and authenticated by a shared secret compared in constant
+    // time — a bounce that suppresses an address is worth forging.
+    route('POST', '/api/webhooks/email', 'public', async ({ req, res }) => {
+      const secret = deps.webhookSecret;
+      if (!secret) {
+        json(res, 404, { error: 'no webhook is configured' });
+        return;
+      }
+      const offered = req.headers['x-foreman-webhook-secret'];
+      if (typeof offered !== 'string' || !safeEqual(offered, secret)) {
+        json(res, 401, { error: 'no' });
+        return;
+      }
+
+      const body = await readJson(req);
+      const kind = String(body['type'] ?? body['kind'] ?? '');
+      const known: Record<string, ProviderEventKind> = {
+        'email.delivered': 'delivered',
+        'email.bounced': 'bounced',
+        'email.complained': 'complained',
+        'email.opened': 'opened',
+        'email.clicked': 'clicked',
+        delivered: 'delivered',
+        bounced: 'bounced',
+        complained: 'complained',
+      };
+      const mapped = known[kind];
+      if (!mapped) {
+        // Acknowledged, not acted on. Returning an error would make the
+        // provider retry an event we will never understand.
+        json(res, 200, { ignored: kind });
+        return;
+      }
+
+      const data = (body['data'] ?? {}) as Record<string, unknown>;
+      const result = await recordProviderEvent(sql, {
+        kind: mapped,
+        ...(typeof data['email_id'] === 'string' ? { providerId: data['email_id'] } : {}),
+        ...(typeof data['to'] === 'string' ? { address: data['to'] } : {}),
+        detail: data,
+      });
+      if (result.suppressed) bus.publish({ type: 'email.suppressed', kind: mapped });
+      json(res, 200, { ok: true, suppressed: result.suppressed });
+    }),
+
+    route('GET', '/api/email', 'session', async ({ res }) => {
+      const { rows } = await sql.query(
+        `SELECT m.id, m.to_address, m.subject, m.status, m.created_at, m.sent_at
+           FROM email_message m ORDER BY m.created_at DESC LIMIT 50`,
+      );
+      const { rows: suppressed } = await sql.query(
+        `SELECT address, reason, created_at FROM email_suppression ORDER BY created_at DESC LIMIT 50`,
+      );
+      json(res, 200, { messages: rows, suppressed });
+    }),
+
+    // The founder's own override, for the person who replies "take me off this".
+    route('POST', '/api/email/suppress', 'session', async ({ req, res }) => {
+      const body = await readJson(req);
+      const address = String(body['address'] ?? '').trim();
+      if (!address) {
+        json(res, 400, { error: 'which address?' });
+        return;
+      }
+      await suppress(sql, address, 'manual', typeof body['detail'] === 'string' ? body['detail'] : undefined);
+      json(res, 200, { ok: true });
     }),
 
     route('POST', '/api/approvals/:id/decide', 'session', async ({ req, res, params }) => {
@@ -267,6 +378,23 @@ export function buildRoutes(deps: AppDeps): Route[] {
         [params['id']],
       );
       json(res, 200, { run: runs[0], toolCalls: calls });
+    }),
+
+    route('GET', '/api/standup', 'session', async ({ res }) => {
+      json(res, 200, await buildStandup(sql));
+    }),
+
+    // The last of the dangerous four: one file containing the whole business,
+    // which is exactly the file somebody with a stolen session would want.
+    route('GET', '/api/export', 'fresh', async ({ res }) => {
+      const archive = await buildArchive(sql);
+      const text = JSON.stringify(archive, null, 2);
+      res.writeHead(200, {
+        'content-type': 'application/json',
+        'content-length': Buffer.byteLength(text),
+        'content-disposition': `attachment; filename="foreman-${archive.exportedAt.slice(0, 10)}.json"`,
+      });
+      res.end(text);
     }),
 
     route('GET', '/api/audit', 'session', async ({ res }) => {

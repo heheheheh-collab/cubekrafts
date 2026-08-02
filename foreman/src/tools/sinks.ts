@@ -1,8 +1,11 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import type { Sql } from '../db/sql.ts';
-import { id, getSetting, setSetting, SETTINGS, DEFAULT_CAP_USD } from '../db/repo.ts';
+import { id, getSetting, setSetting, PgAudit, SETTINGS, DEFAULT_CAP_USD } from '../db/repo.ts';
 import type { ToolSinks } from './execute.ts';
+import { draft } from '../email/messages.ts';
+import { sendApproved } from '../email/send.ts';
+import type { Transport } from '../email/transport.ts';
 
 /**
  * The tools that produce records rather than touching a workspace.
@@ -11,7 +14,7 @@ import type { ToolSinks } from './execute.ts';
  * what you read, the row is what the work graph refers to. Keeping the body
  * out of Postgres keeps the transcripts readable and the backups small.
  */
-export function makeSinks(sql: Sql, home: string): ToolSinks {
+export function makeSinks(sql: Sql, home: string, transport?: Transport): ToolSinks {
   const files = join(home, 'files');
 
   return {
@@ -42,16 +45,24 @@ export function makeSinks(sql: Sql, home: string): ToolSinks {
     },
 
     async saveDraft({ lead_id, subject, body }) {
-      const draftId = id('draft');
-      await sql.query(
-        `INSERT INTO artifact (id, task_id, kind, title, storage_key, status)
-              VALUES ($1, NULL, 'draft_email', $2, $3, 'draft')`,
-        [draftId, subject, `lead:${lead_id}`],
-      );
-      const key = join(files, `${draftId}.txt`);
-      await mkdir(dirname(key), { recursive: true });
-      await writeFile(key, body, 'utf8');
-      return { id: draftId };
+      // Frozen the moment it is written: the database refuses to change the
+      // body afterwards, which is what makes "the founder approved this exact
+      // text" a fact rather than a promise. See src/email/messages.ts.
+      const message = await draft(sql, { leadId: lead_id, toAddress: '', subject, body });
+      return { id: message.id };
+    },
+
+    async sendEmail({ draft_id }) {
+      if (!transport) {
+        return { sent: false, detail: 'no email transport is configured on this instance' };
+      }
+      const result = await sendApproved({ sql, transport, audit: new PgAudit(sql) }, draft_id);
+      return {
+        sent: result.sent,
+        detail: result.sent
+          ? `provider id ${result.providerId}`
+          : (result.refusedBecause ?? 'refused'),
+      };
     },
 
     async searchMemory({ query }) {

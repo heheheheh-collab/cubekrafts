@@ -16,6 +16,9 @@ import { makeSinks } from '../tools/sinks.ts';
 import { configFromEnv, sweepChallenges } from '../auth/passkey.ts';
 import { sweep as sweepRateCounters } from '../auth/ratelimit.ts';
 import { ask } from '../concierge/ask.ts';
+import { transportFromEnv } from '../email/transport.ts';
+import { Workspace } from '../tools/workspace.ts';
+import { standupIfDue } from '../scheduler/standup.ts';
 
 /**
  * The entrypoint.
@@ -38,6 +41,8 @@ const TRUST_PROXY = process.env['FOREMAN_TRUST_PROXY'] === 'true';
 const STAFF = [
   { id: 'coo', tier: 'top', effort: 'high' },
   { id: 'content', tier: 'mid', effort: 'high' },
+  { id: 'sales', tier: 'mid', effort: 'high' },
+  { id: 'developer', tier: 'top', effort: 'high' },
 ] as const;
 
 async function main(): Promise<void> {
@@ -55,9 +60,12 @@ async function main(): Promise<void> {
        ON CONFLICT (id) DO NOTHING`,
       [member.id, modelFor(member.tier).model, member.effort],
     );
-    const workspace = join(HOME, 'workspace', member.id);
-    await mkdir(workspace, { recursive: true });
-    allowedRoots[member.id] = [workspace];
+    const dir =
+      member.id === 'developer'
+        ? (process.env['FOREMAN_CHECKOUT'] ?? join(HOME, 'checkout'))
+        : join(HOME, 'workspace', member.id);
+    await mkdir(dir, { recursive: true });
+    allowedRoots[member.id] = [dir];
     roles[member.id] = {
       name: member.id,
       tier: member.tier,
@@ -80,11 +88,29 @@ async function main(): Promise<void> {
     allowedHosts: ['cubekrafts.com', '.cubekrafts.com'],
   };
 
+  // The checkout the developer works in. Absent until someone clones a
+  // repository into it, and the git tools refuse plainly until then.
+  const checkout = process.env['FOREMAN_CHECKOUT'] ?? join(HOME, 'checkout');
+  const workspace = new Workspace({
+    dir: checkout,
+    baseBranch: process.env['FOREMAN_BASE_BRANCH'] ?? 'main',
+    ...(process.env['GITHUB_TOKEN'] ? { token: process.env['GITHUB_TOKEN'] } : {}),
+    ...(process.env['GITHUB_REPO'] ? { repo: process.env['GITHUB_REPO'] } : {}),
+  });
+  const branch = await workspace.currentBranch();
+  console.log(
+    branch === undefined
+      ? `checkout: none at ${checkout} — the developer cannot work until one exists`
+      : `checkout: ${checkout} on ${branch}`,
+  );
+
   const bus = new EventBus();
   const claude = new Claude();
-  const sinks = makeSinks(sql, HOME);
+  const transport = transportFromEnv();
+  console.log(`email transport: ${transport.name}${transport.name === 'recording' ? ' (nothing will actually be sent)' : ''}`);
+  const sinks = makeSinks(sql, HOME, transport);
 
-  const tickDeps: TickDeps = { sql, claude, policy, sinks, roles };
+  const tickDeps: TickDeps = { sql, claude, policy, sinks, roles, workspace };
 
   const webauthn = configFromEnv();
   console.log(`origin: ${webauthn.origin} (relying party ${webauthn.rpID})`);
@@ -100,6 +126,9 @@ async function main(): Promise<void> {
       trustProxy: TRUST_PROXY,
     },
     ask: (text, snapshot) => ask(text, snapshot, { sql, claude, policy, sinks }),
+    ...(process.env['EMAIL_WEBHOOK_SECRET']
+      ? { webhookSecret: process.env['EMAIL_WEBHOOK_SECRET'] }
+      : {}),
     decideDeps: {
       context: ({ runId: _runId, role }) => ({
         claude,
@@ -107,6 +136,8 @@ async function main(): Promise<void> {
         effort: tickDeps.roles[role]!.effort,
         policy,
         facts: {},
+        readFacts: () => workspace.facts(),
+        workspace,
         autonomy: () => 'approve',
         sinks,
         stableSystem: tickDeps.roles[role]!.stableSystem,
@@ -114,14 +145,23 @@ async function main(): Promise<void> {
     },
   });
 
+  // The standup is checked on every tick and written once a day, so it is
+  // waiting when you wake up rather than generated when you ask.
+  const announceStandup = async () => {
+    const standup = await standupIfDue(sql);
+    if (standup) bus.publish({ type: 'standup', speech: standup.speech, needsYou: standup.needsYou });
+  };
+
   const scheduler = startScheduler(tickDeps, {
     intervalMs: Number(process.env['TICK_MS'] ?? 10 * 60 * 1000),
-    onResult: (r) =>
+    onResult: (r) => {
       bus.publish(
         r.ran
           ? { type: 'tick', ran: true, kind: r.kind, taskId: r.taskId }
           : { type: 'tick', ran: false, why: r.why },
-      ),
+      );
+      void announceStandup().catch((err: unknown) => console.error('standup failed', err));
+    },
   });
 
   // Expired challenges and spent rate-limit windows are dead weight rather

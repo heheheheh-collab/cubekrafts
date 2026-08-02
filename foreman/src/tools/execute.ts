@@ -5,6 +5,7 @@ import type { PolicyConfig, RoleName, RuntimeFacts, ToolCall } from '../domain/t
 import type { Audit } from '../guards/audit.ts';
 import { safeResolve } from '../guards/fs-safe.ts';
 import { classify } from './effects.ts';
+import type { Workspace } from './workspace.ts';
 
 /**
  * Tool execution.
@@ -28,12 +29,16 @@ export interface ExecuteContext {
   now?: () => number;
   /** Sinks for tools that produce records rather than touching the disk. */
   sinks?: Partial<ToolSinks>;
+  /** The checkout git and shell tools operate in. Absent means they cannot run. */
+  workspace?: Workspace;
 }
 
 export interface ToolSinks {
   createArtifact(input: { kind: string; title: string; body: string }): Promise<{ id: string }>;
   askFounder(input: { question: string }): Promise<{ id: string }>;
   saveDraft(input: { lead_id: string; subject: string; body: string }): Promise<{ id: string }>;
+  /** Only ever reached through an approval; never called by a role directly. */
+  sendEmail(input: { draft_id: string }): Promise<{ sent: boolean; detail: string }>;
   searchMemory(input: { query: string }): Promise<string>;
 
   // The work graph. Reads come back as text because text is what a model can
@@ -220,6 +225,73 @@ async function dispatch(call: ToolCall, ctx: ExecuteContext): Promise<string> {
       return `draft ${id} saved. Nothing has been sent; call email.send to queue it for approval.`;
     }
 
+    case 'git.branch': {
+      return await workspaceOf(ctx).createBranch(need(call.args, 'name'));
+    }
+
+    case 'git.commit': {
+      return await workspaceOf(ctx).commitAll(need(call.args, 'message'));
+    }
+
+    case 'git.diff': {
+      return await workspaceOf(ctx).diff();
+    }
+
+    case 'git.push': {
+      // The branch comes from `facts`, which the caller read from git — the
+      // same value the classifier just approved. Reading it again here could
+      // race with a checkout between the two, and pushing a branch nobody
+      // classified is precisely what must not happen.
+      const branch = ctx.facts.currentBranch;
+      if (branch === undefined) throw new PolicyViolation('no branch is checked out');
+      return await workspaceOf(ctx).pushAndOpenPr({
+        branch,
+        title: need(call.args, 'title'),
+        body: need(call.args, 'body'),
+      });
+    }
+
+    case 'shell.run': {
+      const argv = call.args['argv'];
+      if (!Array.isArray(argv)) throw new ToolError('shell.run needs an argv array');
+      const result = await workspaceOf(ctx).exec(argv as string[]);
+      return result.ok ? result.output || '(no output)' : `exited non-zero:\n${result.output}`;
+    }
+
+    case 'http.fetch': {
+      // The classifier has already required https and decided whether the
+      // host needed approval. What is left is to fetch it without letting the
+      // response become a denial of service: a cap on time, a cap on bytes,
+      // and no redirect chase to a host nobody classified.
+      const url = need(call.args, 'url');
+      let response: Response;
+      try {
+        response = await fetch(url, {
+          redirect: 'manual',
+          headers: { accept: 'text/html,text/plain,application/json', 'user-agent': 'Foreman' },
+          signal: AbortSignal.timeout(20_000),
+        });
+      } catch (err) {
+        throw new ToolError(`could not fetch ${url}: ${err instanceof Error ? err.message : err}`);
+      }
+      if (response.status >= 300 && response.status < 400) {
+        const to = response.headers.get('location') ?? 'somewhere';
+        return `${url} redirects to ${to}. Fetch that instead if you still want it — a redirect is a different host and has to be classified as one.`;
+      }
+      const body = await response.text();
+      return `HTTP ${response.status}\n\n${body.slice(0, MAX_OUTPUT)}`;
+    }
+
+    case 'email.send': {
+      const sink = ctx.sinks?.sendEmail;
+      if (!sink) throw new ToolError('email.send has no sink configured');
+      const { sent, detail } = await sink({ draft_id: need(call.args, 'draft_id') });
+      // A refusal comes back as an ordinary result rather than an exception:
+      // a suppressed address or an exhausted cap is something the agent should
+      // hear about and adapt to, not a fault to abort the run over.
+      return sent ? `sent. ${detail}` : `not sent — ${detail}`;
+    }
+
     case 'memory.search': {
       const sink = ctx.sinks?.searchMemory;
       if (!sink) throw new ToolError('memory.search has no sink configured');
@@ -297,6 +369,12 @@ async function dispatch(call: ToolCall, ctx: ExecuteContext): Promise<string> {
       // this file, not permission to improvise.
       throw new ToolError(`${call.name} is not implemented yet`);
   }
+}
+
+/** The checkout, or a plain refusal. An agent told "not configured" can adapt. */
+function workspaceOf(ctx: ExecuteContext): Workspace {
+  if (!ctx.workspace) throw new ToolError('this instance has no code checkout configured');
+  return ctx.workspace;
 }
 
 async function resolveOrThrow(path: string, roots: readonly string[]): Promise<string> {

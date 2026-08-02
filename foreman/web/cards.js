@@ -54,6 +54,20 @@ function when(value) {
 function approval(item, { act }) {
   const node = card(item.kind ?? item.tool, 'waiting');
   node.append(el('div', 'what', item.summary ?? item.reason ?? ''));
+
+  // An email you cannot read in full is one you cannot meaningfully approve,
+  // and the whole design rests on the founder having read it. The hash is the
+  // one the sender will check against, so what is on screen is provably what
+  // goes out.
+  if (item.email && !item.email.missing) {
+    const letter = el('div', 'letter');
+    letter.append(el('div', 'to', `To: ${item.email.to}`));
+    letter.append(el('div', 'subject', item.email.subject));
+    letter.append(el('div', 'body', item.email.body));
+    letter.append(el('div', 'meta', `frozen as ${item.email.hash}`));
+    node.append(letter);
+  }
+
   node.append(
     el('div', 'meta', `${item.role ?? 'an agent'} · waiting ${ago(item.waitingMinutes)}`),
   );
@@ -162,6 +176,26 @@ const RENDERERS = {
   standup: (data) => {
     const node = card('Standup');
     node.append(rows(data.rows ?? []));
+    return node;
+  },
+
+  email: (data) => {
+    const node = card('Email');
+    node.append(
+      rows(
+        data.messages
+          .slice(0, 20)
+          .map((m) => [
+            `${m.to_address} · ${m.subject}`,
+            m.status,
+            m.status === 'sent' ? 'good' : m.status === 'draft' ? '' : 'bad',
+          ]),
+      ),
+    );
+    if (data.suppressed.length > 0) {
+      node.append(el('h3', null, 'Never write to these again'));
+      node.append(rows(data.suppressed.map((s) => [s.address, s.reason, 'bad'])));
+    }
     return node;
   },
 

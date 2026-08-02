@@ -4,6 +4,7 @@ import type { Message } from '../claude/client.ts';
 import { PgAudit, id, recordToolCall, finishRun, addSpend, setTaskStatus } from '../db/repo.ts';
 import { runTool, PolicyViolation } from '../tools/execute.ts';
 import { runAgent, type LoopContext, type RunResult } from './loop.ts';
+import { recordLesson } from './learned.ts';
 
 /**
  * Parking a run, and picking it up again.
@@ -207,13 +208,19 @@ export async function decide(input: Decision, deps: DecideDeps): Promise<Decisio
 
   if (input.decision === 'approve') {
     try {
+      // Facts are re-read here rather than reused from the park. Hours may
+      // have passed; the branch that was checked out when the agent asked is
+      // not necessarily the one checked out now, and `runTool` re-classifies
+      // against whatever this returns.
+      const facts = base.readFacts ? await base.readFacts() : base.facts;
       const result = await runTool(call, {
         role,
         policy: base.policy,
-        facts: base.facts,
+        facts,
         audit,
         runId: approval.run_id,
         ...(base.sinks ? { sinks: base.sinks } : {}),
+        ...(base.workspace ? { workspace: base.workspace } : {}),
       });
       executed = result.ok;
       toolOutput = result.output;
@@ -243,6 +250,12 @@ export async function decide(input: Decision, deps: DecideDeps): Promise<Decisio
     toolOutput =
       `The founder declined this. Reason: ${input.reason ?? 'none given'}. ` +
       `Do not retry the same action — either take a different approach or stop and explain.`;
+    // Told once, remembered afterwards. The reason goes into the role's
+    // charter so the next run starts already knowing it, rather than the
+    // founder rejecting the same thing every week.
+    if (input.reason) {
+      await recordLesson(sql, { role, reason: input.reason, about: call.name });
+    }
   }
 
   messages.push({

@@ -1,0 +1,7 @@
+node_modules
+.git
+test
+*.md
+!PLAN.md
+.env
+.env.*

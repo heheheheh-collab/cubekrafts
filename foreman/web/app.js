@@ -258,6 +258,8 @@ function connect() {
         noted(event.paused ? 'paused' : 'running again');
       } else if (event.type === 'tick' && event.ran) {
         noted(event.kind === 'supervision' ? 'the COO is reviewing' : 'a task was picked up');
+      } else if (event.type === 'standup') {
+        answered(event.speech, null, { speak: false });
       } else if (NARRATION[event.type]) {
         noted(NARRATION[event.type](event));
       }
@@ -288,9 +290,33 @@ const VIEWS = {
       render({ type: 'spend', ...s }, { act }),
     ];
   },
+  standup: async () => {
+    const s = await get('/api/standup');
+    return [s.speech, render({ type: 'standup', rows: s.rows }, { act })];
+  },
   audit: async () => {
     const items = await get('/api/audit');
     return ['Recent activity.', render({ type: 'audit', items }, { act })];
+  },
+  email: async () => {
+    const { messages, suppressed } = await get('/api/email');
+    return [
+      `${messages.length} messages, ${suppressed.length} suppressed addresses.`,
+      render({ type: 'email', messages, suppressed }, { act }),
+    ];
+  },
+  export: async () => {
+    // Straight to a download rather than into the thread: it is a file, and
+    // the fresh-session gate has already been satisfied by getting here.
+    const res = await fetch('/api/export', { credentials: 'same-origin' });
+    if (res.status === 403) throw new ApiError(403, await res.json());
+    const url = URL.createObjectURL(await res.blob());
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `foreman-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    return ['Everything is in that file — the work, the artifacts, and your charters.', null];
   },
   sessions: async () => {
     const items = await get('/api/auth/sessions');
@@ -427,11 +453,11 @@ async function enter() {
   show('app');
   await refresh();
   connect();
-  greet();
+  await greet();
   say.focus();
 }
 
-function greet() {
+async function greet() {
   const hour = new Date().getHours();
   const part = hour < 12 ? 'Morning' : hour < 18 ? 'Afternoon' : 'Evening';
   const waiting = snapshot?.approvals.length ?? 0;
@@ -447,6 +473,17 @@ function greet() {
     waiting > 0 && snapshot ? render({ type: 'approvals', items: snapshot.approvals }, { act }) : null,
     { speak: false },
   );
+
+  // Before nine, lead with what happened overnight — that is the whole reason
+  // this thing is hosted rather than sitting on a laptop that was asleep.
+  if (hour < 9) {
+    try {
+      const standup = await get('/api/standup');
+      if (standup.speech) answered(standup.speech, render({ type: 'standup', rows: standup.rows }, { act }), { speak: false });
+    } catch {
+      /* the greeting is not worth an error message */
+    }
+  }
 }
 
 // ── wiring ──────────────────────────────────────────────────────────────────

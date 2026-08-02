@@ -17,6 +17,8 @@ export type ForemanEvent =
   | { type: 'approval.decided'; approvalId: string; decision: string }
   | { type: 'spend'; todayUsd: number; capUsd: number }
   | { type: 'spend.cap'; capUsd: number }
+  | { type: 'email.suppressed'; kind: string }
+  | { type: 'standup'; speech: string; needsYou: number }
   | { type: 'paused'; paused: boolean };
 
 export class EventBus {

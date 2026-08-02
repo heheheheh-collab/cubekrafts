@@ -425,6 +425,42 @@ describe('the gate', () => {
   });
 });
 
+describe('the standup and the export', () => {
+  it('reports the morning from the database, with no model involved', async () => {
+    const res = await api('GET', '/api/standup');
+    expect(res.status).toBe(200);
+    expect(res.body.speech).toBeTruthy();
+    expect(res.body.rows.map((r: [string, string]) => r[0])).toContain('Waiting on you');
+  });
+
+  it('asks for a passkey again before handing over the whole business', async () => {
+    await pg.query(`UPDATE session SET created_at = now() - interval '2 hours'`);
+    const res = await api('GET', '/api/export');
+    expect(res.status).toBe(403);
+    expect(res.body).toMatchObject({ reauth: true });
+  });
+
+  it('downloads as a file, with nothing secret in it', async () => {
+    const res = await fetch(`${base}/api/export`, { headers: { cookie } });
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-disposition')).toMatch(/attachment; filename="foreman-/);
+    const archive = (await res.json()) as { tables: Record<string, unknown>; omitted: string[] };
+    expect(archive.tables).not.toHaveProperty('session');
+    expect(archive.omitted).toContain('recovery_code');
+  });
+});
+
+describe('the bounce webhook', () => {
+  it('is closed when no secret is configured', async () => {
+    // This app is built without one; a 404 rather than a 401 says the route
+    // does not exist here at all.
+    const res = await api('POST', '/api/webhooks/email', { type: 'email.bounced' }, {
+      signedIn: false,
+    });
+    expect(res.status).toBe(404);
+  });
+});
+
 describe('pause is reachable by conversation', () => {
   it('pauses through the concierge and stops the tick', async () => {
     await api('POST', '/api/tasks', {
