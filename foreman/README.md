@@ -18,7 +18,7 @@ Foreman is a standalone app. It shares no code with the Cubekrafts site or API, 
 
 It *controls* Cubekrafts from the outside, the way an external contractor would:
 
-- reads quote requests out of the Supabase behind the Lovable project (QuoteCraft Pro), with an anon key scoped by row level security to one SELECT
+- reads quote requests out of the Supabase behind the Lovable project (QuoteCraft Pro)
 - edits a checkout of the site on `foreman/*` branches and opens pull requests, never pushing to `main` — branches are cut from the base as the remote has it, because Lovable pushes there too
 - proposes; you approve
 
@@ -91,11 +91,22 @@ Foreman runs without any of these — it just does less. Each one turns somethin
 | Email that is actually delivered | `RESEND_API_KEY`, `EMAIL_FROM=Cubekrafts <info@cubekrafts.com>`, and two DNS records at GoDaddy | — you already own the domain |
 | Bounce and complaint handling | `EMAIL_WEBHOOK_SECRET`, pointed at `/api/webhooks/email` | — |
 | The developer opening pull requests | **the Lovable project connected to GitHub**, then `GITHUB_TOKEN`, `GITHUB_REPO`, a checkout at `FOREMAN_CHECKOUT`, branch protection on `main` | — |
-| Sales having anything to reply to | `CUBEKRAFTS_SUPABASE_URL` + `CUBEKRAFTS_SUPABASE_KEY` (the **anon** key, RLS-scoped to SELECT on enquiries) | — |
+| Sales having anything to reply to | **a decision first — see below** | — |
 
 Nothing in that table costs money — `cubekrafts.com` is already yours, which is what email needs.
 
-### Before the first email: the SPF record
+### Which people Sales may write to
+
+QuoteCraft Pro is a multi-tenant lead-allocation marketplace for Indian modular kitchen dealers, not a contact form. Two things follow from its schema:
+
+- It was **phone-only** until an optional `email` column was added to `leads` and `unrouted_requests`. Every existing row has a null there, so Sales has nothing to write to until new requests come in with an address. That is expected, not a misconfiguration.
+- **`leads.owner_id` points at a dealer.** Those people contacted a dealer through the platform, not Cubekrafts, and writing to them would be contacting another business's customers. **`unrouted_requests`** — requests never allocated to any dealer — reached nobody, so they are the ones Cubekrafts should follow up. That is what `CUBEKRAFTS_INQUIRY_TABLE` points at.
+
+Row level security is on for those tables with policies attached, so the anon key needs a policy granting it `SELECT` on `unrouted_requests` or it reads nothing.
+
+The public form on `cubekrafts.com` is a separate site and posts to the same edge function — it needs its own email field added before requests from there carry one.
+
+### Before any email: the SPF record
 
 `cubekrafts.com` currently publishes `v=spf1 include:secureserver.net -all`. The `-all` is a hard fail: anything not in that list is explicitly disavowed by your own DNS, so mail sent through a new provider is rejected or junked with no bounce at the API to tell you. The existing GoDaddy mailbox on `info@` keeps working either way; the new sender has to be added alongside it.
 
