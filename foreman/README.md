@@ -2,7 +2,7 @@
 
 A whole organisation — COO, web developer, sales, marketing, content, finance — running as AI agents at a URL you sign into.
 
-**Built. 431 tests, typecheck clean. Read [PLAN.md](./PLAN.md) for the design.**
+**Built. 434 tests, typecheck clean. Read [PLAN.md](./PLAN.md) for the design.**
 
 ## What it is
 
@@ -19,7 +19,7 @@ Foreman is a standalone app. It shares no code with the Cubekrafts site or API, 
 It *controls* Cubekrafts from the outside, the way an external contractor would:
 
 - reads quote requests out of the Supabase behind the Lovable project (QuoteCraft Pro), with an anon key scoped by row level security to one SELECT
-- edits a checkout of the site on `foreman/*` branches and opens pull requests, never pushing to `main`
+- edits a checkout of the site on `foreman/*` branches and opens pull requests, never pushing to `main` — branches are cut from the base as the remote has it, because Lovable pushes there too
 - proposes; you approve
 
 ## Talking to it
@@ -69,7 +69,7 @@ npm start                     # http://127.0.0.1:7777
 Open it, register a passkey, and **write down the recovery code** — it is shown once.
 
 ```bash
-npm test          # 431 tests
+npm test          # 434 tests
 npm run typecheck
 ```
 
@@ -90,7 +90,7 @@ Foreman runs without any of these — it just does less. Each one turns somethin
 | A public address, and passkeys on it | nothing — `fly.dev` is free and already configured | — |
 | Email that is actually delivered | `RESEND_API_KEY`, `EMAIL_FROM=Cubekrafts <info@cubekrafts.com>`, and two DNS records at GoDaddy | — you already own the domain |
 | Bounce and complaint handling | `EMAIL_WEBHOOK_SECRET`, pointed at `/api/webhooks/email` | — |
-| The developer opening pull requests | `GITHUB_TOKEN`, `GITHUB_REPO`, a checkout at `FOREMAN_CHECKOUT`, branch protection on `main` | — |
+| The developer opening pull requests | **the Lovable project connected to GitHub**, then `GITHUB_TOKEN`, `GITHUB_REPO`, a checkout at `FOREMAN_CHECKOUT`, branch protection on `main` | — |
 | Sales having anything to reply to | `CUBEKRAFTS_SUPABASE_URL` + `CUBEKRAFTS_SUPABASE_KEY` (the **anon** key, RLS-scoped to SELECT on enquiries) | — |
 
 Nothing in that table costs money — `cubekrafts.com` is already yours, which is what email needs.

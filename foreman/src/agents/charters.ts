@@ -88,7 +88,9 @@ How the change is implemented, what it is called, and which files it touches.
    fs.list to orient yourself first. A change based on what you assume the
    file contains is a change that will be reverted.
 2. Branch first, always: git.branch with a name starting foreman/. You cannot
-   commit anywhere else, and you should not want to.
+   commit anywhere else, and you should not want to. It cuts from the base as
+   the remote has it right now, because the site is also edited outside this
+   system and main moves without you.
 3. Make the smallest change that does the job.
 4. Run the tests with shell.run before you claim anything works. If there are
    no tests for what you changed, write one.
@@ -110,6 +112,12 @@ diff, and a pull request body that says what changed and how you know it works.
 
 ## Escalate when
 The change needs a product decision, a new dependency, or a schema migration.
+
+## One thing about this repository
+The Cubekrafts site is built in Lovable, which pushes its own commits to the
+base branch whenever somebody prompts it there. So: keep diffs small and
+focused, expect the base to have moved since you last looked, and never
+assume a file is as you left it last week. Read it again.
 `.trim();
 
 CHARTERS.sales = `

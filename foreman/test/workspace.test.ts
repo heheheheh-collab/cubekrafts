@@ -128,6 +128,66 @@ describe('branching', () => {
     expect(files.output).not.toContain('only-on-first.txt');
   });
 
+  it('cuts from the remote base, not the stale local copy', async () => {
+    // Cubekrafts is a Lovable project: `main` moves without us, because every
+    // prompt in that editor is a commit somebody else pushed. Branching from
+    // a local base last updated on Tuesday makes a pull request that
+    // conflicts with work already merged.
+    const origin = await mkdtemp(join(tmpdir(), 'foreman-origin-'));
+    const other = await mkdtemp(join(tmpdir(), 'foreman-other-'));
+    try {
+      // `-b main` matters: a bare repo whose HEAD points at `master` leaves
+      // the clone below with no checkout at all, and the commit after it
+      // forks a second history instead of extending this one.
+      await workspace.exec(['git', 'init', '--bare', '-b', 'main', origin]);
+      await workspace.exec(['git', 'remote', 'add', 'origin', origin]);
+      await workspace.exec(['git', 'push', 'origin', 'main']);
+
+      // Somebody else — Lovable — pushes to main while we are not looking.
+      const theirs = new Workspace({ dir: other, baseBranch: 'main', timeoutSeconds: 60 });
+      await theirs.exec(['git', 'clone', origin, other]);
+      await writeFile(join(other, 'lovable-added-this.txt'), 'from the editor', 'utf8');
+      await theirs.exec(['git', 'add', '-A']);
+      await theirs.exec([
+        'git',
+        '-c',
+        'user.name=Lovable',
+        '-c',
+        'user.email=l@localhost',
+        'commit',
+        '-m',
+        'a change made in the editor',
+      ]);
+      await theirs.exec(['git', 'push', 'origin', 'HEAD:main']);
+
+      const message = await workspace.createBranch('foreman/fresh');
+      expect(message).toContain('as the remote has it now');
+
+      const files = await workspace.exec(['git', 'ls-files']);
+      expect(files.output).toContain('lovable-added-this.txt');
+    } finally {
+      await rm(origin, { recursive: true, force: true });
+      await rm(other, { recursive: true, force: true });
+    }
+  });
+
+  it('still cuts a branch when the remote cannot be reached, and says so', async () => {
+    // A fetch failing is not a reason to fail the whole task, but pretending
+    // the base is current would be worse than admitting it might not be.
+    const message = await workspace.createBranch('foreman/offline');
+    expect(message).toContain('may be behind');
+    expect(await workspace.currentBranch()).toBe('foreman/offline');
+  });
+
+  it('leaves the local base branch alone while doing it', async () => {
+    // Cut from the fetched ref rather than resetting the base, so nothing of
+    // anybody else's is discarded to get here.
+    const before = await workspace.exec(['git', 'rev-parse', 'main']);
+    await workspace.createBranch('foreman/untouched');
+    const after = await workspace.exec(['git', 'rev-parse', 'main']);
+    expect(after.output).toBe(before.output);
+  });
+
   it('switches to a branch that already exists rather than failing', async () => {
     await workspace.createBranch('foreman/t-3');
     await workspace.exec(['git', 'checkout', 'main']);

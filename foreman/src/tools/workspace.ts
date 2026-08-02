@@ -113,13 +113,41 @@ export class Workspace {
     return branch === undefined ? {} : { currentBranch: branch };
   }
 
-  async createBranch(name: string): Promise<string> {
-    // From the base branch rather than from whatever happened to be checked
-    // out, so two tasks in a row do not stack one's changes onto the other's.
-    const base = await this.git('checkout', this.baseBranch);
-    if (!base.ok) throw new ToolError(`could not check out ${this.baseBranch}: ${base.output}`);
+  /**
+   * The base branch as the remote has it, if the remote can be reached.
+   *
+   * Cubekrafts is a Lovable project, so `main` moves without us: every prompt
+   * in that editor is a commit somebody else pushed. A branch cut from a
+   * local base that was last updated on Tuesday produces a pull request that
+   * conflicts with work already merged, which is a slow and confusing way to
+   * waste a review.
+   *
+   * Best effort on purpose. No remote, no token, no network — the branch is
+   * still cut, from whatever is local, and the caller is told so rather than
+   * the whole task failing over a fetch.
+   */
+  private async fetchBase(): Promise<{ ref: string; fresh: boolean; why?: string }> {
+    const { token, repo } = this.opts;
+    const remote = token && repo ? `https://x-access-token:${token}@github.com/${repo}.git` : 'origin';
 
-    const made = await this.git('checkout', '-b', name);
+    const fetched = await this.exec(['git', 'fetch', '--depth', '1', remote, this.baseBranch]);
+    if (!fetched.ok) {
+      return {
+        ref: this.baseBranch,
+        fresh: false,
+        why: redact(fetched.output, token ?? '').slice(0, 200),
+      };
+    }
+    return { ref: 'FETCH_HEAD', fresh: true };
+  }
+
+  async createBranch(name: string): Promise<string> {
+    const base = await this.fetchBase();
+
+    // Cut straight from the fetched ref rather than checking out the base and
+    // resetting it. Same result, and it never touches the local base branch,
+    // so nothing of anyone else's is discarded to get here.
+    const made = await this.git('checkout', '-b', name, base.ref);
     if (!made.ok) {
       // Already exists: switch to it rather than failing. A resumed run
       // reaching for its own branch again is normal.
@@ -127,7 +155,11 @@ export class Workspace {
       if (!switched.ok) throw new ToolError(`could not create ${name}: ${made.output}`);
       return `switched to the existing branch ${name}`;
     }
-    return `created and checked out ${name}, from ${this.baseBranch}`;
+
+    return base.fresh
+      ? `created and checked out ${name}, from ${this.baseBranch} as the remote has it now`
+      : `created and checked out ${name}, from the local ${this.baseBranch} — could not reach the ` +
+        `remote, so this may be behind (${base.why ?? 'no reason given'})`;
   }
 
   async commitAll(message: string): Promise<string> {
