@@ -2,7 +2,7 @@
 
 A whole organisation — COO, web developer, sales, marketing, content, finance — running as AI agents at a URL you sign into.
 
-**Built. 425 tests, typecheck clean. Read [PLAN.md](./PLAN.md) for the design.**
+**Built. 431 tests, typecheck clean. Read [PLAN.md](./PLAN.md) for the design.**
 
 ## What it is
 
@@ -18,7 +18,7 @@ Foreman is a standalone app. It shares no code with the Cubekrafts site or API, 
 
 It *controls* Cubekrafts from the outside, the way an external contractor would:
 
-- reads enquiries out of the Supabase behind the Lovable project, with an anon key scoped by row level security to one SELECT
+- reads quote requests out of the Supabase behind the Lovable project (QuoteCraft Pro), with an anon key scoped by row level security to one SELECT
 - edits a checkout of the site on `foreman/*` branches and opens pull requests, never pushing to `main`
 - proposes; you approve
 
@@ -69,7 +69,7 @@ npm start                     # http://127.0.0.1:7777
 Open it, register a passkey, and **write down the recovery code** — it is shown once.
 
 ```bash
-npm test          # 425 tests
+npm test          # 431 tests
 npm run typecheck
 ```
 

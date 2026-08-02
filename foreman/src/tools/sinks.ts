@@ -88,7 +88,11 @@ export function makeSinks(
         .map((i) => {
           const leadId = leadByAddress.get(i.email.toLowerCase()) ?? '(no lead — bad address)';
           const when = i.at ? ` on ${i.at}` : '';
-          return `${leadId} ${i.name ?? 'someone'} <${i.email}>${when}\n    ${i.message ?? '(no message)'}`;
+          // The extras are what a quote request actually consists of, so they
+          // are laid out under the message rather than appended to it.
+          const detail = i.detail.map(([k, v]) => `\n    ${k}: ${v}`).join('');
+          const message = i.message ? `\n    ${i.message}` : '';
+          return `${leadId} ${i.name ?? 'someone'} <${i.email}>${when}${message}${detail}`;
         })
         .join('\n');
     },

@@ -1,6 +1,6 @@
 # Foreman — a whole organisation, at a URL
 
-**Status:** built. Every phase in §16 has landed — 425 tests, typecheck clean, the success condition exercised end to end through the real HTTP surface and behind the real authentication gate. What remains is not code: a domain, an ESP account with SPF and DKIM, a GitHub token, and a Cubekrafts read token. Each turns a piece on; without them Foreman still runs and says plainly what it cannot do. See the README.
+**Status:** built. Every phase in §16 has landed — 431 tests, typecheck clean, the success condition exercised end to end through the real HTTP surface and behind the real authentication gate. What remains is not code: a domain, an ESP account with SPF and DKIM, a GitHub token, and a Cubekrafts read token. Each turns a piece on; without them Foreman still runs and says plainly what it cannot do. See the README.
 **Working name:** Foreman (a foreman runs a crew and reports to the owner). Rename is a find-and-replace.
 
 **Two decisions fixed as of this revision:** Claude only, no second AI vendor. And it runs at a link you can open from anywhere, not on localhost.

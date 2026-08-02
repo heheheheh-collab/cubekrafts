@@ -29,6 +29,14 @@ const config: CubekraftsConfig = {
   key: 'anon-key',
   table: 'inquiries',
   columns: { id: 'id', email: 'email', name: 'name', message: 'message', createdAt: 'created_at' },
+  extra: [],
+};
+
+/** What a quoting tool's row actually looks like: the answer is in the fields. */
+const quoteConfig: CubekraftsConfig = {
+  ...config,
+  table: 'quote_requests',
+  extra: ['product', 'width_ft', 'needs_delivery', 'options'],
 };
 
 /** Captures the request and returns whatever the test wants back. */
@@ -110,6 +118,7 @@ describe('the request it builds', () => {
       ...config,
       table: 'contact_submissions',
       columns: { id: 'uuid', email: 'from_email', name: 'full_name', createdAt: 'submitted_at' },
+      extra: [],
     };
     const { fetcher, calls } = fakeFetch([
       { uuid: 'abc', from_email: 'a@b.com', full_name: 'A B', submitted_at: '2026-08-01' },
@@ -123,6 +132,7 @@ describe('the request it builds', () => {
       name: 'A B',
       message: null,
       at: '2026-08-01',
+      detail: [],
     });
   });
 });
@@ -139,6 +149,7 @@ describe('what it makes of the answer', () => {
         name: 'Ravi',
         message: 'Need a site office',
         at: '2026-08-01T09:00:00Z',
+        detail: [],
       },
     ]);
   });
@@ -162,6 +173,59 @@ describe('what it makes of the answer', () => {
     await expect(fetchInquiries(config, { fetcher: exploding })).rejects.toThrow(
       /could not reach Cubekrafts/,
     );
+  });
+});
+
+// ── a quote request, which is what this actually reads ──────────────────────
+
+describe('a quoting tool row', () => {
+  const row = [
+    {
+      id: 9,
+      email: 'ravi@example.com',
+      name: 'Ravi',
+      message: null,
+      created_at: '2026-08-01T09:00:00Z',
+      product: 'Site office',
+      width_ft: 20,
+      needs_delivery: true,
+      options: ['insulation', 'AC'],
+    },
+  ];
+
+  it('asks for the extra columns too', async () => {
+    const { fetcher, calls } = fakeFetch(row);
+    await fetchInquiries(quoteConfig, { fetcher });
+    expect(calls[0]!.url.searchParams.get('select')).toBe(
+      'id,email,name,message,created_at,product,width_ft,needs_delivery,options',
+    );
+  });
+
+  it('carries the fields the request actually consists of', async () => {
+    // Without this, Sales gets an address and a null message — everything the
+    // customer actually asked for having been dropped on the floor.
+    const { fetcher } = fakeFetch(row);
+    const [inquiry] = await fetchInquiries(quoteConfig, { fetcher });
+    expect(inquiry!.detail).toEqual([
+      ['product', 'Site office'],
+      ['width_ft', '20'],
+      ['needs_delivery', 'true'],
+      ['options', 'insulation, AC'],
+    ]);
+  });
+
+  it('drops an extra column that is empty rather than showing a blank', async () => {
+    const { fetcher } = fakeFetch([{ ...row[0], product: null, options: [] }]);
+    const [inquiry] = await fetchInquiries(quoteConfig, { fetcher });
+    expect(inquiry!.detail.map(([k]) => k)).toEqual(['width_ft', 'needs_delivery']);
+  });
+
+  it('does not ask for the same column twice', async () => {
+    const overlapping: CubekraftsConfig = { ...config, extra: ['message', 'product'] };
+    const { fetcher, calls } = fakeFetch(row);
+    await fetchInquiries(overlapping, { fetcher });
+    const select = calls[0]!.url.searchParams.get('select')!.split(',');
+    expect(new Set(select).size).toBe(select.length);
   });
 });
 
@@ -232,6 +296,23 @@ describe('configuration', () => {
       CUBEKRAFTS_SUPABASE_KEY: 'k',
     });
     expect(c!.url).toBe('https://x.supabase.co');
+  });
+
+  it('reads the extra columns as a list, tolerating spaces', () => {
+    const c = configFromEnv({
+      CUBEKRAFTS_SUPABASE_URL: 'https://x.supabase.co',
+      CUBEKRAFTS_SUPABASE_KEY: 'k',
+      CUBEKRAFTS_COL_EXTRA: 'product, width_ft ,budget',
+    });
+    expect(c!.extra).toEqual(['product', 'width_ft', 'budget']);
+  });
+
+  it('has no extras until it is given some', () => {
+    const c = configFromEnv({
+      CUBEKRAFTS_SUPABASE_URL: 'https://x.supabase.co',
+      CUBEKRAFTS_SUPABASE_KEY: 'k',
+    });
+    expect(c!.extra).toEqual([]);
   });
 
   it('defaults the table and lets it be overridden', () => {

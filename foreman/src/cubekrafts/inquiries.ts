@@ -31,6 +31,16 @@ export interface CubekraftsConfig {
     message?: string;
     createdAt?: string;
   };
+  /**
+   * Everything else on the row worth showing the agent, in order.
+   *
+   * Cubekrafts is a quoting tool, so the enquiry is rarely a paragraph of
+   * prose — it is a product, a size, a budget, a date. Those columns are the
+   * whole content of the request, and a reader that mapped five fixed fields
+   * and dropped the rest would hand Sales an address and nothing to answer.
+   * Names are configuration because they are yours, not mine to guess.
+   */
+  extra: readonly string[];
 }
 
 export const DEFAULT_COLUMNS: CubekraftsConfig['columns'] = {
@@ -63,6 +73,10 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env): CubekraftsC
         ? { createdAt: env['CUBEKRAFTS_COL_CREATED'] ?? DEFAULT_COLUMNS.createdAt }
         : {}),
     },
+    extra: (env['CUBEKRAFTS_COL_EXTRA'] ?? '')
+      .split(',')
+      .map((c) => c.trim())
+      .filter(Boolean),
   };
 }
 
@@ -72,6 +86,8 @@ export interface Inquiry {
   name: string | null;
   message: string | null;
   at: string | null;
+  /** The configured extra columns, in order, with their labels kept. */
+  detail: Array<[string, string]>;
 }
 
 export class CubekraftsError extends Error {}
@@ -91,9 +107,12 @@ export async function fetchInquiries(
   opts: { limit?: number; since?: string; fetcher?: Fetcher } = {},
 ): Promise<Inquiry[]> {
   const c = config.columns;
-  const select = [c.id, c.email, c.name, c.message, c.createdAt]
-    .filter((x): x is string => typeof x === 'string')
-    .join(',');
+  const named = [c.id, c.email, c.name, c.message, c.createdAt].filter(
+    (x): x is string => typeof x === 'string',
+  );
+  // Deduplicated, because naming a column both as `message` and in the extras
+  // would otherwise ask PostgREST for it twice.
+  const select = [...new Set([...named, ...config.extra])].join(',');
 
   const url = new URL(`${config.url}/rest/v1/${config.table}`);
   url.searchParams.set('select', select);
@@ -140,11 +159,28 @@ export async function fetchInquiries(
     name: c.name ? asText(row[c.name]) : null,
     message: c.message ? asText(row[c.message]) : null,
     at: c.createdAt ? asText(row[c.createdAt]) : null,
+    detail: config.extra
+      .map((column): [string, string] => [column, describe(row[column])])
+      .filter(([, value]) => value.length > 0),
   }));
 }
 
 function asText(value: unknown): string | null {
   return typeof value === 'string' && value.length > 0 ? value : null;
+}
+
+/**
+ * An extra column, rendered for a prompt.
+ *
+ * A quote form's fields are rarely all strings — a size is a number, a
+ * "needs delivery" is a boolean, a multi-select is an array. Coercing them
+ * to text here means the agent sees "width: 20" rather than nothing.
+ */
+function describe(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  if (Array.isArray(value)) return value.map(describe).filter(Boolean).join(', ');
+  if (typeof value === 'object') return JSON.stringify(value);
+  return String(value);
 }
 
 export interface SyncResult {
