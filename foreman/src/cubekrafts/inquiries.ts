@@ -15,13 +15,19 @@ import { upsertLead } from '../email/messages.ts';
  */
 
 export interface CubekraftsConfig {
-  /** `https://<ref>.supabase.co` — no trailing slash, no `/rest/v1`. */
-  url: string;
   /**
-   * The anon key, with a row-level-security policy allowing SELECT on the
-   * inquiries table and nothing else. Not the service role key: that one
-   * bypasses RLS entirely and would let a prompt injection read every table.
+   * Where to read from.
+   *
+   * `endpoint` is the one to use: a secret-gated edge function that reads
+   * server-side and returns the rows. The alternative, pointing PostgREST at
+   * a table with the anon key, is wrong for this project — that key ships in
+   * the browser bundle, so any policy permissive enough to let Foreman read
+   * homeowner requests would let anyone who views source read them too.
    */
+  url: string;
+  /** Full URL of the read endpoint. When set, `table` is not used. */
+  endpoint?: string;
+  /** Bearer token: the endpoint's shared secret, or the PostgREST key. */
   key: string;
   table: string;
   columns: {
@@ -52,12 +58,14 @@ export const DEFAULT_COLUMNS: CubekraftsConfig['columns'] = {
 };
 
 export function configFromEnv(env: NodeJS.ProcessEnv = process.env): CubekraftsConfig | null {
-  const url = env['CUBEKRAFTS_SUPABASE_URL'];
-  const key = env['CUBEKRAFTS_SUPABASE_KEY'];
+  const endpoint = env['CUBEKRAFTS_ENDPOINT'];
+  const url = env['CUBEKRAFTS_SUPABASE_URL'] ?? endpoint;
+  const key = env['CUBEKRAFTS_SECRET'] ?? env['CUBEKRAFTS_SUPABASE_KEY'];
   if (!url || !key) return null;
 
   return {
     url: url.replace(/\/+$/, ''),
+    ...(endpoint ? { endpoint } : {}),
     key,
     table: env['CUBEKRAFTS_INQUIRY_TABLE'] ?? 'inquiries',
     columns: {
@@ -114,18 +122,25 @@ export async function fetchInquiries(
   // would otherwise ask PostgREST for it twice.
   const select = [...new Set([...named, ...config.extra])].join(',');
 
-  const url = new URL(`${config.url}/rest/v1/${config.table}`);
-  url.searchParams.set('select', select);
+  // Against the edge function the ordering, the column list and the filter
+  // are its business, not ours — it is the thing holding the credentials.
+  const viaEndpoint = config.endpoint !== undefined;
+  const url = new URL(viaEndpoint ? config.endpoint! : `${config.url}/rest/v1/${config.table}`);
   url.searchParams.set('limit', String(opts.limit ?? 25));
-  if (c.createdAt) url.searchParams.set('order', `${c.createdAt}.desc`);
-  if (opts.since && c.createdAt) url.searchParams.set(c.createdAt, `gte.${opts.since}`);
+  if (!viaEndpoint) {
+    url.searchParams.set('select', select);
+    if (c.createdAt) url.searchParams.set('order', `${c.createdAt}.desc`);
+    if (opts.since && c.createdAt) url.searchParams.set(c.createdAt, `gte.${opts.since}`);
+  }
 
   const doFetch = opts.fetcher ?? fetch;
   let response: Response;
   try {
     response = await doFetch(url.toString(), {
       headers: {
-        apikey: config.key,
+        // `apikey` is PostgREST's; the endpoint wants only the bearer secret,
+        // and sending a stray key header there would be noise at best.
+        ...(viaEndpoint ? {} : { apikey: config.key }),
         authorization: `Bearer ${config.key}`,
         accept: 'application/json',
       },

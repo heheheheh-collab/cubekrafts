@@ -39,7 +39,11 @@ export interface CommandResult {
 }
 
 export class Workspace {
-  constructor(private readonly opts: WorkspaceOptions) {}
+  private readonly opts: WorkspaceOptions;
+
+  constructor(opts: WorkspaceOptions) {
+    this.opts = opts;
+  }
 
   get dir(): string {
     return this.opts.dir;

@@ -51,11 +51,11 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env): WebAuthnCon
 
 /** Anything the caller did wrong, or an authenticator that failed to prove itself. */
 export class AuthError extends Error {
-  constructor(
-    message: string,
-    readonly status = 400,
-  ) {
+  readonly status: number;
+
+  constructor(message: string, status = 400) {
     super(message);
+    this.status = status;
   }
 }
 

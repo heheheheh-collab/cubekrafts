@@ -229,6 +229,71 @@ describe('a quoting tool row', () => {
   });
 });
 
+// ── the secret-gated endpoint, which is what production uses ────────────────
+
+describe('reading through the edge function', () => {
+  const viaEndpoint: CubekraftsConfig = {
+    ...config,
+    endpoint: 'https://iugvjigrpknhnogzjcec.supabase.co/functions/v1/foreman-unrouted',
+    key: 'shared-secret',
+  };
+
+  it('calls the endpoint verbatim rather than building a PostgREST path', async () => {
+    const { fetcher, calls } = fakeFetch([]);
+    await fetchInquiries(viaEndpoint, { fetcher });
+    expect(calls[0]!.url.pathname).toBe('/functions/v1/foreman-unrouted');
+    expect(calls[0]!.url.pathname).not.toContain('rest/v1');
+  });
+
+  it('sends only the bearer secret, never an apikey header', async () => {
+    // The endpoint holds the credentials; a stray key header would be noise
+    // at best and a leaked anon key at worst.
+    const { fetcher, calls } = fakeFetch([]);
+    await fetchInquiries(viaEndpoint, { fetcher });
+    expect(calls[0]!.headers['authorization']).toBe('Bearer shared-secret');
+    expect(calls[0]!.headers['apikey']).toBeUndefined();
+  });
+
+  it('leaves the column list and ordering to the endpoint', async () => {
+    // It is the thing holding the service role key, so what it selects and in
+    // what order is its business, not ours to ask for.
+    const { fetcher, calls } = fakeFetch([]);
+    await fetchInquiries(viaEndpoint, { fetcher, limit: 50 });
+    expect(calls[0]!.url.searchParams.get('select')).toBeNull();
+    expect(calls[0]!.url.searchParams.get('order')).toBeNull();
+    expect(calls[0]!.url.searchParams.get('limit')).toBe('50');
+  });
+
+  it('maps the rows exactly as it would from PostgREST', async () => {
+    const real: CubekraftsConfig = {
+      ...viaEndpoint,
+      columns: { id: 'id', email: 'email', name: 'customer_name', message: 'note', createdAt: 'created_at' },
+      extra: ['city', 'category', 'budget_range', 'timeline', 'phone'],
+    };
+    const { fetcher } = fakeFetch([
+      {
+        id: 'f1e2', customer_name: 'Ravi', email: 'ravi@example.com', phone: '9876543210',
+        city: 'bangalore', category: 'Modular Kitchen', budget_range: '3-5L',
+        timeline: 'Within 1 month', note: null, created_at: '2026-08-02T10:00:00Z',
+      },
+    ]);
+    const [inquiry] = await fetchInquiries(real, { fetcher });
+    expect(inquiry).toMatchObject({ externalId: 'f1e2', email: 'ravi@example.com', name: 'Ravi', message: null });
+    expect(inquiry!.detail).toEqual([
+      ['city', 'bangalore'],
+      ['category', 'Modular Kitchen'],
+      ['budget_range', '3-5L'],
+      ['timeline', 'Within 1 month'],
+      ['phone', '9876543210'],
+    ]);
+  });
+
+  it('surfaces the endpoint refusing a bad secret', async () => {
+    const { fetcher } = fakeFetch(null, { status: 401, body: '{"error":"unauthorized"}' });
+    await expect(fetchInquiries(viaEndpoint, { fetcher })).rejects.toThrow(/401.*unauthorized/);
+  });
+});
+
 // ── turning them into leads ─────────────────────────────────────────────────
 
 describe('syncing', () => {
@@ -296,6 +361,21 @@ describe('configuration', () => {
       CUBEKRAFTS_SUPABASE_KEY: 'k',
     });
     expect(c!.url).toBe('https://x.supabase.co');
+  });
+
+  it('prefers the endpoint and its secret when both are configured', () => {
+    const c = configFromEnv({
+      CUBEKRAFTS_ENDPOINT: 'https://x.supabase.co/functions/v1/foreman-unrouted',
+      CUBEKRAFTS_SECRET: 's3cret',
+    });
+    expect(c).toMatchObject({
+      endpoint: 'https://x.supabase.co/functions/v1/foreman-unrouted',
+      key: 's3cret',
+    });
+  });
+
+  it('needs a secret even with an endpoint', () => {
+    expect(configFromEnv({ CUBEKRAFTS_ENDPOINT: 'https://x/functions/v1/f' })).toBeNull();
   });
 
   it('reads the extra columns as a list, tolerating spaces', () => {

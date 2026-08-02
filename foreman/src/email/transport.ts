@@ -25,12 +25,12 @@ export interface Transport {
 }
 
 export class TransportError extends Error {
-  constructor(
-    message: string,
-    /** True when trying again later could plausibly work. */
-    readonly retryable: boolean,
-  ) {
+  /** True when trying again later could plausibly work. */
+  readonly retryable: boolean;
+
+  constructor(message: string, retryable: boolean) {
     super(message);
+    this.retryable = retryable;
   }
 }
 
@@ -68,7 +68,11 @@ export interface ResendConfig {
 export class ResendTransport implements Transport {
   readonly name = 'resend';
 
-  constructor(private readonly config: ResendConfig) {}
+  private readonly config: ResendConfig;
+
+  constructor(config: ResendConfig) {
+    this.config = config;
+  }
 
   async send(message: Outbound): Promise<Sent> {
     let response: Response;

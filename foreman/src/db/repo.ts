@@ -174,7 +174,15 @@ export async function spendToday(sql: Sql): Promise<number> {
 
 /** The Audit port, backed by the append-only table. */
 export class PgAudit implements Audit {
-  constructor(private readonly sql: Sql) {}
+  // Written out rather than as a constructor parameter property: the app runs
+  // through Node's type stripping, which cannot rewrite those. tsc and the
+  // test runner both accept them, so the only thing that catches it is
+  // actually starting the process.
+  private readonly sql: Sql;
+
+  constructor(sql: Sql) {
+    this.sql = sql;
+  }
 
   async record(entry: Omit<AuditEntry, 'at'> & { at?: Date }): Promise<void> {
     await this.sql.query(
