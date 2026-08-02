@@ -37,6 +37,9 @@ const HOME = process.env['FOREMAN_HOME'] ?? join(homedir(), '.foreman');
 /** True when something else terminates TLS and forwards the caller's address. */
 const TRUST_PROXY = process.env['FOREMAN_TRUST_PROXY'] === 'true';
 
+/** The two hostnames browsers treat as a secure context without TLS. */
+const isLocal = (host: string) => host === 'localhost' || host === '127.0.0.1';
+
 /** Who is on the payroll, and on which model. */
 const STAFF = [
   { id: 'coo', tier: 'top', effort: 'high' },
@@ -114,6 +117,19 @@ async function main(): Promise<void> {
 
   const webauthn = configFromEnv();
   console.log(`origin: ${webauthn.origin} (relying party ${webauthn.rpID})`);
+
+  // Reachable from off-box, but the origin says plain http — so the session
+  // cookie cannot carry `Secure` and WebAuthn will refuse the ceremony
+  // outright. Almost always a forgotten FOREMAN_ORIGIN after a deploy, and
+  // silently serving a sign-in that cannot work is the worst way to find out.
+  if (HOST !== '127.0.0.1' && !webauthn.origin.startsWith('https:') && !isLocal(webauthn.rpID)) {
+    console.error(
+      `refusing to start: bound to ${HOST} but FOREMAN_ORIGIN is ${webauthn.origin}.\n` +
+        'Passkeys require https on anything that is not localhost, and the session\n' +
+        'cookie would go out without Secure. Set FOREMAN_ORIGIN to the https address.',
+    );
+    process.exit(1);
+  }
 
   const app = createApp({
     sql,

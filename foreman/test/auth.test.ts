@@ -477,6 +477,25 @@ describe('the relying party config', () => {
     // The RP ID is a domain, so the port must not come along with it.
     expect(configFromEnv({ FOREMAN_ORIGIN: 'http://localhost:7777' }).rpID).toBe('localhost');
   });
+
+  it('takes the whole free Fly subdomain as the relying party', () => {
+    // `fly.dev` is on the Public Suffix List, so this subdomain is its own
+    // registrable domain: a valid RP ID, and cookies no other Fly app can
+    // read. Truncating to `fly.dev` would be neither.
+    const config = configFromEnv({ FOREMAN_ORIGIN: 'https://cubekrafts-foreman.fly.dev' });
+    expect(config.rpID).toBe('cubekrafts-foreman.fly.dev');
+    expect(config.origin).toBe('https://cubekrafts-foreman.fly.dev');
+  });
+
+  it('produces a secure cookie for that origin and a plain one for localhost', () => {
+    const deployed = configFromEnv({ FOREMAN_ORIGIN: 'https://cubekrafts-foreman.fly.dev' });
+    expect(sessionCookie('t', { secure: deployed.origin.startsWith('https:') })).toContain('Secure');
+
+    const local = configFromEnv({ FOREMAN_ORIGIN: 'http://localhost:7777' });
+    expect(sessionCookie('t', { secure: local.origin.startsWith('https:') })).not.toContain(
+      'Secure',
+    );
+  });
 });
 
 // ── cross-site defence ──────────────────────────────────────────────────────

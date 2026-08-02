@@ -2,7 +2,7 @@
 
 A whole organisation — COO, web developer, sales, marketing, content, finance — running as AI agents at a URL you sign into.
 
-**Built. 383 tests, typecheck clean. Read [PLAN.md](./PLAN.md) for the design.**
+**Built. 385 tests, typecheck clean. Read [PLAN.md](./PLAN.md) for the design.**
 
 ## What it is
 
@@ -69,7 +69,7 @@ npm start                     # http://127.0.0.1:7777
 Open it, register a passkey, and **write down the recovery code** — it is shown once.
 
 ```bash
-npm test          # 383 tests
+npm test          # 385 tests
 npm run typecheck
 ```
 
@@ -77,19 +77,25 @@ npm run typecheck
 
 `fly.toml` and the `Dockerfile` are ready; the commands are in the header of `fly.toml`. One machine, never scaled to zero, because a machine that stopped cannot tick at 3am.
 
+**The address is free and needs no domain**: `https://cubekrafts-foreman.fly.dev`, with a real certificate, already set as `FOREMAN_ORIGIN`. That is a proper domain for our purposes rather than a shared one — `fly.dev` is on the [Public Suffix List](https://publicsuffix.org/), so the subdomain is its own registrable domain. Cookies cannot be read by another Fly app, and WebAuthn accepts it as a relying party ID, so passkeys work on it exactly as they would on a domain you bought.
+
+Point a domain of your own at it later by changing `app` and `FOREMAN_ORIGIN` together. A passkey is bound to the origin it was registered on, so you will register it once more after the move — everything else carries over.
+
 ## What it still needs from you
 
 Foreman runs without any of these — it just does less. Each one turns something on:
 
-| To turn on | Set |
-|---|---|
-| A public address, and passkeys that work there | a domain, `FOREMAN_ORIGIN`, `FOREMAN_TRUST_PROXY=true` |
-| Email that is actually delivered | `RESEND_API_KEY`, `EMAIL_FROM`, and SPF/DKIM on the domain |
-| Bounce and complaint handling | `EMAIL_WEBHOOK_SECRET`, pointed at `/api/webhooks/email` |
-| The developer opening pull requests | `GITHUB_TOKEN`, `GITHUB_REPO`, a checkout at `FOREMAN_CHECKOUT`, and branch protection on `main` |
-| Sales having anything to reply to | a read-only Cubekrafts API token |
+| To turn on | Set | Costs |
+|---|---|---|
+| A public address, and passkeys on it | nothing — `fly.dev` is free and already configured | — |
+| Email that is actually delivered | `RESEND_API_KEY`, `EMAIL_FROM`, and SPF/DKIM records | **a domain you control** |
+| Bounce and complaint handling | `EMAIL_WEBHOOK_SECRET`, pointed at `/api/webhooks/email` | — |
+| The developer opening pull requests | `GITHUB_TOKEN`, `GITHUB_REPO`, a checkout at `FOREMAN_CHECKOUT`, branch protection on `main` | — |
+| Sales having anything to reply to | a read-only Cubekrafts API token | — |
 
-Without an ESP the transport records instead of sending, and says so. Without a checkout the git tools refuse plainly. Nothing pretends.
+Only one line in that table actually needs money, and it is email. Sending as you means proving you own the sending domain, which means SPF and DKIM records, which means DNS you control — and the `fly.dev` zone is Fly's, not yours. There is no free route around that: it is the mechanism that stops anyone else sending as you either. Until a domain exists the transport records instead of sending and says so, and the rest of the pipeline — freeze, approval, suppression, caps — runs and is tested regardless.
+
+Without a checkout the git tools refuse plainly. Nothing pretends.
 
 ## Cost
 

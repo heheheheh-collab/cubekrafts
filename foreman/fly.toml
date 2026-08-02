@@ -1,19 +1,30 @@
 # Fly, not Vercel: this is one long-lived process with a scheduler in it, and
 # a serverless function that is frozen between requests cannot tick at 3am.
 #
-# Before the first deploy, set the app name and the region, then:
+# The address is free and comes with the app: https://cubekrafts-foreman.fly.dev,
+# with a real certificate and nothing to register. That is a genuine domain for
+# our purposes rather than a shared one — `fly.dev` is on the Public Suffix
+# List, so this subdomain is its own registrable domain. Cookies cannot be read
+# by another Fly app, and WebAuthn will accept it as a relying party ID.
+#
+# The one thing it cannot do is email. Sending as you requires SPF and DKIM
+# records, and this zone is Fly's, not yours. Until there is a domain you
+# control, the email transport records instead of sending and says so.
 #
 #   fly launch --no-deploy --copy-config
-#   fly postgres create --name foreman-db --region lhr
-#   fly postgres attach foreman-db          # sets DATABASE_URL
+#   fly postgres create --name cubekrafts-foreman-db --region lhr
+#   fly postgres attach cubekrafts-foreman-db     # sets DATABASE_URL
 #   fly volumes create foreman_data --size 3 --region lhr
 #   fly secrets set ANTHROPIC_API_KEY=sk-ant-...
-#   fly secrets set FOREMAN_ORIGIN=https://<your-domain>
 #   fly deploy
+#
+# FOREMAN_ORIGIN below already matches the free address. Change both together
+# if you point a domain of your own at it — a passkey is bound to the origin
+# it was registered on, so changing it means registering the passkey again.
 #
 # See PLAN.md §3.
 
-app = "foreman"
+app = "cubekrafts-foreman"
 primary_region = "lhr"
 
 [build]
@@ -22,6 +33,10 @@ primary_region = "lhr"
   PORT = "8080"
   FOREMAN_HOST = "0.0.0.0"
   FOREMAN_HOME = "/data"
+  # Not a secret, so it lives here rather than in `fly secrets` — and having
+  # it in the file means the origin the app checks and the origin it is served
+  # from cannot drift apart in a way nobody notices until sign-in breaks.
+  FOREMAN_ORIGIN = "https://cubekrafts-foreman.fly.dev"
   # Fly terminates TLS and forwards the caller's address, so the per-IP rate
   # limit reads the header rather than the socket. Only ever true behind a
   # proxy that overwrites it — otherwise anyone can claim any address.

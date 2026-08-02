@@ -37,8 +37,11 @@ export async function recordLesson(
 
 export async function lessonsFor(sql: Sql, role: RoleName): Promise<string[]> {
   const { rows } = await sql.query<{ detail: { reason?: string } }>(
+    // The id breaks ties. Two lessons recorded in the same statement-clock
+    // tick share an `at`, and ordering on it alone is not a total order — so
+    // "the newest twelve" would quietly become "some twelve".
     `SELECT detail FROM audit WHERE actor = $1 AND action = 'learned'
-      ORDER BY at DESC LIMIT $2`,
+      ORDER BY at DESC, id DESC LIMIT $2`,
     [role, MAX_NOTES],
   );
   // Newest first out of the database, oldest first into the prompt: the
