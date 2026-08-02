@@ -59,10 +59,25 @@ Claude is scripted in the tests — the point is the machinery around the model 
 ## Running it
 
 ```bash
+./start-local.sh
+```
+
+It checks Node, starts Postgres, creates the database, installs, asks for your
+API key without echoing it or writing it anywhere, and starts on
+http://localhost:7777. Re-running skips whatever is already done. Read it
+first — it is forty lines and everything it does is reversible.
+
+Already have a database somewhere? `export DATABASE_URL=…` first and it will
+skip the Postgres part entirely.
+
+Or by hand:
+
+```bash
 npm install
 createdb foreman
-cp .env.example .env          # then fill in DATABASE_URL and ANTHROPIC_API_KEY
-set -a && . ./.env && set +a
+export DATABASE_URL=postgres://localhost/foreman
+export ANTHROPIC_API_KEY=sk-ant-...
+export TICK_MS=60000          # a minute, rather than the ten a server wants
 npm start                     # http://127.0.0.1:7777
 ```
 
