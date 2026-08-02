@@ -10,12 +10,13 @@ import type { ServerResponse } from 'node:http';
  */
 
 export type ForemanEvent =
-  | { type: 'tick'; ran: boolean; why?: string; taskId?: string }
+  | { type: 'tick'; ran: boolean; why?: string; taskId?: string | null; kind?: string }
   | { type: 'run.started'; runId: string; taskId: string; role: string }
   | { type: 'run.finished'; runId: string; outcome: string }
   | { type: 'approval.pending'; approvalId: string; tool: string; summary: string }
   | { type: 'approval.decided'; approvalId: string; decision: string }
   | { type: 'spend'; todayUsd: number; capUsd: number }
+  | { type: 'spend.cap'; capUsd: number }
   | { type: 'paused'; paused: boolean };
 
 export class EventBus {

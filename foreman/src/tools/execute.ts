@@ -35,6 +35,21 @@ export interface ToolSinks {
   askFounder(input: { question: string }): Promise<{ id: string }>;
   saveDraft(input: { lead_id: string; subject: string; body: string }): Promise<{ id: string }>;
   searchMemory(input: { query: string }): Promise<string>;
+
+  // The work graph. Reads come back as text because text is what a model can
+  // use; the shapes behind them are the HTTP API's business, not the prompt's.
+  lookUp(input: { view: string; query?: string }): Promise<string>;
+  setGoal(input: { title: string; why?: string }): Promise<{ id: string }>;
+  dispatch(input: {
+    title: string;
+    spec: string;
+    definition_of_done: string;
+    owner_role: string;
+    priority?: number;
+  }): Promise<{ id: string }>;
+  review(input: { task_id: string; verdict: string; notes: string }): Promise<{ status: string }>;
+  answer(input: { question_id: string; answer: string }): Promise<{ taskId: string | null }>;
+  control(input: { paused: boolean }): Promise<void>;
 }
 
 export interface ToolResult {
@@ -209,6 +224,72 @@ async function dispatch(call: ToolCall, ctx: ExecuteContext): Promise<string> {
       const sink = ctx.sinks?.searchMemory;
       if (!sink) throw new ToolError('memory.search has no sink configured');
       return await sink({ query: need(call.args, 'query') });
+    }
+
+    case 'org.look_up': {
+      const sink = ctx.sinks?.lookUp;
+      if (!sink) throw new ToolError('org.look_up has no sink configured');
+      const query = call.args['query'];
+      return await sink({
+        view: need(call.args, 'view'),
+        ...(typeof query === 'string' && query.length > 0 ? { query } : {}),
+      });
+    }
+
+    case 'org.set_goal': {
+      const sink = ctx.sinks?.setGoal;
+      if (!sink) throw new ToolError('org.set_goal has no sink configured');
+      const why = call.args['why'];
+      const { id } = await sink({
+        title: need(call.args, 'title'),
+        ...(typeof why === 'string' ? { why } : {}),
+      });
+      return `recorded goal ${id}. It has no work under it yet.`;
+    }
+
+    case 'org.dispatch': {
+      const sink = ctx.sinks?.dispatch;
+      if (!sink) throw new ToolError('org.dispatch has no sink configured');
+      const priority = call.args['priority'];
+      const { id } = await sink({
+        title: need(call.args, 'title'),
+        spec: need(call.args, 'spec'),
+        definition_of_done: need(call.args, 'definition_of_done'),
+        owner_role: need(call.args, 'owner_role'),
+        ...(typeof priority === 'number' ? { priority } : {}),
+      });
+      return `created task ${id}, ready for ${need(call.args, 'owner_role')} to pick up.`;
+    }
+
+    case 'org.review': {
+      const sink = ctx.sinks?.review;
+      if (!sink) throw new ToolError('org.review has no sink configured');
+      const { status } = await sink({
+        task_id: need(call.args, 'task_id'),
+        verdict: need(call.args, 'verdict'),
+        notes: need(call.args, 'notes'),
+      });
+      return `task ${need(call.args, 'task_id')} is now ${status}.`;
+    }
+
+    case 'org.answer': {
+      const sink = ctx.sinks?.answer;
+      if (!sink) throw new ToolError('org.answer has no sink configured');
+      const { taskId } = await sink({
+        question_id: need(call.args, 'question_id'),
+        answer: need(call.args, 'answer'),
+      });
+      return taskId === null
+        ? 'answered. There was no task waiting on it.'
+        : `answered; task ${taskId} can run again.`;
+    }
+
+    case 'org.control': {
+      const sink = ctx.sinks?.control;
+      if (!sink) throw new ToolError('org.control has no sink configured');
+      const paused = call.args['paused'] === true;
+      await sink({ paused });
+      return paused ? 'stopped. Nothing new will be claimed.' : 'running again.';
     }
 
     default:

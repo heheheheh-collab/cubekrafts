@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import type { Sql } from '../db/sql.ts';
-import { id } from '../db/repo.ts';
+import { id, getSetting, setSetting, SETTINGS, DEFAULT_CAP_USD } from '../db/repo.ts';
 import type { ToolSinks } from './execute.ts';
 
 /**
@@ -63,5 +63,194 @@ export function makeSinks(sql: Sql, home: string): ToolSinks {
       if (rows.length === 0) return 'No earlier work matches that.';
       return rows.map((r) => `${r.kind}: ${r.title}`).join('\n');
     },
+
+    // ── the work graph ──────────────────────────────────────────────────────
+
+    async lookUp({ view, query }) {
+      return await readView(sql, view, query);
+    },
+
+    async setGoal({ title, why }) {
+      const goalId = id('goal');
+      await sql.query(`INSERT INTO goal (id, title, why) VALUES ($1, $2, $3)`, [
+        goalId,
+        title,
+        why ?? null,
+      ]);
+      return { id: goalId };
+    },
+
+    async dispatch({ title, spec, definition_of_done, owner_role, priority }) {
+      const taskId = id('task');
+      await sql.query(
+        `INSERT INTO task (id, title, spec, definition_of_done, owner_role, status, priority)
+              VALUES ($1, $2, $3, $4, $5, 'ready', $6)`,
+        [taskId, title, spec, definition_of_done, owner_role, priority ?? 100],
+      );
+      return { id: taskId };
+    },
+
+    async review({ task_id, verdict, notes }) {
+      const next = verdict === 'accept' ? 'done' : verdict === 'revise' ? 'revise' : 'blocked';
+      // The reason goes onto the spec, where the next run will actually read
+      // it. A review row nobody opens does not change what the role writes.
+      const { rows } = await sql.query<{ id: string }>(
+        `UPDATE task
+            SET status = $2,
+                revision_count = revision_count + CASE WHEN $2 = 'revise' THEN 1 ELSE 0 END,
+                closed_at = CASE WHEN $2 = 'done' THEN now() ELSE closed_at END,
+                spec = CASE WHEN $2 = 'revise' THEN spec || E'\n\n## Sent back\n' || $3 ELSE spec END
+          WHERE id = $1 AND status IN ('review', 'running', 'revise', 'blocked')
+          RETURNING id`,
+        [task_id, next, notes],
+      );
+      if (rows.length === 0) throw new Error(`task ${task_id} is not waiting on a review`);
+
+      const { rows: artifacts } = await sql.query<{ id: string }>(
+        `SELECT id FROM artifact WHERE task_id = $1 ORDER BY created_at DESC LIMIT 1`,
+        [task_id],
+      );
+      const artifactId = artifacts[0]?.id;
+      if (artifactId !== undefined) {
+        await sql.query(
+          `INSERT INTO review (artifact_id, reviewer, kind, verdict, notes)
+                VALUES ($1, 'coo', 'coo', $2, $3)`,
+          [artifactId, verdict === 'escalate' ? 'escalate' : verdict, notes],
+        );
+        await sql.query(`UPDATE artifact SET status = $2 WHERE id = $1`, [
+          artifactId,
+          verdict === 'accept' ? 'accepted' : 'rejected',
+        ]);
+      }
+      return { status: next };
+    },
+
+    async answer({ question_id, answer }) {
+      const { rows } = await sql.query<{ task_id: string }>(
+        `UPDATE question SET answer = $2, answered_at = now()
+          WHERE id = $1 AND answered_at IS NULL RETURNING task_id`,
+        [question_id, answer],
+      );
+      const taskId = rows[0]?.task_id ?? null;
+      if (taskId === null) return { taskId: null };
+
+      // Same reasoning as a sent-back review: the answer has to be in the
+      // spec, or the task comes back and asks the same question again.
+      await sql.query(
+        `UPDATE task
+            SET spec = spec || E'\n\n## You asked; the founder answered\n' || $2,
+                status = CASE WHEN status IN ('blocked', 'draft') THEN 'ready' ELSE status END
+          WHERE id = $1`,
+        [taskId, answer],
+      );
+      return { taskId };
+    },
+
+    async control({ paused }) {
+      await setSetting(sql, SETTINGS.paused, paused);
+    },
   };
+}
+
+/**
+ * The read side of the work graph, rendered for a model rather than a screen.
+ *
+ * Short lines, ids included so the next tool call can refer to them, and a
+ * hard limit on rows — a concierge answering "what's going on" does not need
+ * two hundred tasks, and paying to put them in a prompt would be silly.
+ */
+async function readView(sql: Sql, view: string, query?: string): Promise<string> {
+  const like = query ? `%${query}%` : null;
+
+  const lines = async <T extends Record<string, unknown>>(
+    text: string,
+    params: unknown[],
+    format: (row: T) => string,
+    empty: string,
+  ): Promise<string> => {
+    const { rows } = await sql.query<T>(text, params);
+    return rows.length === 0 ? empty : rows.map(format).join('\n');
+  };
+
+  switch (view) {
+    case 'tasks':
+      return lines<{ id: string; title: string; status: string; owner_role: string }>(
+        `SELECT id, title, status, owner_role FROM task
+          WHERE ($1::text IS NULL OR title ILIKE $1)
+            AND status NOT IN ('done', 'cancelled')
+          ORDER BY priority, created_at LIMIT 30`,
+        [like],
+        (r) => `${r.id} [${r.status}] ${r.owner_role}: ${r.title}`,
+        'No open tasks.',
+      );
+
+    case 'runs':
+      return lines<{ id: string; title: string; role_id: string; status: string; started_at: Date }>(
+        `SELECT r.id, t.title, r.role_id, r.status, r.started_at
+           FROM run r JOIN task t ON t.id = r.task_id
+          ORDER BY r.started_at DESC LIMIT 15`,
+        [],
+        (r) => `${r.id} [${r.status}] ${r.role_id}: ${r.title}`,
+        'Nothing has run yet.',
+      );
+
+    case 'approvals':
+      return lines<{ id: string; tool: string; reason: string; created_at: Date }>(
+        `SELECT a.id, c.tool, c.reason, a.created_at
+           FROM approval a JOIN tool_call c ON c.id = a.tool_call_id
+          WHERE a.status = 'pending' ORDER BY a.created_at LIMIT 20`,
+        [],
+        (r) => `${r.id} ${r.tool}: ${r.reason}`,
+        'Nothing is waiting on the founder.',
+      );
+
+    case 'questions':
+      return lines<{ id: string; role_id: string; text: string }>(
+        `SELECT id, role_id, text FROM question WHERE answered_at IS NULL
+          ORDER BY asked_at LIMIT 20`,
+        [],
+        (r) => `${r.id} ${r.role_id} asks: ${r.text}`,
+        'Nobody has asked anything.',
+      );
+
+    case 'goals':
+      return lines<{ id: string; title: string; status: string }>(
+        `SELECT id, title, status FROM goal WHERE status = 'open'
+          ORDER BY created_at DESC LIMIT 20`,
+        [],
+        (r) => `${r.id}: ${r.title}`,
+        'No goals are set.',
+      );
+
+    case 'artifacts':
+      return lines<{ id: string; kind: string; title: string; status: string }>(
+        `SELECT id, kind, title, status FROM artifact
+          WHERE ($1::text IS NULL OR title ILIKE $1)
+          ORDER BY created_at DESC LIMIT 20`,
+        [like],
+        (r) => `${r.id} [${r.status}] ${r.kind}: ${r.title}`,
+        'Nothing has been produced yet.',
+      );
+
+    case 'spend': {
+      const { rows } = await sql.query<{ usd: string }>(
+        `SELECT usd FROM spend_day WHERE date = current_date`,
+      );
+      const cap = await getSetting<number>(sql, SETTINGS.dailyCapUsd, DEFAULT_CAP_USD);
+      return `$${Number(rows[0]?.usd ?? 0).toFixed(2)} spent today, cap $${cap.toFixed(2)}.`;
+    }
+
+    case 'activity':
+      return lines<{ at: Date; actor: string; action: string; subject: string | null }>(
+        `SELECT at, actor, action, subject FROM audit ORDER BY at DESC LIMIT 25`,
+        [],
+        (r) => `${new Date(r.at).toISOString()} ${r.actor} ${r.action}${r.subject ? ` ${r.subject}` : ''}`,
+        'Nothing has happened yet.',
+      );
+
+    default:
+      // The classifier already rejected unknown views, so reaching here means
+      // the two lists have drifted apart.
+      throw new Error(`no such view: ${view}`);
+  }
 }

@@ -180,9 +180,100 @@ export const TOOLS: readonly ToolSpec[] = [
       'Search past artifacts, run summaries and rejection reasons. Call this before ' +
       'starting anything that resembles work already done.',
     input_schema: obj({ query: str('Search terms.') }, ['query']),
-    grantedTo: ['coo', 'developer', 'sales', 'marketing', 'content', 'finance'],
+    grantedTo: ['coo', 'developer', 'sales', 'marketing', 'content', 'finance', 'concierge'],
     defaultAutonomy: 'auto',
   },
+
+  // ── the work graph ────────────────────────────────────────────────────────
+  // Internal, reversible, and invisible outside the building, so all of these
+  // are safe. What they queue is not: a task the COO writes still has every
+  // one of its own tool calls classified when it actually runs.
+  {
+    name: 'org.look_up',
+    description:
+      'Read the current state of the company: tasks, runs, approvals, questions, ' +
+      'goals, artifacts, spend, or activity. Call this before answering anything ' +
+      'about what is happening — never answer from memory.',
+    input_schema: obj(
+      {
+        view: str(
+          'One of: tasks, runs, approvals, questions, goals, artifacts, spend, activity.',
+        ),
+        query: str('Optional filter, matched against titles.'),
+      },
+      ['view'],
+    ),
+    grantedTo: ['coo', 'concierge'],
+    defaultAutonomy: 'auto',
+  },
+  {
+    name: 'org.set_goal',
+    description:
+      'Record a goal the founder has just stated. A goal is an outcome, not a task — ' +
+      'the COO is what breaks it into work.',
+    input_schema: obj(
+      { title: str('The outcome, in the founder’s words.'), why: str('Why it matters.') },
+      ['title'],
+    ),
+    grantedTo: ['coo', 'concierge'],
+    defaultAutonomy: 'auto',
+  },
+  {
+    name: 'org.dispatch',
+    description:
+      'Create one task and hand it to a role. Every task needs a definition of done ' +
+      'specific enough that the role can check its own work against it. Work that ' +
+      'spans two roles is two tasks.',
+    input_schema: obj(
+      {
+        title: str('Short title.'),
+        spec: str('What to do, and any context the role will not have.'),
+        definition_of_done: str('How the role knows it is finished. Be concrete.'),
+        owner_role: str('One of: developer, sales, marketing, content, finance.'),
+        priority: { type: 'integer', description: 'Lower runs sooner. Default 100.' },
+      },
+      ['title', 'spec', 'definition_of_done', 'owner_role'],
+    ),
+    grantedTo: ['coo', 'concierge'],
+    defaultAutonomy: 'auto',
+  },
+  {
+    name: 'org.review',
+    description:
+      'Accept a finished task or send it back. Sending it back must carry a reason ' +
+      'the role can act on; "make it better" is not one.',
+    input_schema: obj(
+      {
+        task_id: str('The task under review.'),
+        verdict: str('One of: accept, revise, escalate.'),
+        notes: str('What is right, or precisely what to change.'),
+      },
+      ['task_id', 'verdict', 'notes'],
+    ),
+    grantedTo: ['coo'],
+    defaultAutonomy: 'auto',
+  },
+  {
+    name: 'org.answer',
+    description:
+      'Answer a question an agent parked. The task it belongs to becomes runnable again.',
+    input_schema: obj(
+      { question_id: str('The question being answered.'), answer: str('The answer.') },
+      ['question_id', 'answer'],
+    ),
+    grantedTo: ['concierge'],
+    defaultAutonomy: 'auto',
+  },
+  {
+    name: 'org.control',
+    description:
+      'Stop or restart all work. Use this when the founder says stop, hold off, or ' +
+      'carry on. It takes effect before the next task is claimed.',
+    input_schema: obj({ paused: { type: 'boolean', description: 'True to stop.' } }, ['paused']),
+    grantedTo: ['concierge'],
+    defaultAutonomy: 'auto',
+  },
+
   {
     name: 'ask_founder',
     description:

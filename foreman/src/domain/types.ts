@@ -3,15 +3,25 @@
  * nothing here knows about HTTP, Postgres, or Claude.
  */
 
-/** The roles on the payroll. Charters live in the database; this is the identity. */
+/**
+ * The roles on the payroll, plus one that is not.
+ *
+ * Charters live in the database; this is the identity. `concierge` is the
+ * thing you talk to rather than a thing that does work — it is in this union
+ * anyway so its tool calls go through exactly the same classifier as
+ * everyone else's. A second permission path for the fast layer would be a
+ * second place to get permissions wrong.
+ */
 export type RoleName =
   | 'coo'
   | 'developer'
   | 'sales'
   | 'marketing'
   | 'content'
-  | 'finance';
+  | 'finance'
+  | 'concierge';
 
+/** The roles that hold a charter, run tasks, and appear on the org chart. */
 export const ROLE_NAMES: readonly RoleName[] = [
   'coo',
   'developer',

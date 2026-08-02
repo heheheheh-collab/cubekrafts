@@ -5,6 +5,7 @@ import type { ToolSinks } from '../tools/execute.ts';
 import { modelFor, type Effort, type Tier } from '../claude/catalog.ts';
 import { runAgent, type Outcome } from '../agents/loop.ts';
 import { parkRun, saveMessages } from '../agents/approvals.ts';
+import { supervise } from './supervise.ts';
 import { PgAudit } from '../db/repo.ts';
 import {
   addSpend,
@@ -14,6 +15,8 @@ import {
   setTaskStatus,
   spendToday,
   startRun,
+  SETTINGS,
+  DEFAULT_CAP_USD,
 } from '../db/repo.ts';
 
 /**
@@ -51,14 +54,19 @@ export interface TickDeps {
 
 export type TickResult =
   | { ran: false; why: 'paused' | 'cap_reached' | 'no_work' | 'no_role_config'; detail?: string }
-  | { ran: true; taskId: string; runId: string; outcome: Outcome; costUsd: number };
+  | {
+      ran: true;
+      /** `supervision` is the COO's pass, which belongs to no task. */
+      kind: 'task' | 'supervision';
+      taskId: string | null;
+      runId: string;
+      outcome: Outcome;
+      costUsd: number;
+    };
 
-export const SETTINGS = {
-  paused: 'paused',
-  dailyCapUsd: 'daily_cap_usd',
-} as const;
-
-const DEFAULT_CAP_USD = 5;
+// Re-exported because callers reach for `SETTINGS` from the scheduler, which
+// is where it used to live; the definition sits beside the accessors now.
+export { SETTINGS, DEFAULT_CAP_USD };
 
 /**
  * How a run's ending maps onto the task's next state.
@@ -137,7 +145,21 @@ export async function tick(deps: TickDeps): Promise<TickResult> {
   }
 
   const task = await claimNextTask(sql);
-  if (!task) return { ran: false, why: 'no_work' };
+  if (!task) {
+    // Nothing queued for the roles, so it is the COO's turn — but only if
+    // there is something to supervise. A COO that wakes every ten minutes to
+    // confirm there is nothing to do is a standing charge on the daily cap.
+    const pass = await supervise(deps);
+    if (!pass) return { ran: false, why: 'no_work' };
+    return {
+      ran: true,
+      kind: 'supervision',
+      taskId: null,
+      runId: pass.runId,
+      outcome: pass.outcome,
+      costUsd: pass.costUsd,
+    };
+  }
 
   const role = deps.roles[task.owner_role as RoleName];
   if (!role) {
@@ -240,6 +262,7 @@ export async function tick(deps: TickDeps): Promise<TickResult> {
 
   return {
     ran: true,
+    kind: 'task',
     taskId: task.id,
     runId,
     outcome: result.outcome,

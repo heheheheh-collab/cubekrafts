@@ -61,7 +61,8 @@ export async function claimNextTask(
 
 export async function startRun(
   sql: Sql,
-  input: { taskId: string; roleId: string; model: string; effort: string },
+  /** `taskId` is null for the COO's supervision passes, which belong to no task. */
+  input: { taskId: string | null; roleId: string; model: string; effort: string },
 ): Promise<string> {
   const runId = id('run');
   await sql.query(
@@ -123,6 +124,20 @@ export async function addSpend(
   );
   return Number(rows[0]?.usd ?? 0);
 }
+
+/**
+ * Settings keys, named once.
+ *
+ * They live beside the accessors rather than beside the scheduler because
+ * four layers read them now, and a key typed out twice is a setting that
+ * silently stops working.
+ */
+export const SETTINGS = {
+  paused: 'paused',
+  dailyCapUsd: 'daily_cap_usd',
+} as const;
+
+export const DEFAULT_CAP_USD = 5;
 
 export async function getSetting<T>(sql: Sql, key: string, fallback: T): Promise<T> {
   const { rows } = await sql.query<{ value: T }>('SELECT value FROM setting WHERE key = $1', [key]);

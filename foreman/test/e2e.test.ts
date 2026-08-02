@@ -14,6 +14,7 @@ import { DEFAULT_POLICY } from '../src/domain/types.ts';
 import { CATALOG } from '../src/claude/catalog.ts';
 import type { TurnResult } from '../src/claude/client.ts';
 import type { TickDeps } from '../src/scheduler/tick.ts';
+import { COOKIE, createSession } from '../src/auth/session.ts';
 
 /**
  * Phase 0's success condition, end to end and through the real HTTP surface:
@@ -30,6 +31,7 @@ let pg: PGlite;
 let home: string;
 let server: Server;
 let base: string;
+let cookie: string;
 let turns: Partial<TurnResult>[] = [];
 
 const claude = {
@@ -47,21 +49,52 @@ const claude = {
   },
 };
 
-async function api(method: string, path: string, body?: unknown) {
+/**
+ * A signed-in, same-origin request — what the real UI sends.
+ *
+ * Both headers are load-bearing: without the cookie the gate answers 401, and
+ * without `origin` a state-changing request is refused as cross-site. Passing
+ * `{ signedIn: false }` or `{ origin: … }` is how the tests below prove that.
+ */
+async function api(
+  method: string,
+  path: string,
+  body?: unknown,
+  opts: { signedIn?: boolean; origin?: string | null } = {},
+) {
+  const headers: Record<string, string> = {};
+  if (opts.signedIn !== false) headers['cookie'] = cookie;
+  const origin = opts.origin === undefined ? base : opts.origin;
+  if (origin !== null) headers['origin'] = origin;
+  if (body !== undefined) headers['content-type'] = 'application/json';
+
   const res = await fetch(`${base}${path}`, {
     method,
-    ...(body === undefined
-      ? {}
-      : { headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }),
+    headers,
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
   const text = await res.text();
   return { status: res.status, body: text ? JSON.parse(text) : null };
+}
+
+/**
+ * Claim a port before building the app, because the app needs to be told its
+ * own origin at construction and the origin contains the port.
+ */
+async function reservePort(): Promise<number> {
+  const { createServer: probeServer } = await import('node:http');
+  const probe = probeServer();
+  await new Promise<void>((resolve) => probe.listen(0, '127.0.0.1', resolve));
+  const { port } = probe.address() as AddressInfo;
+  await new Promise<void>((resolve) => probe.close(() => resolve()));
+  return port;
 }
 
 beforeAll(async () => {
   pg = new PGlite();
   await migrate(pg, defaultMigrationsDir());
   home = await mkdtemp(join(tmpdir(), 'foreman-e2e-'));
+  base = `http://127.0.0.1:${await reservePort()}`;
 
   const sql = pg;
   const sinks = makeSinks(sql, home);
@@ -78,6 +111,8 @@ beforeAll(async () => {
     sql,
     bus: new EventBus(),
     tickDeps,
+    security: { origin: base, https: false },
+    webauthn: { rpID: '127.0.0.1', rpName: 'Foreman test', origin: base },
     decideDeps: {
       context: () => ({
         claude,
@@ -92,8 +127,9 @@ beforeAll(async () => {
     },
   });
 
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-  base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  await new Promise<void>((resolve) =>
+    server.listen(Number(new URL(base).port), '127.0.0.1', resolve),
+  );
 }, 120_000);
 
 afterAll(async () => {
@@ -107,10 +143,17 @@ beforeEach(async () => {
     DELETE FROM approval; DELETE FROM message; DELETE FROM tool_call; DELETE FROM run;
     DELETE FROM task; DELETE FROM goal; DELETE FROM artifact; DELETE FROM question;
     DELETE FROM audit; DELETE FROM spend_day; DELETE FROM setting; DELETE FROM role;
+    DELETE FROM session; DELETE FROM auth_event; DELETE FROM rate_counter;
   `);
   await pg.query(
     `INSERT INTO role (id, name, model, enabled) VALUES ('content','content','claude-sonnet-5', TRUE)`,
   );
+  // Minted directly rather than through a passkey ceremony: driving a real
+  // authenticator needs a browser. The gate being exercised here is the same
+  // one either way — these tests are about what a signed-in caller can reach,
+  // and test/auth.test.ts is about how you become one.
+  const { token } = await createSession(pg, { device: 'Test' });
+  cookie = `${COOKIE}=${token}`;
   turns = [];
 });
 
@@ -277,10 +320,108 @@ describe('the API refuses bad input plainly', () => {
     expect((await api('POST', '/api/goals', {})).status).toBe(400);
   });
 
+  it('serves the shell signed out, because the shell is what draws the gate', async () => {
+    const res = await fetch(`${base}/`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toMatch(/text\/html/);
+    // A cached shell after a deploy is an old app talking to a new API.
+    expect(res.headers.get('cache-control')).toBe('no-store');
+    expect(await res.text()).toContain('Foreman');
+  });
+
+  it('serves the shell for a path the client routes itself', async () => {
+    expect((await fetch(`${base}/settings`)).status).toBe(200);
+  });
+
+  it('will not serve a file outside the web directory', async () => {
+    const res = await fetch(`${base}/../package.json`, { redirect: 'manual' });
+    expect(await res.text()).not.toContain('"name": "foreman"');
+  });
+
   it('404s an unknown route with the method and path', async () => {
     const res = await api('GET', '/api/nope');
     expect(res.status).toBe(404);
     expect(res.body.error).toMatch(/GET \/api\/nope/);
+  });
+});
+
+describe('the gate', () => {
+  it('turns away every route that is not sign-in or health', async () => {
+    const guarded: Array<[string, string]> = [
+      ['GET', '/api/snapshot'],
+      ['GET', '/api/approvals'],
+      ['GET', '/api/tasks'],
+      ['GET', '/api/audit'],
+      ['GET', '/api/spend'],
+      ['POST', '/api/tick'],
+      ['POST', '/api/talk'],
+      ['POST', '/api/goals'],
+      ['POST', '/api/control/pause'],
+    ];
+    for (const [method, path] of guarded) {
+      const res = await api(method, path, method === 'POST' ? {} : undefined, { signedIn: false });
+      expect({ path, status: res.status }).toEqual({ path, status: 401 });
+    }
+  });
+
+  it('lets health through signed out, because a health check has no cookie', async () => {
+    const res = await api('GET', '/api/health', undefined, { signedIn: false });
+    expect(res).toMatchObject({ status: 200, body: { ok: true } });
+  });
+
+  it('reports whether anyone has claimed it, signed out', async () => {
+    const res = await api('GET', '/api/auth/state', undefined, { signedIn: false });
+    expect(res.body).toMatchObject({ claimed: false, signedIn: false });
+  });
+
+  it('refuses a state-changing request from another origin, cookie or not', async () => {
+    const res = await api('POST', '/api/goals', { title: 'x' }, { origin: 'https://evil.example' });
+    expect(res.status).toBe(403);
+    expect(res.body.error).toMatch(/evil\.example/);
+  });
+
+  it('refuses a state-changing request with no origin at all', async () => {
+    const res = await api('POST', '/api/goals', { title: 'x' }, { origin: null });
+    expect(res.status).toBe(403);
+  });
+
+  it('still serves a read with no origin header', async () => {
+    expect((await api('GET', '/api/tasks', undefined, { origin: null })).status).toBe(200);
+  });
+
+  it('sends the security headers on everything', async () => {
+    const res = await fetch(`${base}/api/health`);
+    expect(res.headers.get('x-frame-options')).toBe('DENY');
+    expect(res.headers.get('referrer-policy')).toBe('no-referrer');
+    expect(res.headers.get('x-content-type-options')).toBe('nosniff');
+    expect(res.headers.get('content-security-policy')).toMatch(/frame-ancestors 'none'/);
+    // No TLS in the test, so no point promising a year of it.
+    expect(res.headers.get('strict-transport-security')).toBeNull();
+  });
+
+  it('asks for a passkey again before the spend cap moves', async () => {
+    const stale = await pg.query<{ id: string }>(
+      `UPDATE session SET created_at = now() - interval '2 hours' RETURNING id`,
+    );
+    expect(stale.rows).toHaveLength(1);
+
+    const res = await api('POST', '/api/spend/cap', { capUsd: 500 });
+    expect(res.status).toBe(403);
+    expect(res.body).toMatchObject({ reauth: true });
+
+    // and the cap did not move
+    expect((await api('GET', '/api/spend')).body.capUsd).toBe(5);
+  });
+
+  it('moves the cap for a session that just authenticated', async () => {
+    const res = await api('POST', '/api/spend/cap', { capUsd: 12 });
+    expect(res.status).toBe(200);
+    expect((await api('GET', '/api/spend')).body.capUsd).toBe(12);
+  });
+
+  it('will not accept a nonsense cap', async () => {
+    expect((await api('POST', '/api/spend/cap', { capUsd: -1 })).status).toBe(400);
+    expect((await api('POST', '/api/spend/cap', { capUsd: 1e9 })).status).toBe(400);
   });
 });
 

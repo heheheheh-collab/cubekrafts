@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="dark" />
+    <title>Foreman</title>
+    <link rel="stylesheet" href="/app.css" />
+    <link rel="icon" href="/favicon.svg" />
+    <script type="module" src="/app.js"></script>
+  </head>
+  <body>
+    <!-- Three screens, one at a time. Which one is decided by /api/auth/state
+         before anything is drawn, so the app never flashes the wrong one. -->
+    <main id="boot" class="screen center">
+      <div class="pulse"></div>
+    </main>
+
+    <main id="gate" class="screen center" hidden>
+      <div class="gate-card">
+        <h1 class="wordmark">Foreman</h1>
+        <p id="gate-lede" class="lede"></p>
+        <button id="gate-primary" class="primary"></button>
+        <p id="gate-error" class="error" hidden></p>
+        <button id="gate-recover" class="link" hidden>Use a recovery code</button>
+        <form id="recover-form" hidden>
+          <label for="recover-code">Recovery code</label>
+          <input id="recover-code" name="code" autocomplete="one-time-code" spellcheck="false" />
+          <button class="primary" type="submit">Sign in</button>
+        </form>
+        <div id="recovery-shown" class="recovery" hidden>
+          <p class="lede">
+            Write this down now. It is the only way back in if you lose every passkey, and it
+            is not shown again.
+          </p>
+          <code id="recovery-code"></code>
+          <button id="recovery-ack" class="primary">I have written it down</button>
+        </div>
+      </div>
+    </main>
+
+    <main id="app" class="screen" hidden>
+      <header class="bar">
+        <span class="wordmark small">Foreman</span>
+        <div id="pills" class="pills"></div>
+        <button id="menu-button" class="icon" aria-label="Settings" aria-expanded="false">⋯</button>
+      </header>
+
+      <section id="thread" class="thread" aria-live="polite"></section>
+
+      <footer class="composer">
+        <button id="mic" class="icon mic" aria-label="Speak" hidden>🎙</button>
+        <input
+          id="say"
+          type="text"
+          placeholder="Ask, or tell it what to do"
+          autocomplete="off"
+          spellcheck="false"
+          enterkeyhint="send"
+        />
+        <button id="send" class="icon" aria-label="Send">↵</button>
+      </footer>
+
+      <aside id="menu" class="menu" hidden>
+        <button data-do="approvals">Approvals</button>
+        <button data-do="tasks">Tasks</button>
+        <button data-do="spend">Spend</button>
+        <button data-do="audit">Recent activity</button>
+        <button data-do="sessions">Devices</button>
+        <button data-do="authlog">Sign-in log</button>
+        <button data-do="addkey">Add a passkey</button>
+        <button data-do="signout" class="danger">Sign out</button>
+      </aside>
+    </main>
+  </body>
+</html>

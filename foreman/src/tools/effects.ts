@@ -7,6 +7,7 @@ import {
   type RuntimeFacts,
   type ToolCall,
   NEVER_PROMOTABLE,
+  ROLE_NAMES,
 } from '../domain/types.ts';
 import { getTool } from './registry.ts';
 import { confine } from '../guards/jail.ts';
@@ -28,6 +29,20 @@ import { confine } from '../guards/jail.ts';
  *      model output; letting the model assert which branch it is on would let
  *      it authorise its own push.
  */
+
+/** The only things org.look_up can be pointed at. Anything else is a typo or a probe. */
+const ORG_VIEWS: readonly string[] = [
+  'tasks',
+  'runs',
+  'approvals',
+  'questions',
+  'goals',
+  'artifacts',
+  'spend',
+  'activity',
+];
+
+const REVIEW_VERDICTS: readonly string[] = ['accept', 'revise', 'escalate'];
 
 const forbidden = (reason: string): Classification => ({ effect: 'forbidden', reason });
 const guarded = (reason: string): Classification => ({ effect: 'guarded', reason });
@@ -172,6 +187,66 @@ export function classify(
 
     case 'memory.search':
       return safe('reading past work');
+
+    // The work graph is Foreman's own database. Writing to it queues work; it
+    // does not do any. Everything queued is classified again when it actually
+    // runs, so dispatch cannot launder a forbidden action into a safe one.
+    case 'org.look_up': {
+      const view = readString(call.args, 'view');
+      if (view === undefined) return forbidden('org.look_up called without a view');
+      if (!ORG_VIEWS.includes(view)) return forbidden(`there is no ${view} view`);
+      return safe(`reading ${view}`);
+    }
+
+    case 'org.set_goal': {
+      if (readString(call.args, 'title') === undefined) {
+        return forbidden('org.set_goal called without a title');
+      }
+      return safe('recording a goal');
+    }
+
+    case 'org.dispatch': {
+      const owner = readString(call.args, 'owner_role');
+      if (owner === undefined) return forbidden('org.dispatch called without an owner_role');
+      // Work can only be handed to somebody who exists, and never to the
+      // concierge, which is not a worker and has no run loop.
+      if (!ROLE_NAMES.includes(owner as RoleName) || owner === 'coo') {
+        return forbidden(`${owner} cannot be given a task`);
+      }
+      if (readString(call.args, 'definition_of_done') === undefined) {
+        return forbidden('a task cannot be dispatched without a definition of done');
+      }
+      return safe(`creating a task for ${owner}`);
+    }
+
+    case 'org.review': {
+      const verdict = readString(call.args, 'verdict');
+      if (readString(call.args, 'task_id') === undefined) {
+        return forbidden('org.review called without a task_id');
+      }
+      if (verdict === undefined || !REVIEW_VERDICTS.includes(verdict)) {
+        return forbidden(`${verdict ?? 'nothing'} is not a review verdict`);
+      }
+      return safe(`recording a ${verdict} verdict`);
+    }
+
+    case 'org.answer': {
+      if (readString(call.args, 'question_id') === undefined) {
+        return forbidden('org.answer called without a question_id');
+      }
+      if (readString(call.args, 'answer') === undefined) {
+        return forbidden('org.answer called without an answer');
+      }
+      return safe('answering a parked question');
+    }
+
+    case 'org.control': {
+      const paused = call.args['paused'];
+      if (typeof paused !== 'boolean') {
+        return forbidden('org.control needs paused to be true or false');
+      }
+      return safe(paused ? 'stopping all work' : 'restarting work');
+    }
 
     case 'ask_founder':
       return safe('parking the task and asking a question');
