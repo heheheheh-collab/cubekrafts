@@ -22,7 +22,29 @@ NODE_MAJOR=$(node -p 'process.versions.node.split(".")[0]')
 It runs TypeScript directly, which older versions cannot do."
 
 # ── postgres ────────────────────────────────────────────────────────────────
-# Skipped entirely when DATABASE_URL is already set — that is the escape hatch
+# A DATABASE_URL that is still a placeholder is worse than none at all: it
+# skips this whole section and then fails forty lines later inside the pg
+# driver, with an ENOTFOUND naming a hostname of "..." that explains nothing.
+# Documentation writes `postgres://...` and people paste it, so catch it here.
+if [ -n "${DATABASE_URL:-}" ]; then
+  DB_HOST=$(node -e 'try{const u=new URL(process.argv[1]);console.log(u.hostname)}catch{console.log("")}' "$DATABASE_URL")
+  case "$DB_HOST" in
+    ''|*.\.\.*|...|'<'*|*'>'|your-host*|host|HOST)
+      die "DATABASE_URL is still a placeholder:
+
+    $DATABASE_URL
+
+That is example text, not a database. Either clear it and let this script set
+up a local one:
+
+    unset DATABASE_URL && ./start-local.sh
+
+or paste the real connection string from Neon or Supabase, which looks like
+    postgres://user:password@ep-something.aws.neon.tech/dbname" ;;
+  esac
+fi
+
+# Skipped entirely when DATABASE_URL is a real one — that is the escape hatch
 # for a hosted database, and the common case for anyone who would rather not
 # install Postgres at all.
 if [ -z "${DATABASE_URL:-}" ]; then
@@ -32,8 +54,10 @@ Either install it:
     macOS    brew install postgresql@16 && brew services start postgresql@16
     Ubuntu   sudo apt install -y postgresql
 
-Or use a free hosted one — make a database at neon.tech, then:
-    export DATABASE_URL='postgres://...'   # and run this again"
+Or use a free hosted one — make a database at neon.tech and paste the whole
+connection string it gives you, which looks like this but is not this:
+    export DATABASE_URL='postgres://user:pw@ep-x.aws.neon.tech/dbname'
+then run this again."
 
   if ! pg_isready -q 2>/dev/null; then
     say "Starting Postgres…"

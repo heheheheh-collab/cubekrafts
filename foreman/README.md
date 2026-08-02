@@ -67,8 +67,15 @@ API key without echoing it or writing it anywhere, and starts on
 http://localhost:7777. Re-running skips whatever is already done. Read it
 first — it is forty lines and everything it does is reversible.
 
-Already have a database somewhere? `export DATABASE_URL=…` first and it will
-skip the Postgres part entirely.
+Already have a database somewhere? Export the **whole** connection string
+first and it skips the Postgres part entirely:
+
+```bash
+export DATABASE_URL='postgres://user:pw@ep-x.aws.neon.tech/dbname'
+```
+
+Not a placeholder — the script now refuses one rather than failing later inside
+the driver with a hostname of `...`.
 
 Or by hand:
 
