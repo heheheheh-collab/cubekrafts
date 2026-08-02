@@ -4,6 +4,7 @@ import type { Claude } from '../claude/client.ts';
 import type { ToolSinks } from '../tools/execute.ts';
 import { modelFor, type Effort, type Tier } from '../claude/catalog.ts';
 import { runAgent, type Outcome } from '../agents/loop.ts';
+import { parkRun, saveMessages } from '../agents/approvals.ts';
 import { PgAudit } from '../db/repo.ts';
 import {
   addSpend,
@@ -201,6 +202,24 @@ export async function tick(deps: TickDeps): Promise<TickResult> {
       detail: { task: task.id, error: message },
     });
     throw err;
+  }
+
+  // A run that stopped for the founder has to survive the wait, so the
+  // conversation goes to the database along with the pending call. Everything
+  // else still stores its transcript, because replaying a run after editing a
+  // charter is how agent behaviour gets debugged.
+  if (result.outcome.kind === 'awaiting_approval') {
+    await parkRun(sql, {
+      runId,
+      taskId: task.id,
+      role: role.name,
+      call: result.outcome.call,
+      reason: result.outcome.reason,
+      messages: result.messages,
+      seq: result.steps,
+    });
+  } else {
+    await saveMessages(sql, runId, result.messages);
   }
 
   await finishRun(sql, {

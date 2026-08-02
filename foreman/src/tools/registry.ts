@@ -163,6 +163,18 @@ export const TOOLS: readonly ToolSpec[] = [
     defaultAutonomy: 'auto',
   },
   {
+    name: 'artifact.publish',
+    description:
+      'Publish a finished artifact. This is visible outside the company, so it ' +
+      'always waits for the founder to read and approve it first.',
+    input_schema: obj(
+      { artifact_id: str('The artifact to publish.'), where: str('Channel or destination.') },
+      ['artifact_id', 'where'],
+    ),
+    grantedTo: ['content', 'marketing'],
+    defaultAutonomy: 'approve',
+  },
+  {
     name: 'memory.search',
     description:
       'Search past artifacts, run summaries and rejection reasons. Call this before ' +

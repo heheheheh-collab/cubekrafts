@@ -58,4 +58,41 @@ $5–10/month hosting, plus $45–90/month of model spend at normal load. Both c
 
 ## Status
 
-Nothing is built. Phase 0 is the tick loop, the tool effect classifier, the audit log, the approvals inbox, and one role writing blog posts — on localhost, with no deployment until phase 1 adds authentication.
+**Phase 0 is complete and runs.** 151 tests, typecheck clean.
+
+The success condition is exercised end to end by `test/e2e.test.ts`, through the real HTTP surface: you post a goal and a task, the Content agent writes a draft to disk and records an artifact, it stops at a guarded publish, the approvals queue shows it with a reason, you approve, the run resumes from where it stopped and finishes, and every step is in the audit log. Claude is scripted in that test — the point is the machinery around the model — but the database, the files, the HTTP, and the classifier are all real.
+
+What exists:
+
+| Piece | Where |
+|---|---|
+| Tool effect classifier — the security boundary | `src/tools/effects.ts` |
+| Path jail, symlink-safe filesystem, audit log | `src/guards/` |
+| Tool registry and executor | `src/tools/` |
+| Claude client, model catalog, cost | `src/claude/` |
+| Agent loop, approvals with resume, charters | `src/agents/` |
+| Postgres schema, migrations, repository | `src/db/` |
+| Tick scheduler | `src/scheduler/tick.ts` |
+| HTTP API, live event stream | `src/server/` |
+| Concierge fast path (no model call) | `src/concierge/` |
+
+**It binds to loopback only and has no authentication.** That is deliberate: phase 1 is §4 of the plan, and nothing gets a public address until it lands.
+
+## Running it
+
+```bash
+npm install
+createdb foreman                     # or point DATABASE_URL at any Postgres
+export DATABASE_URL=postgres://localhost/foreman
+export ANTHROPIC_API_KEY=sk-ant-...
+npm start                            # http://127.0.0.1:7777
+```
+
+```bash
+npm test          # 151 tests
+npm run typecheck
+```
+
+## What's next
+
+Phase 1: passkey authentication, sessions, rate limiting, security headers, then the deploy. Phase 2: the COO, the work graph, and the concierge's model path. Phases 3–5 are in §16 of the plan.

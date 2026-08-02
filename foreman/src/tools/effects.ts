@@ -161,6 +161,15 @@ export function classify(
     case 'artifact.create':
       return safe('recording a deliverable');
 
+    case 'artifact.publish': {
+      const artifactId = readString(call.args, 'artifact_id');
+      const where = readString(call.args, 'where');
+      if (artifactId === undefined || where === undefined) {
+        return forbidden('artifact.publish needs both artifact_id and where');
+      }
+      return guarded(`publishing ${artifactId} to ${where}`);
+    }
+
     case 'memory.search':
       return safe('reading past work');
 

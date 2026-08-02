@@ -1,6 +1,6 @@
 # Foreman — a whole organisation, at a URL
 
-**Status:** design, not built. Nothing here ships yet.
+**Status:** phase 0 is built and passing — 151 tests, the success condition exercised end to end. Phases 1–5 are still design. See the README for what exists.
 **Working name:** Foreman (a foreman runs a crew and reports to the owner). Rename is a find-and-replace.
 
 **Two decisions fixed as of this revision:** Claude only, no second AI vendor. And it runs at a link you can open from anywhere, not on localhost.
