@@ -73,11 +73,25 @@ export async function upsertLead(
 ): Promise<string> {
   if (!looksLikeAddress(input.email)) throw new EmailError(`${input.email} is not an address`);
   const leadId = id('lead');
+  // A person who opted out and then filled the form in again comes back
+  // already opted out. The suppression list would refuse the send either way,
+  // but a lead row claiming otherwise is a second source of truth that
+  // disagrees with the first, and one of them will eventually be believed.
   const { rows } = await sql.query<{ id: string }>(
-    `INSERT INTO lead (id, email, name, source, consent) VALUES ($1, $2, $3, $4, $5)
+    `INSERT INTO lead (id, email, name, source, consent, unsubscribed_at)
+          VALUES ($1, $2, $3, $4, $5,
+                  (SELECT created_at FROM email_suppression
+                    WHERE address = lower($2) AND reason = ANY($6)))
      ON CONFLICT (lower(email)) DO UPDATE SET name = COALESCE(EXCLUDED.name, lead.name)
      RETURNING id`,
-    [leadId, input.email.trim(), input.name ?? null, input.source ?? 'unknown', input.consent ?? 'enquiry'],
+    [
+      leadId,
+      input.email.trim(),
+      input.name ?? null,
+      input.source ?? 'unknown',
+      input.consent ?? 'enquiry',
+      PERSON_LEVEL_SUPPRESSION,
+    ],
   );
   return rows[0]!.id;
 }
@@ -95,6 +109,16 @@ export async function findLead(sql: Sql, leadId: string): Promise<{ id: string; 
 
 export type SuppressionReason = 'bounce' | 'complaint' | 'unsubscribe' | 'manual';
 
+/**
+ * Suppressions that are about the person rather than the mailbox.
+ *
+ * An unsubscribe or a spam complaint is somebody saying stop, and it follows
+ * them to a new address. A bounce is only ever a fact about one mailbox.
+ * Stated once, here, because both `suppress` and `upsertLead` need it and two
+ * copies would eventually disagree.
+ */
+export const PERSON_LEVEL_SUPPRESSION: readonly SuppressionReason[] = ['unsubscribe', 'complaint'];
+
 export async function suppress(
   sql: Sql,
   address: string,
@@ -106,11 +130,8 @@ export async function suppress(
      ON CONFLICT (address) DO NOTHING`,
     [address.trim(), reason, detail ?? null],
   );
-  // An unsubscribe or a spam complaint is the person saying stop, so the lead
-  // is marked as well as the address — they should not be written to at a new
-  // address either. A bounce is only ever a fact about the mailbox, so it
-  // suppresses the address and leaves the person alone.
-  if (reason === 'unsubscribe' || reason === 'complaint') {
+  // The person said stop, so the lead is marked as well as the address.
+  if (PERSON_LEVEL_SUPPRESSION.includes(reason)) {
     await sql.query(`UPDATE lead SET unsubscribed_at = now() WHERE lower(email) = lower($1)`, [
       address.trim(),
     ]);

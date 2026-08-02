@@ -164,6 +164,17 @@ export function classify(
       return guarded(`fetching ${url.hostname}, which is not allowlisted`);
     }
 
+    // A read of our own data over a connection the app holds, not one the
+    // model can point anywhere. There is no argument here that could make it
+    // reach a different host, which is what keeps it safe rather than guarded.
+    case 'cubekrafts.inquiries': {
+      const limit = call.args['limit'];
+      if (limit !== undefined && (typeof limit !== 'number' || limit < 1 || limit > 100)) {
+        return forbidden('limit must be a number between 1 and 100');
+      }
+      return safe('reading enquiries from the site');
+    }
+
     case 'email.draft':
       return safe('saving a draft, which sends nothing');
 

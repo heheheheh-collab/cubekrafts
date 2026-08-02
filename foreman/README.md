@@ -2,7 +2,7 @@
 
 A whole organisation — COO, web developer, sales, marketing, content, finance — running as AI agents at a URL you sign into.
 
-**Built. 385 tests, typecheck clean. Read [PLAN.md](./PLAN.md) for the design.**
+**Built. 406 tests, typecheck clean. Read [PLAN.md](./PLAN.md) for the design.**
 
 ## What it is
 
@@ -18,7 +18,7 @@ Foreman is a standalone app. It shares no code with the Cubekrafts site or API, 
 
 It *controls* Cubekrafts from the outside, the way an external contractor would:
 
-- reads inquiries over the public API with a read-only token
+- reads enquiries out of the Supabase behind the Lovable project, with an anon key scoped by row level security to one SELECT
 - edits a checkout of the site on `foreman/*` branches and opens pull requests, never pushing to `main`
 - proposes; you approve
 
@@ -69,7 +69,7 @@ npm start                     # http://127.0.0.1:7777
 Open it, register a passkey, and **write down the recovery code** — it is shown once.
 
 ```bash
-npm test          # 385 tests
+npm test          # 406 tests
 npm run typecheck
 ```
 
@@ -91,7 +91,7 @@ Foreman runs without any of these — it just does less. Each one turns somethin
 | Email that is actually delivered | `RESEND_API_KEY`, `EMAIL_FROM`, and SPF/DKIM records | **a domain you control** |
 | Bounce and complaint handling | `EMAIL_WEBHOOK_SECRET`, pointed at `/api/webhooks/email` | — |
 | The developer opening pull requests | `GITHUB_TOKEN`, `GITHUB_REPO`, a checkout at `FOREMAN_CHECKOUT`, branch protection on `main` | — |
-| Sales having anything to reply to | a read-only Cubekrafts API token | — |
+| Sales having anything to reply to | `CUBEKRAFTS_SUPABASE_URL` + `CUBEKRAFTS_SUPABASE_KEY` (the **anon** key, RLS-scoped to SELECT on enquiries) | — |
 
 Only one line in that table actually needs money, and it is email. Sending as you means proving you own the sending domain, which means SPF and DKIM records, which means DNS you control — and the `fly.dev` zone is Fly's, not yours. There is no free route around that: it is the mechanism that stops anyone else sending as you either. Until a domain exists the transport records instead of sending and says so, and the rest of the pipeline — freeze, approval, suppression, caps — runs and is tested regardless.
 

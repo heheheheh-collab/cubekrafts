@@ -6,6 +6,7 @@ import type { ToolSinks } from './execute.ts';
 import { draft } from '../email/messages.ts';
 import { sendApproved } from '../email/send.ts';
 import type { Transport } from '../email/transport.ts';
+import { syncInquiries, fetchInquiries, type CubekraftsConfig } from '../cubekrafts/inquiries.ts';
 
 /**
  * The tools that produce records rather than touching a workspace.
@@ -14,7 +15,12 @@ import type { Transport } from '../email/transport.ts';
  * what you read, the row is what the work graph refers to. Keeping the body
  * out of Postgres keeps the transcripts readable and the backups small.
  */
-export function makeSinks(sql: Sql, home: string, transport?: Transport): ToolSinks {
+export function makeSinks(
+  sql: Sql,
+  home: string,
+  transport?: Transport,
+  cubekrafts?: CubekraftsConfig,
+): ToolSinks {
   const files = join(home, 'files');
 
   return {
@@ -63,6 +69,28 @@ export function makeSinks(sql: Sql, home: string, transport?: Transport): ToolSi
           ? `provider id ${result.providerId}`
           : (result.refusedBecause ?? 'refused'),
       };
+    },
+
+    async listInquiries({ limit }) {
+      if (!cubekrafts) return 'This instance is not connected to Cubekrafts, so there are no enquiries to read.';
+      // Synced first, so every address on screen is one Sales can actually
+      // draft to — an enquiry with no lead row behind it is a dead end.
+      await syncInquiries(sql, cubekrafts, limit === undefined ? {} : { limit });
+      const inquiries = await fetchInquiries(cubekrafts, limit === undefined ? {} : { limit });
+      if (inquiries.length === 0) return 'No enquiries yet.';
+
+      const { rows } = await sql.query<{ id: string; email: string }>(
+        `SELECT id, email FROM lead WHERE source = 'cubekrafts'`,
+      );
+      const leadByAddress = new Map(rows.map((r) => [r.email.toLowerCase(), r.id]));
+
+      return inquiries
+        .map((i) => {
+          const leadId = leadByAddress.get(i.email.toLowerCase()) ?? '(no lead — bad address)';
+          const when = i.at ? ` on ${i.at}` : '';
+          return `${leadId} ${i.name ?? 'someone'} <${i.email}>${when}\n    ${i.message ?? '(no message)'}`;
+        })
+        .join('\n');
     },
 
     async searchMemory({ query }) {

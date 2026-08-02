@@ -124,6 +124,19 @@ export const TOOLS: readonly ToolSpec[] = [
     defaultAutonomy: 'auto',
   },
   {
+    name: 'cubekrafts.inquiries',
+    description:
+      'List recent enquiries from the Cubekrafts site, newest first. Call this ' +
+      'before drafting a reply, and to find the lead_id a reply belongs to. ' +
+      'This is a read; it cannot change anything on the site.',
+    input_schema: obj(
+      { limit: { type: 'integer', description: 'How many to look at. Default 25.' } },
+      [],
+    ),
+    grantedTo: ['sales', 'coo', 'concierge', 'marketing'],
+    defaultAutonomy: 'auto',
+  },
+  {
     name: 'email.draft',
     description: 'Save a draft reply against a lead. Drafting never sends anything.',
     input_schema: obj(

@@ -19,6 +19,7 @@ import { ask } from '../concierge/ask.ts';
 import { transportFromEnv } from '../email/transport.ts';
 import { Workspace } from '../tools/workspace.ts';
 import { standupIfDue } from '../scheduler/standup.ts';
+import { configFromEnv as cubekraftsFromEnv } from '../cubekrafts/inquiries.ts';
 
 /**
  * The entrypoint.
@@ -111,7 +112,13 @@ async function main(): Promise<void> {
   const claude = new Claude();
   const transport = transportFromEnv();
   console.log(`email transport: ${transport.name}${transport.name === 'recording' ? ' (nothing will actually be sent)' : ''}`);
-  const sinks = makeSinks(sql, HOME, transport);
+  const cubekrafts = cubekraftsFromEnv();
+  console.log(
+    cubekrafts
+      ? `cubekrafts: reading ${cubekrafts.table} from ${new URL(cubekrafts.url).hostname}`
+      : 'cubekrafts: not connected — sales has nothing to reply to',
+  );
+  const sinks = makeSinks(sql, HOME, transport, cubekrafts ?? undefined);
 
   const tickDeps: TickDeps = { sql, claude, policy, sinks, roles, workspace };
 

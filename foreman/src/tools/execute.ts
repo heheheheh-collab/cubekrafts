@@ -39,6 +39,7 @@ export interface ToolSinks {
   saveDraft(input: { lead_id: string; subject: string; body: string }): Promise<{ id: string }>;
   /** Only ever reached through an approval; never called by a role directly. */
   sendEmail(input: { draft_id: string }): Promise<{ sent: boolean; detail: string }>;
+  listInquiries(input: { limit?: number }): Promise<string>;
   searchMemory(input: { query: string }): Promise<string>;
 
   // The work graph. Reads come back as text because text is what a model can
@@ -280,6 +281,13 @@ async function dispatch(call: ToolCall, ctx: ExecuteContext): Promise<string> {
       }
       const body = await response.text();
       return `HTTP ${response.status}\n\n${body.slice(0, MAX_OUTPUT)}`;
+    }
+
+    case 'cubekrafts.inquiries': {
+      const sink = ctx.sinks?.listInquiries;
+      if (!sink) throw new ToolError('this instance is not connected to Cubekrafts');
+      const limit = call.args['limit'];
+      return await sink(typeof limit === 'number' ? { limit } : {});
     }
 
     case 'email.send': {
