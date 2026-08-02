@@ -290,6 +290,24 @@ const VIEWS = {
       render({ type: 'spend', ...s }, { act }),
     ];
   },
+  // The scheduler runs every ten minutes, which is right for a machine that
+  // is always on and wrong for somebody sitting in front of it waiting to see
+  // whether the thing works at all.
+  runnow: async () => {
+    const r = await post('/api/tick', {});
+    if (!r.ran) {
+      const why = {
+        paused: 'Everything is paused. Say "resume".',
+        cap_reached: "Today's spend cap is used up.",
+        no_work: 'Nothing to do — no task is ready and nothing needs the COO.',
+        no_role_config: `No configuration for the role that task belongs to (${r.detail ?? '?'}).`,
+      };
+      return [why[r.why] ?? `Nothing ran: ${r.why}`, null];
+    }
+    const what = r.kind === 'supervision' ? 'The COO took a pass' : `Picked up ${r.taskId}`;
+    return [`${what} — ${r.outcome?.kind ?? 'finished'}.`, null];
+  },
+
   standup: async () => {
     const s = await get('/api/standup');
     return [s.speech, render({ type: 'standup', rows: s.rows }, { act })];
