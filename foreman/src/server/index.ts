@@ -50,6 +50,24 @@ const STAFF = [
   { id: 'developer', tier: 'top', effort: 'high' },
 ] as const;
 
+/** Never throws, never prints the key, never stops the app starting. */
+async function verifyKey(key: string | undefined): Promise<string> {
+  if (!key) return 'MISSING — every agent run will fail';
+  if (!key.startsWith('sk-ant-')) return "does not start with 'sk-ant-' — check it was pasted whole";
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/models?limit=1', {
+      headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01' },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (res.ok) return 'valid';
+    if (res.status === 401) return 'REJECTED by Anthropic — the key is wrong or revoked';
+    return `could not be checked (HTTP ${res.status}); carrying on`;
+  } catch {
+    // Offline, or the check itself is broken. Not a reason to refuse to boot.
+    return 'present, but could not be checked from here';
+  }
+}
+
 async function main(): Promise<void> {
   const pool = new Pool({ connectionString: process.env['DATABASE_URL'] });
   const sql = pool as unknown as Sql;
@@ -84,8 +102,14 @@ async function main(): Promise<void> {
   }
 
   // The key is read at boot and never stored, logged, or shown to an agent.
-  const hasKey = Boolean(process.env['ANTHROPIC_API_KEY']);
-  console.log(`anthropic key: ${hasKey ? 'present' : 'MISSING — runs will fail'}`);
+  //
+  // Checked rather than merely counted. "present" was technically true of an
+  // invalid key and told you nothing, so the first thing you learned was a
+  // 401 in the middle of a conversation. This is one free call to a list
+  // endpoint, it never blocks startup, and it never prints the key.
+  void verifyKey(process.env['ANTHROPIC_API_KEY']).then((line) =>
+    console.log(`anthropic key: ${line}`),
+  );
 
   const policy: PolicyConfig = {
     ...DEFAULT_POLICY,

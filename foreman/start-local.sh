@@ -91,6 +91,20 @@ if [ -z "${ANTHROPIC_API_KEY:-}" ]; then
   read -rsp "  Paste it (input hidden): " ANTHROPIC_API_KEY
   echo
   [ -n "$ANTHROPIC_API_KEY" ] || die "No key, no agents. Nothing else was changed."
+
+  # The input is hidden, so a paste that only half landed looks identical to
+  # one that worked. Checking the shape here turns that into a question you
+  # can answer now, rather than an invalid x-api-key the first time you speak
+  # to it. Trailing whitespace comes along for the ride surprisingly often.
+  ANTHROPIC_API_KEY=$(printf '%s' "$ANTHROPIC_API_KEY" | tr -d '[:space:]')
+  case "$ANTHROPIC_API_KEY" in
+    sk-ant-*) ;;
+    *) die "That does not look like an Anthropic key. They begin with 'sk-ant-'.
+You pasted ${#ANTHROPIC_API_KEY} characters starting '$(printf '%.7s' "$ANTHROPIC_API_KEY")'." ;;
+  esac
+  [ "${#ANTHROPIC_API_KEY}" -ge 40 ] || die "That key is only ${#ANTHROPIC_API_KEY} characters, which is too short.
+The paste probably did not all land — the prompt hides it, so it looks the
+same either way. Run this again and paste once more."
   export ANTHROPIC_API_KEY
 fi
 
