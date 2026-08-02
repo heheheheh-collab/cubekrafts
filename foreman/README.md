@@ -2,7 +2,7 @@
 
 A whole organisation — COO, web developer, sales, marketing, content, finance — running as AI agents at a URL you sign into.
 
-**Built. 406 tests, typecheck clean. Read [PLAN.md](./PLAN.md) for the design.**
+**Built. 425 tests, typecheck clean. Read [PLAN.md](./PLAN.md) for the design.**
 
 ## What it is
 
@@ -69,7 +69,7 @@ npm start                     # http://127.0.0.1:7777
 Open it, register a passkey, and **write down the recovery code** — it is shown once.
 
 ```bash
-npm test          # 406 tests
+npm test          # 425 tests
 npm run typecheck
 ```
 
@@ -88,12 +88,18 @@ Foreman runs without any of these — it just does less. Each one turns somethin
 | To turn on | Set | Costs |
 |---|---|---|
 | A public address, and passkeys on it | nothing — `fly.dev` is free and already configured | — |
-| Email that is actually delivered | `RESEND_API_KEY`, `EMAIL_FROM`, and SPF/DKIM records | **a domain you control** |
+| Email that is actually delivered | `RESEND_API_KEY`, `EMAIL_FROM=Cubekrafts <info@cubekrafts.com>`, and two DNS records at GoDaddy | — you already own the domain |
 | Bounce and complaint handling | `EMAIL_WEBHOOK_SECRET`, pointed at `/api/webhooks/email` | — |
 | The developer opening pull requests | `GITHUB_TOKEN`, `GITHUB_REPO`, a checkout at `FOREMAN_CHECKOUT`, branch protection on `main` | — |
 | Sales having anything to reply to | `CUBEKRAFTS_SUPABASE_URL` + `CUBEKRAFTS_SUPABASE_KEY` (the **anon** key, RLS-scoped to SELECT on enquiries) | — |
 
-Only one line in that table actually needs money, and it is email. Sending as you means proving you own the sending domain, which means SPF and DKIM records, which means DNS you control — and the `fly.dev` zone is Fly's, not yours. There is no free route around that: it is the mechanism that stops anyone else sending as you either. Until a domain exists the transport records instead of sending and says so, and the rest of the pipeline — freeze, approval, suppression, caps — runs and is tested regardless.
+Nothing in that table costs money — `cubekrafts.com` is already yours, which is what email needs.
+
+### Before the first email: the SPF record
+
+`cubekrafts.com` currently publishes `v=spf1 include:secureserver.net -all`. The `-all` is a hard fail: anything not in that list is explicitly disavowed by your own DNS, so mail sent through a new provider is rejected or junked with no bounce at the API to tell you. The existing GoDaddy mailbox on `info@` keeps working either way; the new sender has to be added alongside it.
+
+Foreman checks this at boot and on the Email card rather than letting you discover it from customers who never replied. Set `EMAIL_SPF_INCLUDE` to whatever include your provider asks for and it verifies the record actually contains it, flags a missing DKIM key, and reports the DMARC policy. `looksSendable: false` means do not send yet.
 
 Without a checkout the git tools refuse plainly. Nothing pretends.
 

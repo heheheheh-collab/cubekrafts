@@ -299,10 +299,18 @@ const VIEWS = {
     return ['Recent activity.', render({ type: 'audit', items }, { act })];
   },
   email: async () => {
-    const { messages, suppressed } = await get('/api/email');
+    const [{ messages, suppressed }, dns] = await Promise.all([
+      get('/api/email'),
+      get('/api/email/dns'),
+    ]);
+    // The DNS verdict goes first. Everything else on this card is moot if the
+    // domain disavows us.
+    const blocked = dns.configured && dns.looksSendable === false;
     return [
-      `${messages.length} messages, ${suppressed.length} suppressed addresses.`,
-      render({ type: 'email', messages, suppressed }, { act }),
+      blocked
+        ? `${dns.domain} will not let us send as it yet.`
+        : `${messages.length} messages, ${suppressed.length} suppressed addresses.`,
+      render({ type: 'email', messages, suppressed, dns }, { act }),
     ];
   },
   export: async () => {

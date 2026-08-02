@@ -181,6 +181,19 @@ const RENDERERS = {
 
   email: (data) => {
     const node = card('Email');
+    if (data.dns?.configured) {
+      node.append(
+        rows(
+          data.dns.findings.map((f) => [
+            f.what,
+            f.severity === 'ok' ? 'ok' : f.severity,
+            f.severity === 'ok' ? 'good' : 'bad',
+          ]),
+        ),
+      );
+      const worst = data.dns.findings.find((f) => f.severity !== 'ok');
+      if (worst) node.append(el('div', 'meta', worst.detail));
+    }
     node.append(
       rows(
         data.messages

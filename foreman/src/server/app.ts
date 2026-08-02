@@ -17,6 +17,7 @@ import { defaultWebDir, serveAsset } from './static.ts';
 import { safeEqual } from '../auth/session.ts';
 import { loadMessage, suppress } from '../email/messages.ts';
 import { recordProviderEvent, type ProviderEventKind } from '../email/send.ts';
+import { checkDomain, domainOf } from '../email/deliverability.ts';
 import { buildStandup } from '../scheduler/standup.ts';
 import { buildArchive } from './export.ts';
 
@@ -226,6 +227,25 @@ export function buildRoutes(deps: AppDeps): Route[] {
       });
       if (result.suppressed) bus.publish({ type: 'email.suppressed', kind: mapped });
       json(res, 200, { ok: true, suppressed: result.suppressed });
+    }),
+
+    // Whether the domain will actually let us send as it. Its own route
+    // because it is a DNS lookup, and the email list should not wait on one.
+    route('GET', '/api/email/dns', 'session', async ({ res }) => {
+      const from = process.env['EMAIL_FROM'];
+      const domain = from ? domainOf(from) : null;
+      if (!domain) {
+        json(res, 200, { configured: false, reason: 'no EMAIL_FROM is set' });
+        return;
+      }
+      json(res, 200, {
+        configured: true,
+        ...(await checkDomain(domain, {
+          ...(process.env['EMAIL_SPF_INCLUDE']
+            ? { expectedInclude: process.env['EMAIL_SPF_INCLUDE'] }
+            : {}),
+        })),
+      });
     }),
 
     route('GET', '/api/email', 'session', async ({ res }) => {

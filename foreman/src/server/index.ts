@@ -17,6 +17,7 @@ import { configFromEnv, sweepChallenges } from '../auth/passkey.ts';
 import { sweep as sweepRateCounters } from '../auth/ratelimit.ts';
 import { ask } from '../concierge/ask.ts';
 import { transportFromEnv } from '../email/transport.ts';
+import { checkDomain, domainOf, summarise } from '../email/deliverability.ts';
 import { Workspace } from '../tools/workspace.ts';
 import { standupIfDue } from '../scheduler/standup.ts';
 import { configFromEnv as cubekraftsFromEnv } from '../cubekrafts/inquiries.ts';
@@ -112,6 +113,19 @@ async function main(): Promise<void> {
   const claude = new Claude();
   const transport = transportFromEnv();
   console.log(`email transport: ${transport.name}${transport.name === 'recording' ? ' (nothing will actually be sent)' : ''}`);
+
+  // Checked at boot rather than discovered from customers who never replied.
+  // A report, never a gate: DNS is somebody else's infrastructure, and a
+  // lookup timing out is not a reason to refuse to start.
+  const from = process.env['EMAIL_FROM'];
+  const sendingDomain = from ? domainOf(from) : null;
+  if (sendingDomain) {
+    void checkDomain(sendingDomain, {
+      ...(process.env['EMAIL_SPF_INCLUDE'] ? { expectedInclude: process.env['EMAIL_SPF_INCLUDE'] } : {}),
+    })
+      .then((report) => console.log(summarise(report)))
+      .catch((err: unknown) => console.error('could not check the sending domain', err));
+  }
   const cubekrafts = cubekraftsFromEnv();
   console.log(
     cubekrafts
