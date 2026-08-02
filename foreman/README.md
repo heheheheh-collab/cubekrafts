@@ -104,7 +104,7 @@ QuoteCraft Pro is a multi-tenant lead-allocation marketplace for Indian modular 
 
 Row level security is on for those tables with policies attached, so the anon key needs a policy granting it `SELECT` on `unrouted_requests` or it reads nothing.
 
-The public form on `cubekrafts.com` is a separate site and posts to the same edge function — it needs its own email field added before requests from there carry one.
+`cubekrafts.com` serves this same Lovable project, so the public form at `/get-quotes` is the one that now carries the optional email field. There is no second form to update.
 
 ### Before any email: the SPF record
 
