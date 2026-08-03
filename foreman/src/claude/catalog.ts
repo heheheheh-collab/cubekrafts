@@ -1,4 +1,5 @@
 import { totalmem } from 'node:os';
+import { presetFromEnv } from './presets.ts';
 
 /**
  * Model catalog.
@@ -41,9 +42,9 @@ export const CATALOG: Readonly<Record<Tier, ModelEntry>> = {
  */
 export function localCatalog(
   env: NodeJS.ProcessEnv = process.env,
-  fallback = 'qwen3:8b',
+  fallback?: string,
 ): Readonly<Record<Tier, ModelEntry>> {
-  const base = env['FOREMAN_LOCAL_MODEL'] ?? fallback;
+  const base = env['FOREMAN_LOCAL_MODEL'] ?? fallback ?? presetFromEnv(env)?.model ?? 'qwen3:8b';
   const free = (model: string): ModelEntry => ({
     model,
     in: 0,
@@ -78,9 +79,9 @@ export function providerFromEnv(env: NodeJS.ProcessEnv = process.env): Provider 
   const declared = env['FOREMAN_MODEL_PROVIDER'];
   if (declared === 'anthropic' || declared === 'local' || declared === 'builtin') return declared;
   if (env['ANTHROPIC_API_KEY']) return 'anthropic';
-  // An OpenAI-compatible server was pointed at explicitly; use it rather than
-  // downloading a second copy of a model this machine is already running.
-  if (env['FOREMAN_LOCAL_URL']) return 'local';
+  // A named service, or a URL pointed at by hand. Either way something else is
+  // already able to answer, so do not download a model to duplicate it.
+  if (env['FOREMAN_PROVIDER'] || env['FOREMAN_LOCAL_URL']) return 'local';
   return 'builtin';
 }
 

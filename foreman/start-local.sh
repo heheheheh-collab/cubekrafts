@@ -104,21 +104,57 @@ fi
 # ── dependencies ────────────────────────────────────────────────────────────
 [ -d node_modules ] || { say "Installing dependencies…"; npm install --no-audit --no-fund; }
 
+# ── which brain ─────────────────────────────────────────────────────────────
+# Asked once, on the first run only, because it is the one choice that changes
+# how good the results are and there is no default that is right for everyone.
+if [ -z "${ANTHROPIC_API_KEY:-}" ] && [ -z "${FOREMAN_PROVIDER:-}" ] && [ -z "${FOREMAN_LOCAL_URL:-}" ]; then
+  MODELS_DIR="${FOREMAN_HOME:-$HOME/.foreman}/models"
+  # Only when there is somebody there to answer. Piped or scripted, this whole
+  # block is skipped and the built-in model is used, silently.
+  if [ -z "$(ls -A "$MODELS_DIR" 2>/dev/null)" ] && { exec 3</dev/tty; } 2>/dev/null; then
+    say "One question, then it runs."
+    cat <<'ASK'
+  Foreman needs something that thinks. Two ways, both free:
+
+    1  Run it on this Mac. Nothing to sign up for, works offline, private.
+       Downloads a few GB once. Slower, and noticeably less sharp.
+
+    2  Use a free hosted model. Two minutes to get a key, no card, no
+       credits. Much closer to Claude in quality. Needs internet.
+
+ASK
+    printf '  1 or 2 (default 1): '
+    read -r CHOICE <&3 || CHOICE=1
+    if [ "${CHOICE:-1}" = "2" ]; then
+      cat <<'KEY'
+
+  Open https://console.groq.com/keys, sign in, "Create API Key", copy it.
+  It is free and does not ask for a card.
+
+KEY
+      printf '  Paste the key (hidden): '
+      read -rs FOREMAN_KEY <&3 || FOREMAN_KEY=''
+      echo
+      FOREMAN_KEY=$(printf '%s' "$FOREMAN_KEY" | tr -d '[:space:]')
+      if [ -n "$FOREMAN_KEY" ]; then
+        export FOREMAN_KEY FOREMAN_PROVIDER=groq
+        say "Using Groq. Nothing was written to disk — set these again next time, or add to ~/.zshrc:"
+        echo "  export FOREMAN_PROVIDER=groq"
+        echo "  export FOREMAN_KEY=your-key"
+      else
+        say "No key given. Running on this Mac instead."
+      fi
+    fi
+    exec 3<&-
+  fi
+fi
+
 # Said before the wait rather than during it: the first start fetches several
 # gigabytes of weights, and an unexplained ten-minute pause reads as a hang.
-if [ -z "${ANTHROPIC_API_KEY:-}" ] && [ -z "${FOREMAN_LOCAL_URL:-}" ]; then
+if [ -z "${ANTHROPIC_API_KEY:-}" ] && [ -z "${FOREMAN_PROVIDER:-}" ] && [ -z "${FOREMAN_LOCAL_URL:-}" ]; then
   MODELS_DIR="${FOREMAN_HOME:-$HOME/.foreman}/models"
   if [ -z "$(ls -A "$MODELS_DIR" 2>/dev/null)" ]; then
-    say "First start: downloading the model"
-    cat <<'DL'
-  Foreman runs its own model, so there is no account and no key. The weights
-  are a few gigabytes and are fetched once, into ~/.foreman/models. Later
-  starts skip this.
-
-  Which one is chosen by how much memory this machine has. Override with
-  FOREMAN_MODEL if you would rather pick.
-
-DL
+    say "Downloading the model — a few GB, once. Later starts skip this."
   fi
 fi
 

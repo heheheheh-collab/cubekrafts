@@ -1,6 +1,7 @@
 import { Claude, buildParams } from './client.ts';
 import { LocalModel, buildLocalParams, DEFAULT_LOCAL_URL } from './local.ts';
 import { BuiltinModel } from './builtin.ts';
+import { PRESET_NAMES, presetFromEnv } from './presets.ts';
 import { modelFor, providerFromEnv } from './catalog.ts';
 import { toolsFor } from '../tools/registry.ts';
 import { stableSystemFor } from '../agents/charters.ts';
@@ -129,16 +130,29 @@ async function checkAnthropic(env: NodeJS.ProcessEnv): Promise<string> {
 }
 
 async function checkLocal(env: NodeJS.ProcessEnv): Promise<string> {
-  const base = (env['FOREMAN_LOCAL_URL'] ?? DEFAULT_LOCAL_URL).replace(/\/$/, '');
+  const preset = presetFromEnv(env);
+  const named = env['FOREMAN_PROVIDER']?.trim().toLowerCase();
+  if (named && !preset) {
+    return `there is no service called "${named}". The ones with a preset are: ${PRESET_NAMES}`;
+  }
+
+  const base = (env['FOREMAN_LOCAL_URL'] ?? preset?.url ?? DEFAULT_LOCAL_URL).replace(/\/$/, '');
   const model = modelFor('top', env).model;
+  const key = env['FOREMAN_KEY'] ?? env['FOREMAN_LOCAL_API_KEY'];
   const turn = preflightTurn(env);
+
+  // Caught before the request, because the 401 these services return says
+  // nothing about where to get a key, and that is the only useful part.
+  if (preset?.needsKey && !key) {
+    return `${named} needs a key. Get one at ${preset.keyFrom}, then: export FOREMAN_KEY=...`;
+  }
 
   try {
     const res = await fetch(`${base}/chat/completions`, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        authorization: `Bearer ${env['FOREMAN_LOCAL_API_KEY'] ?? 'not-needed'}`,
+        authorization: `Bearer ${key ?? 'not-needed'}`,
       },
       body: JSON.stringify(buildLocalParams(turn)),
       // Generously long: the first request loads several gigabytes off disk,
@@ -147,11 +161,19 @@ async function checkLocal(env: NodeJS.ProcessEnv): Promise<string> {
       signal: AbortSignal.timeout(300_000),
     });
 
-    if (res.ok) return `${model} is answering at ${base}, and it can call tools`;
+    if (res.ok) return `${model} is answering, and it can call tools`;
 
     const body = await res.text().catch(() => '');
+    if (res.status === 401 || res.status === 403) {
+      return preset
+        ? `${named} rejected the key. Get a fresh one at ${preset.keyFrom}`
+        : `the key was rejected by ${base}`;
+    }
+    if (res.status === 429) return `${named ?? base} is rate limiting — free tiers do that; wait a minute`;
     if (res.status === 404) {
-      return `${model} is not installed — run: ollama pull ${model}`;
+      return preset?.needsKey
+        ? `${named} has no model called "${model}" any more. Free tiers rename them; set FOREMAN_LOCAL_MODEL to a current one.`
+        : `${model} is not installed — run: ollama pull ${model}`;
     }
     // Ollama says this when the model has no tool-calling template. It is the
     // one failure that looks like the app is broken when it is the choice of
@@ -164,9 +186,8 @@ async function checkLocal(env: NodeJS.ProcessEnv): Promise<string> {
     }
     return `${model} at ${base} refused the request (HTTP ${res.status}): ${body.slice(0, 300)}`;
   } catch {
-    return (
-      `nothing is answering at ${base} — start it with 'ollama serve', ` +
-      `or install it from https://ollama.com/download`
-    );
+    return preset?.needsKey
+      ? `could not reach ${named} at ${base} — check the connection`
+      : `nothing is answering at ${base} — start it with 'ollama serve', or install it from https://ollama.com/download`;
   }
 }

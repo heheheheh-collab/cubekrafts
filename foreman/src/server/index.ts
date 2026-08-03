@@ -7,6 +7,7 @@ import { migrate } from '../db/migrate.ts';
 import { setSetting, getSetting } from '../db/repo.ts';
 import { modelFor, providerFromEnv, type Provider } from '../claude/catalog.ts';
 import { checkProvider, modelClientFromEnv } from '../claude/provider.ts';
+import { PRESETS } from '../claude/presets.ts';
 import { DEFAULT_POLICY, type PolicyConfig } from '../domain/types.ts';
 import { stableSystemFor } from '../agents/charters.ts';
 import { EventBus } from './events.ts';
@@ -43,11 +44,16 @@ const TRUST_PROXY = process.env['FOREMAN_TRUST_PROXY'] === 'true';
 const isLocal = (host: string) => host === 'localhost' || host === '127.0.0.1';
 
 /** What the boot log says about where thinking happens. */
-const PROVIDER_LINE: Record<Provider, (model: string) => string> = {
-  builtin: (m) => `model: ${m}, running inside Foreman — no account, no key, nothing sent anywhere`,
-  local: (m) => `model: ${m} on this machine — nothing sent anywhere, and it costs nothing`,
-  anthropic: (m) => `model: Anthropic (${m})`,
-};
+function providerLine(provider: Provider, model: string): string {
+  if (provider === 'anthropic') return `model: Anthropic (${model})`;
+  if (provider === 'builtin') {
+    return `model: ${model}, running inside Foreman — no account, no key, nothing sent anywhere`;
+  }
+  const named = process.env['FOREMAN_PROVIDER']?.trim().toLowerCase();
+  const free = named ? PRESETS[named]?.needsKey : undefined;
+  if (named && free === true) return `model: ${model} on ${named}'s free tier`;
+  return `model: ${model} on this machine — nothing sent anywhere, and it costs nothing`;
+}
 
 /** Who is on the payroll, and on which model. */
 const STAFF = [
@@ -102,7 +108,7 @@ async function main(): Promise<void> {
   // conversation. It never blocks startup and never prints the key.
   const provider = providerFromEnv();
   const claude = modelClientFromEnv();
-  console.log(PROVIDER_LINE[provider](modelFor('top').model));
+  console.log(providerLine(provider, modelFor('top').model));
   // The same instance the app will use, so the check loads the weights once
   // and the first real request finds them already warm.
   void checkProvider(process.env, claude).then((line) => console.log(`  ${line}`));

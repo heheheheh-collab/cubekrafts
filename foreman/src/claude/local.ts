@@ -3,6 +3,7 @@ import { resolveToolName, toWireName } from './wire-names.ts';
 import type { ToolCall } from '../domain/types.ts';
 import type { Finish, Message, Turn, TurnResult } from './client.ts';
 import type { Usage } from './catalog.ts';
+import { OLLAMA_URL, presetFromEnv } from './presets.ts';
 
 /**
  * A model running on your own machine.
@@ -37,7 +38,7 @@ export interface LocalOptions {
   fetch?: typeof fetch;
 }
 
-export const DEFAULT_LOCAL_URL = 'http://127.0.0.1:11434/v1';
+export const DEFAULT_LOCAL_URL = OLLAMA_URL;
 
 /** Tool names on this wire are bound by the same character rules. */
 interface OpenAiToolCall {
@@ -60,13 +61,22 @@ export class LocalModel {
   private readonly fetchImpl: typeof fetch;
 
   constructor(opts: LocalOptions = {}) {
-    this.baseUrl = (opts.baseUrl ?? process.env['FOREMAN_LOCAL_URL'] ?? DEFAULT_LOCAL_URL).replace(
-      /\/$/,
-      '',
-    );
-    // Ollama ignores this; LM Studio and hosted compatible endpoints want
-    // something. Never logged, and never defaulted to anything meaningful.
-    this.apiKey = opts.apiKey ?? process.env['FOREMAN_LOCAL_API_KEY'] ?? 'not-needed';
+    const preset = presetFromEnv();
+    // An explicit URL beats a preset, so naming a service and then pointing
+    // somewhere else does what it looks like it does.
+    this.baseUrl = (
+      opts.baseUrl ??
+      process.env['FOREMAN_LOCAL_URL'] ??
+      preset?.url ??
+      DEFAULT_LOCAL_URL
+    ).replace(/\/$/, '');
+    // Ollama ignores this; LM Studio and the hosted free tiers want something.
+    // Never logged, and never defaulted to anything meaningful.
+    this.apiKey =
+      opts.apiKey ??
+      process.env['FOREMAN_KEY'] ??
+      process.env['FOREMAN_LOCAL_API_KEY'] ??
+      'not-needed';
     this.fetchImpl = opts.fetch ?? fetch;
   }
 

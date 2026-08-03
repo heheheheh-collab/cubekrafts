@@ -14,7 +14,8 @@ import {
   toLlamaHistory,
   type Engine,
 } from '../src/claude/builtin.ts';
-import { modelClientFromEnv } from '../src/claude/provider.ts';
+import { checkProvider, modelClientFromEnv } from '../src/claude/provider.ts';
+import { PRESETS, presetFromEnv } from '../src/claude/presets.ts';
 import { WIRE_NAME_PATTERN } from '../src/claude/wire-names.ts';
 import { TOOLS, toolsFor } from '../src/tools/registry.ts';
 import type { Turn } from '../src/claude/client.ts';
@@ -54,6 +55,70 @@ describe('choosing a provider', () => {
   it('builds the client the choice implies', () => {
     expect(modelClientFromEnv(env())).toBeInstanceOf(BuiltinModel);
     expect(modelClientFromEnv(env({ FOREMAN_LOCAL_URL: 'http://x/v1' }))).toBeInstanceOf(LocalModel);
+  });
+});
+
+describe('the free services, chosen by name', () => {
+  it('takes a word instead of a URL', () => {
+    expect(providerFromEnv(env({ FOREMAN_PROVIDER: 'groq' }))).toBe('local');
+    expect(catalogFor('local', env({ FOREMAN_PROVIDER: 'groq' }))['top'].model).toBe(
+      PRESETS['groq']!.model,
+    );
+  });
+
+  it('sends the request to that service', async () => {
+    let seen = '';
+    const fetchImpl = (async (url: string) => {
+      seen = String(url);
+      return new Response(JSON.stringify({ choices: [{ message: { content: 'ok' } }] }));
+    }) as unknown as typeof fetch;
+
+    process.env['FOREMAN_PROVIDER'] = 'groq';
+    try {
+      await new LocalModel({ fetch: fetchImpl, apiKey: 'k' }).turn(turn());
+    } finally {
+      delete process.env['FOREMAN_PROVIDER'];
+    }
+    expect(seen).toBe('https://api.groq.com/openai/v1/chat/completions');
+  });
+
+  it('lets an explicit URL beat the preset', () => {
+    process.env['FOREMAN_PROVIDER'] = 'groq';
+    process.env['FOREMAN_LOCAL_URL'] = 'http://127.0.0.1:1234/v1';
+    try {
+      // Naming a service and then pointing elsewhere should do what it looks
+      // like it does, not silently ignore half of it.
+      expect(presetFromEnv()).toBe(PRESETS['groq']);
+      expect(new LocalModel()).toBeDefined();
+    } finally {
+      delete process.env['FOREMAN_PROVIDER'];
+      delete process.env['FOREMAN_LOCAL_URL'];
+    }
+  });
+
+  it('says where to get a key rather than waiting for a 401 to say nothing', async () => {
+    const line = await checkProvider(env({ FOREMAN_PROVIDER: 'groq' }));
+    expect(line).toContain('console.groq.com/keys');
+    expect(line).toContain('FOREMAN_KEY');
+  });
+
+  it('lists the real options when the name is not one', async () => {
+    const line = await checkProvider(env({ FOREMAN_PROVIDER: 'chatgpt' }));
+    expect(line).toContain('no service called "chatgpt"');
+    expect(line).toContain('groq');
+  });
+
+  it('keeps every preset pointed somewhere, and says where its key comes from', () => {
+    for (const [name, p] of Object.entries(PRESETS)) {
+      expect({ name, https: p.url.startsWith('http'), model: p.model.length > 0 }).toEqual({
+        name,
+        https: true,
+        model: true,
+      });
+      // A service that needs a key must name the page you get it from, or the
+      // message it produces is the useless kind.
+      if (p.needsKey) expect(p.keyFrom).toMatch(/\./);
+    }
   });
 });
 
