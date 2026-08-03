@@ -138,7 +138,32 @@ npm run typecheck
 
 ## Deploying
 
+### Free, in a browser, no card (Render)
+
+`render.yaml` in the repository root is a blueprint. In Render: **New →
+Blueprint**, pick this repository and branch, and the only thing it asks for
+is `DATABASE_URL` — get one free at [neon.tech](https://neon.tech) and paste
+the connection string. No terminal, no `flyctl`, no payment details.
+
+Two things about a free plan, worth knowing before rather than after:
+
+- **It sleeps after 15 quiet minutes**, and a sleeping Foreman cannot work
+  overnight, which is most of the reason to host it. Point a free monitor
+  ([uptimerobot.com](https://uptimerobot.com)) at `/api/health` every 5
+  minutes and it stays awake.
+- **No permanent disk.** Everything that matters is in Postgres — tasks,
+  approvals, drafts, the audit log, your key — but files an agent wrote into
+  its workspace are gone on redeploy.
+
+Then open the URL, register a passkey, and paste your Anthropic key under
+**⋯ → Model**. Nothing else to configure.
+
+### Paid, and it never sleeps (Fly)
+
 `fly.toml` and the `Dockerfile` are ready; the commands are in the header of `fly.toml`. One machine, never scaled to zero, because a machine that stopped cannot tick at 3am. Budget roughly $5–10/month for the machine and volume, separate from model spend.
+
+The same `Dockerfile` runs unchanged on Railway or Koyeb too — nothing in the
+app is specific to any of them.
 
 **No key goes into the deploy.** Deploy first, open the app, and paste the
 Anthropic key under **⋯ → Model & API key**. It is checked against the real

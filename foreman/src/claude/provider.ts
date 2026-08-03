@@ -26,6 +26,23 @@ export interface ModelClient {
   turn(t: Turn): Promise<TurnResult>;
 }
 
+/**
+ * Whether the built-in engine is actually installed.
+ *
+ * It is an optional dependency, so it is genuinely absent in the deployed
+ * image — and a boot line that says "running inside Foreman, no key needed"
+ * on a machine that cannot run it is a lie the next line has to retract.
+ * Resolution only, so nothing is loaded to find out.
+ */
+export function builtinEngineAvailable(): boolean {
+  try {
+    import.meta.resolve('node-llama-cpp');
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function modelClientFromEnv(env: NodeJS.ProcessEnv = process.env): ModelClient {
   switch (providerFromEnv(env)) {
     case 'builtin':
@@ -88,6 +105,11 @@ export async function checkProvider(
  * app can do anything, and is not visible from the file on disk.
  */
 async function checkBuiltin(env: NodeJS.ProcessEnv, client: ModelClient | undefined): Promise<string> {
+  // Said once, plainly. Trying anyway would work — the import fails with the
+  // same advice — but it would take a download's worth of waiting to say so.
+  if (!builtinEngineAvailable()) {
+    return 'no model yet: paste an Anthropic key under ⋯ → Model, and every agent starts working';
+  }
   // The running instance, never a second one: weights are gigabytes and
   // loading a private copy to check on the first would double the memory the
   // app needs for as long as it is up.

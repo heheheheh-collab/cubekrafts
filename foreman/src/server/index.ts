@@ -7,6 +7,7 @@ import { migrate } from '../db/migrate.ts';
 import { setSetting, getSetting } from '../db/repo.ts';
 import { modelFor, type Provider } from '../claude/catalog.ts';
 import { SwitchingModel } from '../claude/runtime.ts';
+import { builtinEngineAvailable } from '../claude/provider.ts';
 import { PRESETS } from '../claude/presets.ts';
 import { DEFAULT_POLICY, type PolicyConfig } from '../domain/types.ts';
 import { stableSystemFor } from '../agents/charters.ts';
@@ -47,7 +48,9 @@ const isLocal = (host: string) => host === 'localhost' || host === '127.0.0.1';
 function providerLine(provider: Provider, model: string): string {
   if (provider === 'anthropic') return `model: Anthropic (${model})`;
   if (provider === 'builtin') {
-    return `model: ${model}, running inside Foreman — no account, no key, nothing sent anywhere`;
+    return builtinEngineAvailable()
+      ? `model: ${model}, running inside Foreman — no account, no key, nothing sent anywhere`
+      : 'model: none yet — paste an Anthropic key under ⋯ → Model and it starts working';
   }
   const named = process.env['FOREMAN_PROVIDER']?.trim().toLowerCase();
   const free = named ? PRESETS[named]?.needsKey : undefined;
