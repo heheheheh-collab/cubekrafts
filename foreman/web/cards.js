@@ -240,6 +240,60 @@ const RENDERERS = {
     return node;
   },
 
+  connections: (data, { act }) => {
+    const wrap = document.createDocumentFragment();
+    for (const c of data.items) {
+      const node = card(c.title, c.connected ? '' : 'waiting');
+      node.append(el('div', 'what', c.enables));
+
+      const form = el('div', 'rows');
+      const inputs = new Map();
+      for (const f of c.fields) {
+        const row = el('div', 'row');
+        row.append(el('span', 'k', f.label));
+        const input = el('input');
+        // A secret is never sent back to the browser, so the box shows what
+        // is set and stays empty: typing replaces, leaving it alone keeps.
+        input.type = f.secret ? 'password' : 'text';
+        input.placeholder = f.value ? `set (${f.value})` : (f.placeholder ?? '');
+        if (!f.secret && f.value) input.value = f.value;
+        input.autocomplete = 'off';
+        input.style.flex = '1';
+        inputs.set(f.env, { input, secret: f.secret });
+        const right = el('span', 'v');
+        right.append(input);
+        row.append(right);
+        form.append(row);
+      }
+      node.append(form);
+
+      const meta = el('div', 'meta', c.connected ? 'Connected.' : c.how);
+      node.append(meta);
+
+      const actions = el('div', 'actions');
+      const save = el('button', 'approve', 'Save');
+      actions.append(save);
+      node.append(actions);
+
+      save.addEventListener('click', async () => {
+        save.disabled = true;
+        meta.textContent = 'saving…';
+        const body = {};
+        for (const [env, { input, secret }] of inputs) {
+          // An untouched secret box must not clear the stored secret.
+          if (secret && input.value === '') continue;
+          body[env] = input.value;
+        }
+        const result = await act('connect', body);
+        save.disabled = false;
+        meta.textContent = result?.error ?? 'Saved, and in force now.';
+      });
+
+      wrap.append(node);
+    }
+    return wrap;
+  },
+
   email: (data) => {
     const node = card('Email');
     if (data.dns?.configured) {

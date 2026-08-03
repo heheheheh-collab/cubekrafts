@@ -2,7 +2,7 @@
 
 A whole organisation — COO, web developer, sales, marketing, content, finance — running as AI agents at a URL you sign into.
 
-**Built. 498 tests, typecheck clean. Read [PLAN.md](./PLAN.md) for the design.**
+**Built. 506 tests, typecheck clean. Read [PLAN.md](./PLAN.md) for the design.**
 
 ## What it is
 
@@ -132,7 +132,7 @@ said `valid`, because a probe cannot see a malformed request and no test can
 either — the model is scripted in all of them.
 
 ```bash
-npm test          # 498 tests
+npm test          # 506 tests
 npm run typecheck
 ```
 
@@ -182,6 +182,11 @@ Point a domain of your own at it later by changing `app` and `FOREMAN_ORIGIN` to
 ## What it still needs from you
 
 Foreman runs without any of these — it just does less. Each one turns something on:
+
+Everything below is typed into the app under **⋯ → Connections** — no
+redeploy, no hosting dashboard, and the secrets are stored in your database
+rather than in a settings page somewhere. Each one is checked and in force the
+moment you press Save.
 
 | To turn on | Set | Costs |
 |---|---|---|

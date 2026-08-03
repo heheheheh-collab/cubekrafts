@@ -205,6 +205,9 @@ async function act(action, payload) {
       await post(`/api/auth/sessions/${payload.id}/revoke`, {});
       return { ok: true };
     }
+    if (action === 'connect') {
+      return await post('/api/connections', payload);
+    }
     if (action === 'setkey') {
       return await post('/api/model/key', { apiKey: payload.apiKey ?? null });
     }
@@ -286,6 +289,14 @@ const VIEWS = {
   tasks: async () => {
     const items = await get('/api/tasks');
     return [`${items.length} tasks.`, render({ type: 'tasks', items }, { act })];
+  },
+  connections: async () => {
+    const items = await get('/api/connections');
+    const off = items.filter((c) => !c.connected).length;
+    return [
+      off === 0 ? 'Everything is connected.' : `${off} of ${items.length} still to connect.`,
+      render({ type: 'connections', items }, { act }),
+    ];
   },
   model: async () => {
     const s = await get('/api/model');

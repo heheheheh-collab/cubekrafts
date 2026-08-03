@@ -16,6 +16,7 @@ import type { TurnResult } from '../src/claude/client.ts';
 import type { TickDeps } from '../src/scheduler/tick.ts';
 import { COOKIE, createSession } from '../src/auth/session.ts';
 import { KEY_SETTING, SwitchingModel } from '../src/claude/runtime.ts';
+import { applyConnections } from '../src/server/connections.ts';
 
 /**
  * Phase 0's success condition, end to end and through the real HTTP surface:
@@ -426,6 +427,103 @@ describe('the gate', () => {
   it('will not accept a nonsense cap', async () => {
     expect((await api('POST', '/api/spend/cap', { capUsd: -1 })).status).toBe(400);
     expect((await api('POST', '/api/spend/cap', { capUsd: 1e9 })).status).toBe(400);
+  });
+});
+
+describe('connecting Cubekrafts and the rest, from inside the app', () => {
+  const SECRET = 'a-long-shared-secret-value';
+  const ENDPOINT = 'https://example.supabase.co/functions/v1/foreman-unrouted';
+  const ENV_KEYS = ['CUBEKRAFTS_ENDPOINT', 'CUBEKRAFTS_SECRET', 'GITHUB_REPO', 'GITHUB_TOKEN'];
+
+  // Settings are wiped between tests, so each one connects what it needs.
+  // The environment is process-wide and is cleared here for the same reason.
+  const clearEnv = () => ENV_KEYS.forEach((k) => delete process.env[k]);
+  const connect = () => api('POST', '/api/connections', {
+    CUBEKRAFTS_ENDPOINT: ENDPOINT,
+    CUBEKRAFTS_SECRET: SECRET,
+  });
+
+  beforeEach(clearEnv);
+  afterAll(clearEnv);
+
+  it('lists what is not connected, and says where the values come from', async () => {
+    const res = await api('GET', '/api/connections');
+    expect(res.status).toBe(200);
+    const cubekrafts = res.body.find((c: { id: string }) => c.id === 'cubekrafts');
+    expect(cubekrafts).toMatchObject({ connected: false });
+    // The instructions are the whole point of the card when nothing is set.
+    expect(cubekrafts.how).toMatch(/FOREMAN_READ_SECRET/);
+    expect(cubekrafts.enables).toMatch(/Sales/);
+  });
+
+  it('connects Cubekrafts and puts it in force without a restart', async () => {
+    const res = await api('POST', '/api/connections', {
+      CUBEKRAFTS_ENDPOINT: `  ${ENDPOINT}  `,
+      CUBEKRAFTS_SECRET: SECRET,
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.find((c: { id: string }) => c.id === 'cubekrafts').connected).toBe(true);
+    // Whitespace comes with a paste; what is stored is the trimmed value.
+    expect(process.env['CUBEKRAFTS_ENDPOINT']).toBe(ENDPOINT);
+    expect(process.env['CUBEKRAFTS_SECRET']).toBe(SECRET);
+  });
+
+  it('never sends a secret back, but shows enough to recognise it', async () => {
+    await connect();
+    const res = await api('GET', '/api/connections');
+    const fields = res.body.find((c: { id: string }) => c.id === 'cubekrafts').fields;
+    expect(fields.find((f: { env: string }) => f.env === 'CUBEKRAFTS_SECRET').value).toBe('\u2026alue');
+    expect(JSON.stringify(res.body)).not.toContain(SECRET);
+    // The endpoint is not a secret, so it returns in full and the box can be
+    // pre-filled with it.
+    expect(fields.find((f: { env: string }) => f.env === 'CUBEKRAFTS_ENDPOINT').value).toBe(ENDPOINT);
+  });
+
+  it('survives a restart, because it lives in the database', async () => {
+    await connect();
+    clearEnv();
+    await applyConnections(pg);
+    expect(process.env['CUBEKRAFTS_SECRET']).toBe(SECRET);
+    expect(process.env['CUBEKRAFTS_ENDPOINT']).toBe(ENDPOINT);
+  });
+
+  it('leaves a stored secret alone when the box was left empty', async () => {
+    await connect();
+    // The browser omits an untouched password box. Sending only the endpoint
+    // must not wipe the secret already stored.
+    await api('POST', '/api/connections', { CUBEKRAFTS_ENDPOINT: ENDPOINT });
+    expect(process.env['CUBEKRAFTS_SECRET']).toBe(SECRET);
+  });
+
+  it('clears a value when one is deliberately emptied', async () => {
+    await connect();
+    await api('POST', '/api/connections', { CUBEKRAFTS_SECRET: '' });
+    expect(process.env['CUBEKRAFTS_SECRET']).toBeUndefined();
+    const res = await api('GET', '/api/connections');
+    expect(res.body.find((c: { id: string }) => c.id === 'cubekrafts').connected).toBe(false);
+  });
+
+  it('keeps every connection secret out of the export', async () => {
+    await api('POST', '/api/connections', {
+      CUBEKRAFTS_SECRET: SECRET,
+      GITHUB_TOKEN: 'ghp_notarealtoken_000',
+      GITHUB_REPO: 'owner/repo',
+    });
+    const res = await api('GET', '/api/export');
+    expect(res.status).toBe(200);
+    const archive = JSON.stringify(res.body);
+    expect(archive).not.toContain(SECRET);
+    expect(archive).not.toContain('ghp_notarealtoken_000');
+    // The repository name is not a secret and stays, so an export still
+    // describes how the thing was set up.
+    expect(archive).toContain('owner/repo');
+  });
+
+  it('wants a recent passkey, like every other credential', async () => {
+    await pg.query(`UPDATE session SET created_at = now() - interval '2 hours'`);
+    const res = await api('POST', '/api/connections', { CUBEKRAFTS_SECRET: 'x' });
+    expect(res.status).toBe(403);
+    expect(res.body).toMatchObject({ reauth: true });
   });
 });
 

@@ -21,6 +21,7 @@ import { checkDomain, domainOf } from '../email/deliverability.ts';
 import { buildStandup } from '../scheduler/standup.ts';
 import { buildArchive } from './export.ts';
 import type { SwitchingModel } from '../claude/runtime.ts';
+import { status as connectionStatus, save as saveConnections } from './connections.ts';
 
 /**
  * The HTTP surface.
@@ -46,6 +47,8 @@ export interface AppDeps {
   webhookSecret?: string;
   /** The swappable model client. Absent (in unit tests) disables the routes. */
   model?: SwitchingModel;
+  /** Rebuild whatever reads the connection settings. Absent means no rebuild. */
+  onConnectionsChanged?: () => Promise<void>;
 }
 
 /**
@@ -374,6 +377,22 @@ export function buildRoutes(deps: AppDeps): Route[] {
         todayUsd: await spendToday(sql),
         capUsd: await getSetting<number>(sql, SETTINGS.dailyCapUsd, 5),
       });
+    }),
+
+    route('GET', '/api/connections', 'session', async ({ res }) => {
+      json(res, 200, await connectionStatus(sql));
+    }),
+
+    // Same gate as the API key and the spend cap: these are credentials to
+    // other people's systems, and a stolen session should not be able to
+    // point Foreman at a different database or repository.
+    route('POST', '/api/connections', 'fresh', async ({ req, res }) => {
+      const body = await readJson(req);
+      await saveConnections(sql, body);
+      // Rebuilt rather than left until the next restart, so pasting a secret
+      // and pressing the button is the whole action.
+      await deps.onConnectionsChanged?.();
+      json(res, 200, await connectionStatus(sql));
     }),
 
     route('GET', '/api/model', 'session', async ({ res }) => {

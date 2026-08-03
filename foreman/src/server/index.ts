@@ -23,6 +23,12 @@ import { checkDomain, domainOf, summarise } from '../email/deliverability.ts';
 import { Workspace } from '../tools/workspace.ts';
 import { standupIfDue } from '../scheduler/standup.ts';
 import { configFromEnv as cubekraftsFromEnv } from '../cubekrafts/inquiries.ts';
+import { applyConnections } from './connections.ts';
+import { redact } from '../tools/workspace.ts';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+
+const run = promisify(execFile);
 
 /**
  * The entrypoint.
@@ -70,12 +76,54 @@ const STAFF = [
   { id: 'finance', tier: 'cheap', effort: 'medium' },
 ] as const;
 
+/**
+ * Make sure there is a repository for the developer to work in.
+ *
+ * A hosted Foreman usually has no permanent disk, so the checkout is empty on
+ * every boot and nothing ever put a repository there. Cloning here is what
+ * makes the developer role work on the machines this app is actually deployed
+ * to, rather than only on a laptop where somebody cloned it by hand once.
+ *
+ * Never throws: a bad token or a missing repository is a capability that stays
+ * switched off, not a reason for the whole company to refuse to start. The
+ * token is kept out of the returned line, because that line gets printed.
+ */
+async function ensureCheckout(workspace: Workspace, dir: string): Promise<string> {
+  const branch = await workspace.currentBranch();
+  if (branch !== undefined) return `${dir} on ${branch}`;
+
+  const repo = process.env['GITHUB_REPO'];
+  const token = process.env['GITHUB_TOKEN'];
+  if (!repo || !token) {
+    return `none at ${dir} — connect the repository under \u22ef \u2192 Connections and the developer starts working`;
+  }
+
+  try {
+    await mkdir(dir, { recursive: true });
+    // Shallow: the developer reads and branches, and a full history of a site
+    // repository is minutes of boot time bought for nothing.
+    await run('git', ['clone', '--depth', '50', `https://x-access-token:${token}@github.com/${repo}.git`, dir], {
+      env: { PATH: process.env['PATH'] ?? '' },
+    });
+    const cloned = await workspace.currentBranch();
+    return `${dir} on ${cloned ?? 'unknown'} — cloned ${repo}`;
+  } catch (err) {
+    const detail = redact(err instanceof Error ? err.message : String(err), token);
+    return `could not clone ${repo}: ${detail.slice(0, 160)}`;
+  }
+}
+
 async function main(): Promise<void> {
   const pool = new Pool({ connectionString: process.env['DATABASE_URL'] });
   const sql = pool as unknown as Sql;
 
   const applied = await migrate(sql);
   if (applied.length > 0) console.log(`applied ${applied.length} migration(s): ${applied.join(', ')}`);
+
+  // Before anything reads the environment. Connections typed into the app are
+  // stored in the database, and everything downstream keeps reading
+  // `process.env` without knowing where the value came from.
+  await applyConnections(sql);
 
   const roles: TickDeps['roles'] = {};
   const allowedRoots: PolicyConfig['allowedRoots'] = {};
@@ -122,47 +170,71 @@ async function main(): Promise<void> {
     allowedHosts: ['cubekrafts.com', '.cubekrafts.com'],
   };
 
-  // The checkout the developer works in. Absent until someone clones a
-  // repository into it, and the git tools refuse plainly until then.
+  // The checkout the developer works in. On a host with no permanent disk it
+  // is empty on every boot, so it is cloned rather than assumed — otherwise
+  // the developer is permanently unable to work on exactly the machines this
+  // app is meant to run on.
   const checkout = process.env['FOREMAN_CHECKOUT'] ?? join(HOME, 'checkout');
-  const workspace = new Workspace({
-    dir: checkout,
-    baseBranch: process.env['FOREMAN_BASE_BRANCH'] ?? 'main',
-    ...(process.env['GITHUB_TOKEN'] ? { token: process.env['GITHUB_TOKEN'] } : {}),
-    ...(process.env['GITHUB_REPO'] ? { repo: process.env['GITHUB_REPO'] } : {}),
-  });
-  const branch = await workspace.currentBranch();
-  console.log(
-    branch === undefined
-      ? `checkout: none at ${checkout} — the developer cannot work until one exists`
-      : `checkout: ${checkout} on ${branch}`,
-  );
 
   const bus = new EventBus();
-  const transport = transportFromEnv();
-  console.log(`email transport: ${transport.name}${transport.name === 'recording' ? ' (nothing will actually be sent)' : ''}`);
 
-  // Checked at boot rather than discovered from customers who never replied.
-  // A report, never a gate: DNS is somebody else's infrastructure, and a
-  // lookup timing out is not a reason to refuse to start.
-  const from = process.env['EMAIL_FROM'];
-  const sendingDomain = from ? domainOf(from) : null;
-  if (sendingDomain) {
-    void checkDomain(sendingDomain, {
-      ...(process.env['EMAIL_SPF_INCLUDE'] ? { expectedInclude: process.env['EMAIL_SPF_INCLUDE'] } : {}),
-    })
-      .then((report) => console.log(summarise(report)))
-      .catch((err: unknown) => console.error('could not check the sending domain', err));
-  }
-  const cubekrafts = cubekraftsFromEnv();
-  console.log(
-    cubekrafts
-      ? `cubekrafts: reading ${cubekrafts.table} from ${new URL(cubekrafts.url).hostname}`
-      : 'cubekrafts: not connected — sales has nothing to reply to',
-  );
-  const sinks = makeSinks(sql, HOME, transport, cubekrafts ?? undefined);
+  /**
+   * Everything downstream of a connection setting, built here so that saving
+   * one can rebuild it without a restart.
+   *
+   * `sinks` is reassigned rather than mutated in place, and every consumer
+   * reads `tickDeps.sinks` at call time, so a new transport or a new
+   * Cubekrafts endpoint is in force on the very next tool call.
+   */
+  const wire = async (): Promise<void> => {
+    const transport = transportFromEnv();
+    console.log(
+      `email transport: ${transport.name}${transport.name === 'recording' ? ' (nothing will actually be sent)' : ''}`,
+    );
 
-  const tickDeps: TickDeps = { sql, claude, policy, sinks, roles, workspace };
+    // Checked rather than discovered from customers who never replied. A
+    // report, never a gate: DNS is somebody else's infrastructure, and a
+    // lookup timing out is not a reason to refuse to start.
+    const from = process.env['EMAIL_FROM'];
+    const sendingDomain = from ? domainOf(from) : null;
+    if (sendingDomain) {
+      void checkDomain(sendingDomain, {
+        ...(process.env['EMAIL_SPF_INCLUDE']
+          ? { expectedInclude: process.env['EMAIL_SPF_INCLUDE'] }
+          : {}),
+      })
+        .then((report) => console.log(summarise(report)))
+        .catch((err: unknown) => console.error('could not check the sending domain', err));
+    }
+
+    const cubekrafts = cubekraftsFromEnv();
+    console.log(
+      cubekrafts
+        ? `cubekrafts: connected to ${new URL(cubekrafts.url).hostname}`
+        : 'cubekrafts: not connected — sales has nothing to reply to',
+    );
+    tickDeps.sinks = makeSinks(sql, HOME, transport, cubekrafts ?? undefined);
+
+    // Rebuilt too: the token and repository are read when the Workspace is
+    // constructed, so a repository connected after boot would otherwise be
+    // invisible until a restart.
+    tickDeps.workspace = new Workspace({
+      dir: checkout,
+      baseBranch: process.env['FOREMAN_BASE_BRANCH'] ?? 'main',
+      ...(process.env['GITHUB_TOKEN'] ? { token: process.env['GITHUB_TOKEN'] } : {}),
+      ...(process.env['GITHUB_REPO'] ? { repo: process.env['GITHUB_REPO'] } : {}),
+    });
+    console.log(`checkout: ${await ensureCheckout(tickDeps.workspace, checkout)}`);
+  };
+
+  const tickDeps: TickDeps = {
+    sql,
+    claude,
+    policy,
+    sinks: makeSinks(sql, HOME),
+    roles,
+  };
+  await wire();
 
   const webauthn = configFromEnv();
   console.log(`origin: ${webauthn.origin} (relying party ${webauthn.rpID})`);
@@ -190,8 +262,11 @@ async function main(): Promise<void> {
       https: webauthn.origin.startsWith('https:'),
       trustProxy: TRUST_PROXY,
     },
-    ask: (text, snapshot) => ask(text, snapshot, { sql, claude, policy, sinks }),
+    // Read from tickDeps rather than captured, so a connection saved after
+    // boot is in force on the very next call rather than the next restart.
+    ask: (text, snapshot) => ask(text, snapshot, { sql, claude, policy, sinks: tickDeps.sinks! }),
     model: claude,
+    onConnectionsChanged: wire,
     ...(process.env['EMAIL_WEBHOOK_SECRET']
       ? { webhookSecret: process.env['EMAIL_WEBHOOK_SECRET'] }
       : {}),
@@ -202,10 +277,10 @@ async function main(): Promise<void> {
         effort: tickDeps.roles[role]!.effort,
         policy,
         facts: {},
-        readFacts: () => workspace.facts(),
-        workspace,
+        readFacts: () => tickDeps.workspace!.facts(),
+        workspace: tickDeps.workspace!,
         autonomy: () => 'approve',
-        sinks,
+        sinks: tickDeps.sinks!,
         stableSystem: tickDeps.roles[role]!.stableSystem,
       }),
     },

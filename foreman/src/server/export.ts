@@ -1,6 +1,10 @@
 import type { Sql } from '../db/sql.ts';
 import { CHARTERS, DEFAULT_CANON, TOOL_PREAMBLE, CONCIERGE_PREAMBLE } from '../agents/charters.ts';
 import { SECRET_SETTINGS } from '../claude/runtime.ts';
+import { CONNECTION_SECRET_SETTINGS } from './connections.ts';
+
+/** Every settings key whose value must never leave the machine in a file. */
+const NEVER_IN_EXPORT = [...SECRET_SETTINGS, ...CONNECTION_SECRET_SETTINGS];
 
 /**
  * Everything, in one file.
@@ -71,7 +75,7 @@ export async function buildArchive(sql: Sql, version = '0.0.0'): Promise<Archive
     // forwarded, which is exactly where a live key must not be.
     tables[table] =
       table === 'setting'
-        ? rows.filter((r) => !SECRET_SETTINGS.includes(String((r as { key?: unknown }).key)))
+        ? rows.filter((r) => !NEVER_IN_EXPORT.includes(String((r as { key?: unknown }).key)))
         : rows;
     counts[table] = tables[table].length;
   }
