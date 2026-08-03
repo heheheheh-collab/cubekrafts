@@ -15,6 +15,7 @@ import { CATALOG } from '../src/claude/catalog.ts';
 import type { TurnResult } from '../src/claude/client.ts';
 import type { TickDeps } from '../src/scheduler/tick.ts';
 import { COOKIE, createSession } from '../src/auth/session.ts';
+import { KEY_SETTING, SwitchingModel } from '../src/claude/runtime.ts';
 
 /**
  * Phase 0's success condition, end to end and through the real HTTP surface:
@@ -111,6 +112,9 @@ beforeAll(async () => {
     sql,
     bus: new EventBus(),
     tickDeps,
+    // The checker is stubbed so no test ever talks to the real API; the rest
+    // of the key lifecycle — store, mask, clear, export — is the real code.
+    model: new SwitchingModel({ checker: async () => 'checked (stubbed)' }),
     security: { origin: base, https: false },
     webauthn: { rpID: '127.0.0.1', rpName: 'Foreman test', origin: base },
     decideDeps: {
@@ -422,6 +426,82 @@ describe('the gate', () => {
   it('will not accept a nonsense cap', async () => {
     expect((await api('POST', '/api/spend/cap', { capUsd: -1 })).status).toBe(400);
     expect((await api('POST', '/api/spend/cap', { capUsd: 1e9 })).status).toBe(400);
+  });
+});
+
+describe('the API key, managed from inside the app', () => {
+  const FAKE = 'sk-ant-api03-' + 'x'.repeat(48);
+
+  afterAll(() => {
+    delete process.env['ANTHROPIC_API_KEY'];
+  });
+
+  it('starts with no key and says where to put one', async () => {
+    delete process.env['ANTHROPIC_API_KEY'];
+    const res = await api('GET', '/api/model');
+    expect(res.status).toBe(200);
+    expect(res.body.keySource).toBeNull();
+    expect(res.body.keyHint).toBeNull();
+  });
+
+  it('accepts a pasted key, checks it, and never echoes it back', async () => {
+    const res = await api('POST', '/api/model/key', { apiKey: `  ${FAKE}\n` });
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      provider: 'anthropic',
+      keySource: 'settings',
+      keyHint: 'sk-ant-…xxxx',
+      lastCheck: 'checked (stubbed)',
+    });
+    // The whole response, searched: the key appears nowhere in it.
+    expect(JSON.stringify(res.body)).not.toContain(FAKE);
+    // And from now on the agents run on Anthropic.
+    expect((await api('GET', '/api/model')).body.provider).toBe('anthropic');
+  });
+
+  it('rejects something that is not a key, and changes nothing', async () => {
+    delete process.env['ANTHROPIC_API_KEY'];
+    const res = await api('POST', '/api/model/key', { apiKey: 'hunter2' });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/sk-ant-/);
+    expect((await api('GET', '/api/model')).body.keySource).toBeNull();
+  });
+
+  it('survives a restart, because it lives in the database', async () => {
+    await api('POST', '/api/model/key', { apiKey: FAKE });
+    delete process.env['ANTHROPIC_API_KEY'];
+
+    // A second instance is what a restarted process would build.
+    const reborn = new SwitchingModel({ checker: async () => 'ok' });
+    await reborn.adoptStoredKey(pg);
+    expect(reborn.status()).toMatchObject({ provider: 'anthropic', keySource: 'settings' });
+  });
+
+  it('clears the key and falls back to what the process started with', async () => {
+    await api('POST', '/api/model/key', { apiKey: FAKE });
+    const res = await api('POST', '/api/model/key', { apiKey: '' });
+    expect(res.status).toBe(200);
+    expect(res.body.keySource).toBeNull();
+    expect(process.env['ANTHROPIC_API_KEY']).toBeUndefined();
+    const { rows } = await pg.query(`SELECT value FROM setting WHERE key = $1`, [KEY_SETTING]);
+    expect(rows[0]).toMatchObject({ value: null });
+  });
+
+  it('keeps the key out of the export', async () => {
+    await api('POST', '/api/model/key', { apiKey: FAKE });
+    const res = await api('GET', '/api/export');
+    expect(res.status).toBe(200);
+    const settings = res.body.tables.setting as Array<{ key: string }>;
+    expect(settings.some((s) => s.key === KEY_SETTING)).toBe(false);
+    // Belt and braces: the key is not anywhere in the whole archive either.
+    expect(JSON.stringify(res.body)).not.toContain(FAKE);
+  });
+
+  it('wants a recent passkey, exactly like the other dangerous settings', async () => {
+    await pg.query(`UPDATE session SET created_at = now() - interval '2 hours'`);
+    const res = await api('POST', '/api/model/key', { apiKey: FAKE });
+    expect(res.status).toBe(403);
+    expect(res.body).toMatchObject({ reauth: true });
   });
 });
 

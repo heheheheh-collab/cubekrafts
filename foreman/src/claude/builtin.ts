@@ -124,7 +124,7 @@ export class BuiltinModel {
     } catch (err) {
       throw new Error(
         'the built-in model engine is not installed — run `npm install` again, ' +
-          `or set FOREMAN_MODEL_PROVIDER=anthropic. (${String(err)})`,
+          `or paste an Anthropic key under ⋯ → Model. (${String(err)})`,
       );
     }
 

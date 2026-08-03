@@ -18,6 +18,7 @@ export type ForemanEvent =
   | { type: 'spend'; todayUsd: number; capUsd: number }
   | { type: 'spend.cap'; capUsd: number }
   | { type: 'email.suppressed'; kind: string }
+  | { type: 'model.changed'; provider: string; model: string }
   | { type: 'standup'; speech: string; needsYou: number }
   | { type: 'paused'; paused: boolean };
 

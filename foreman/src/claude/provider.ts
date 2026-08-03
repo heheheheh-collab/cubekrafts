@@ -33,7 +33,12 @@ export function modelClientFromEnv(env: NodeJS.ProcessEnv = process.env): ModelC
     case 'local':
       return new LocalModel();
     default:
-      return new Claude();
+      // The key passed explicitly rather than left for the SDK to read, so a
+      // caller who chose the provider from `env` gets the key from the same
+      // `env` — and a key set at runtime is picked up without a restart.
+      return new Claude(
+        env['ANTHROPIC_API_KEY'] !== undefined ? { apiKey: env['ANTHROPIC_API_KEY'] } : {},
+      );
   }
 }
 
@@ -99,7 +104,7 @@ async function checkBuiltin(env: NodeJS.ProcessEnv, client: ModelClient | undefi
 
 async function checkAnthropic(env: NodeJS.ProcessEnv): Promise<string> {
   const key = env['ANTHROPIC_API_KEY'];
-  if (!key) return 'MISSING — every agent run will fail';
+  if (!key) return 'no key — paste one under ⋯ → Model, and it takes effect immediately';
   if (!key.startsWith('sk-ant-')) return "does not start with 'sk-ant-' — check it was pasted whole";
   const params = buildParams(preflightTurn(env), 16);
   try {

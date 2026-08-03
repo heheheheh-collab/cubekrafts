@@ -205,6 +205,9 @@ async function act(action, payload) {
       await post(`/api/auth/sessions/${payload.id}/revoke`, {});
       return { ok: true };
     }
+    if (action === 'setkey') {
+      return await post('/api/model/key', { apiKey: payload.apiKey ?? null });
+    }
   } catch (err) {
     if (err instanceof ApiError && err.needsReauth) {
       const ok = await reauthenticate();
@@ -237,6 +240,7 @@ const NARRATION = {
   'run.finished': (e) => `a run finished — ${e.outcome}`,
   'approval.decided': (e) => `approval ${e.decision}d`,
   'spend.cap': (e) => `daily cap is now $${e.capUsd}`,
+  'model.changed': (e) => `now thinking with ${e.model}`,
 };
 
 function connect() {
@@ -282,6 +286,14 @@ const VIEWS = {
   tasks: async () => {
     const items = await get('/api/tasks');
     return [`${items.length} tasks.`, render({ type: 'tasks', items }, { act })];
+  },
+  model: async () => {
+    const s = await get('/api/model');
+    const speech =
+      s.keyHint || s.provider === 'anthropic'
+        ? `Running on ${s.model}.`
+        : `Running on ${s.model ?? 'nothing yet'} — paste an Anthropic key here to switch.`;
+    return [speech, render({ type: 'model', ...s }, { act })];
   },
   spend: async () => {
     const s = await get('/api/spend');

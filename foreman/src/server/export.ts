@@ -1,5 +1,6 @@
 import type { Sql } from '../db/sql.ts';
 import { CHARTERS, DEFAULT_CANON, TOOL_PREAMBLE, CONCIERGE_PREAMBLE } from '../agents/charters.ts';
+import { SECRET_SETTINGS } from '../claude/runtime.ts';
 
 /**
  * Everything, in one file.
@@ -65,8 +66,14 @@ export async function buildArchive(sql: Sql, version = '0.0.0'): Promise<Archive
     // Table names are from the constant above, never from a caller, which is
     // why interpolating them here is safe — and why the list is a constant.
     const { rows } = await sql.query(`SELECT * FROM ${table}`);
-    tables[table] = rows;
-    counts[table] = rows.length;
+    // Settings mix configuration with the one secret the app stores — the
+    // API key pasted into ⋯ → Model. The export is a file that gets kept and
+    // forwarded, which is exactly where a live key must not be.
+    tables[table] =
+      table === 'setting'
+        ? rows.filter((r) => !SECRET_SETTINGS.includes(String((r as { key?: unknown }).key)))
+        : rows;
+    counts[table] = tables[table].length;
   }
 
   return {

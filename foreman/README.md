@@ -2,7 +2,7 @@
 
 A whole organisation — COO, web developer, sales, marketing, content, finance — running as AI agents at a URL you sign into.
 
-**Built. 484 tests, typecheck clean. Read [PLAN.md](./PLAN.md) for the design.**
+**Built. 497 tests, typecheck clean. Read [PLAN.md](./PLAN.md) for the design.**
 
 ## What it is
 
@@ -132,13 +132,19 @@ said `valid`, because a probe cannot see a malformed request and no test can
 either — the model is scripted in all of them.
 
 ```bash
-npm test          # 484 tests
+npm test          # 497 tests
 npm run typecheck
 ```
 
 ## Deploying
 
 `fly.toml` and the `Dockerfile` are ready; the commands are in the header of `fly.toml`. One machine, never scaled to zero, because a machine that stopped cannot tick at 3am. Budget roughly $5–10/month for the machine and volume, separate from model spend.
+
+**No key goes into the deploy.** Deploy first, open the app, and paste the
+Anthropic key under **⋯ → Model & API key**. It is checked against the real
+API on the spot, saved in the database, survives restarts, wins over any
+environment variable, and is filtered out of the export. Removing it falls
+back to whatever the environment had.
 
 You do not need Fly's own Postgres — a free Neon or Supabase database works, and Foreman only wants a `DATABASE_URL`. If you use Supabase, make it a **new** project rather than the one behind QuoteCraft Pro.
 

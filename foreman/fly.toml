@@ -11,21 +11,18 @@
 # records, and this zone is Fly's, not yours. Until there is a domain you
 # control, the email transport records instead of sending and says so.
 #
+# No API key at deploy time. The key is pasted into the app itself afterwards
+# (⋯ → Model), goes into the database, and survives restarts — so the whole
+# deploy is:
+#
 #   fly launch --no-deploy --copy-config
 #   fly volumes create foreman_data --size 3 --region lhr
-#   fly secrets set ANTHROPIC_API_KEY=sk-ant-...
+#   fly secrets set DATABASE_URL='postgres://...'
 #   fly deploy
 #
-# And a Postgres, from either direction — Foreman does not care which:
-#
-#   fly postgres create --name cubekrafts-foreman-db --region lhr
-#   fly postgres attach cubekrafts-foreman-db     # sets DATABASE_URL for you
-#
-# Fly's database product has changed name and shape more than once, so if
-# that command is missing or looks unfamiliar, do not fight it. Create a free
-# database at neon.tech or supabase.com and set the URL yourself:
-#
-#   fly secrets set DATABASE_URL='postgres://...'
+# For the DATABASE_URL, create a free database at neon.tech and copy the
+# connection string it shows you. (Fly's own `fly postgres create` works too,
+# but their database product changes name and shape often — do not fight it.)
 #
 # If you use Supabase, make it a NEW project. Foreman's twenty-odd tables
 # have no business sharing a database with the live dealer app.

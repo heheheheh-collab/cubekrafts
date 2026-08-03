@@ -179,6 +179,67 @@ const RENDERERS = {
     return node;
   },
 
+  model: (data, { act }) => {
+    const node = card('Model');
+    node.append(
+      rows([
+        ['Running on', data.provider === 'anthropic' ? 'Anthropic' : data.provider ?? '—'],
+        ['Model', data.model ?? '—'],
+        ['Key', data.keyHint ? `${data.keyHint} · from ${data.keySource}` : 'none set'],
+        ['Last check', data.lastCheck ?? '—'],
+      ]),
+    );
+
+    // The one place a key is ever typed. It goes to the server once, lives in
+    // the database, and never comes back — only the last four characters do.
+    const form = el('div', 'actions');
+    const input = el('input');
+    input.type = 'password';
+    input.placeholder = 'sk-ant-… paste a key';
+    input.autocomplete = 'off';
+    input.style.flex = '1';
+    const save = el('button', 'approve', 'Save & check');
+    form.append(input, save);
+
+    let clear = null;
+    if (data.keySource === 'settings') {
+      clear = el('button', 'reject', 'Remove');
+      form.append(clear);
+    }
+    node.append(form);
+
+    const meta = el(
+      'div',
+      'meta',
+      'Saved in the app and survives restarts. Removing it goes back to whatever ran before.',
+    );
+    node.append(meta);
+
+    const submit = async (value) => {
+      save.disabled = true;
+      if (clear) clear.disabled = true;
+      meta.textContent = 'checking with the real API…';
+      const result = await act('setkey', { apiKey: value });
+      save.disabled = false;
+      if (clear) clear.disabled = false;
+      if (result?.error) {
+        meta.textContent = result.error;
+        return;
+      }
+      input.value = '';
+      meta.textContent = `${result.lastCheck} — running on ${result.model}`;
+    };
+
+    save.addEventListener('click', () => {
+      if (input.value.trim()) void submit(input.value);
+    });
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && input.value.trim()) void submit(input.value);
+    });
+    if (clear) clear.addEventListener('click', () => void submit(null));
+    return node;
+  },
+
   email: (data) => {
     const node = card('Email');
     if (data.dns?.configured) {

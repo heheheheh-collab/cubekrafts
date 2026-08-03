@@ -5,8 +5,8 @@ import { join } from 'node:path';
 import type { Sql } from '../db/sql.ts';
 import { migrate } from '../db/migrate.ts';
 import { setSetting, getSetting } from '../db/repo.ts';
-import { modelFor, providerFromEnv, type Provider } from '../claude/catalog.ts';
-import { checkProvider, modelClientFromEnv } from '../claude/provider.ts';
+import { modelFor, type Provider } from '../claude/catalog.ts';
+import { SwitchingModel } from '../claude/runtime.ts';
 import { PRESETS } from '../claude/presets.ts';
 import { DEFAULT_POLICY, type PolicyConfig } from '../domain/types.ts';
 import { stableSystemFor } from '../agents/charters.ts';
@@ -100,18 +100,18 @@ async function main(): Promise<void> {
     await setSetting(sql, SETTINGS.dailyCapUsd, 5);
   }
 
-  // Any key is read at boot and never stored, logged, or shown to an agent.
+  // The model is swappable while running: a key pasted under ⋯ → Model is
+  // saved in the database, wins over the environment, and survives restarts.
+  // It is adopted here, before anything that might print or use a model.
   //
-  // Checked rather than merely counted, and checked by making the real
-  // request: "present" was technically true of an invalid key and told you
-  // nothing, so the first thing you learned was a 401 in the middle of a
-  // conversation. It never blocks startup and never prints the key.
-  const provider = providerFromEnv();
-  const claude = modelClientFromEnv();
-  console.log(providerLine(provider, modelFor('top').model));
-  // The same instance the app will use, so the check loads the weights once
-  // and the first real request finds them already warm.
-  void checkProvider(process.env, claude).then((line) => console.log(`  ${line}`));
+  // The boot check makes the real request rather than counting variables:
+  // "present" was technically true of an invalid key and told you nothing, so
+  // the first thing you learned was a 401 in the middle of a conversation. It
+  // never blocks startup and never prints the key.
+  const claude = new SwitchingModel();
+  await claude.adoptStoredKey(sql);
+  console.log(providerLine(claude.provider(), modelFor('top').model));
+  void claude.check().then((line) => console.log(`  ${line}`));
 
   const policy: PolicyConfig = {
     ...DEFAULT_POLICY,
@@ -188,6 +188,7 @@ async function main(): Promise<void> {
       trustProxy: TRUST_PROXY,
     },
     ask: (text, snapshot) => ask(text, snapshot, { sql, claude, policy, sinks }),
+    model: claude,
     ...(process.env['EMAIL_WEBHOOK_SECRET']
       ? { webhookSecret: process.env['EMAIL_WEBHOOK_SECRET'] }
       : {}),

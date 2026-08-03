@@ -20,6 +20,7 @@ import { recordProviderEvent, type ProviderEventKind } from '../email/send.ts';
 import { checkDomain, domainOf } from '../email/deliverability.ts';
 import { buildStandup } from '../scheduler/standup.ts';
 import { buildArchive } from './export.ts';
+import type { SwitchingModel } from '../claude/runtime.ts';
 
 /**
  * The HTTP surface.
@@ -43,6 +44,8 @@ export interface AppDeps {
   ask?: (text: string, snapshot: Snapshot) => Promise<AskResult>;
   /** Shared secret for the provider's bounce webhook. Absent disables the route. */
   webhookSecret?: string;
+  /** The swappable model client. Absent (in unit tests) disables the routes. */
+  model?: SwitchingModel;
 }
 
 /**
@@ -371,6 +374,36 @@ export function buildRoutes(deps: AppDeps): Route[] {
         todayUsd: await spendToday(sql),
         capUsd: await getSetting<number>(sql, SETTINGS.dailyCapUsd, 5),
       });
+    }),
+
+    route('GET', '/api/model', 'session', async ({ res }) => {
+      if (!deps.model) {
+        json(res, 200, { provider: 'none', model: null, keySource: null, keyHint: null, lastCheck: 'not wired' });
+        return;
+      }
+      json(res, 200, deps.model.status());
+    }),
+
+    // Setting the key is joining the dangerous four: a key directs spending
+    // and impersonates the account it belongs to, so it wants a recent
+    // passkey — and it goes into the database, never into a log or the export.
+    route('POST', '/api/model/key', 'fresh', async ({ req, res }) => {
+      if (!deps.model) {
+        json(res, 503, { error: 'the model is not wired in this configuration' });
+        return;
+      }
+      const body = await readJson(req);
+      const raw = body['apiKey'];
+      // Whitespace comes along with a paste surprisingly often, and a null or
+      // empty box means "go back to whatever it was before I pasted one".
+      const key = typeof raw === 'string' ? raw.replace(/\s+/g, '') : '';
+      try {
+        const status = await deps.model.setKey(sql, key === '' ? null : key);
+        bus.publish({ type: 'model.changed', provider: status.provider, model: status.model });
+        json(res, 200, status);
+      } catch (err) {
+        json(res, 400, { error: err instanceof Error ? err.message : String(err) });
+      }
     }),
 
     // One of the dangerous four: raising the cap is how a compromised session
