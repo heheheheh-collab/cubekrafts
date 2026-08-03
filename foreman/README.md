@@ -2,7 +2,7 @@
 
 A whole organisation — COO, web developer, sales, marketing, content, finance — running as AI agents at a URL you sign into.
 
-**Built. 455 tests, typecheck clean. Read [PLAN.md](./PLAN.md) for the design.**
+**Built. 484 tests, typecheck clean. Read [PLAN.md](./PLAN.md) for the design.**
 
 ## What it is
 
@@ -10,7 +10,11 @@ One always-on service and one Postgres database, reachable at a link from your l
 
 Because it's hosted rather than local, it keeps working overnight. The standup is written before you wake up and the approvals queue is waiting.
 
-Claude only. `claude-opus-5` for planning and code, `claude-sonnet-5` for writing, `claude-haiku-4-5` for the conversation.
+**It brings its own model.** No account, no API key, no second program to install: the weights land in `~/.foreman/models` on first start and the thing that reasons runs inside the thing you started. Nothing is sent anywhere and nothing is billed.
+
+That trade is worth stating plainly. A model that fits on a laptop follows a charter less exactly, needs more turns to use a tool properly, and writes a duller email than a hosted one. What does *not* change is the machinery around it — the classifier still refuses, approvals still hold, nothing leaves the building unread — so the failure mode is disappointing work, never unsafe work.
+
+Set `ANTHROPIC_API_KEY` and it uses Claude instead, for the days that matters. Point `FOREMAN_LOCAL_URL` at Ollama or LM Studio and it uses that. Same app, same rules, one environment variable.
 
 ## Its relationship to Cubekrafts
 
@@ -62,10 +66,13 @@ Claude is scripted in the tests — the point is the machinery around the model 
 ./start-local.sh
 ```
 
-It checks Node, starts Postgres, creates the database, installs, asks for your
-API key without echoing it or writing it anywhere, and starts on
-http://localhost:7777. Re-running skips whatever is already done. Read it
-first — it is forty lines and everything it does is reversible.
+It checks Node, starts Postgres, creates the database, installs, downloads the
+model the first time, and starts on http://localhost:7777. It asks you for
+nothing. Re-running skips whatever is already done. Read it first — everything
+it does is reversible.
+
+The first start fetches a few gigabytes of weights and the first reply after
+that is slow while they load into memory. Neither happens again.
 
 Already have a database somewhere? Export the **whole** connection string
 first and it skips the Postgres part entirely:
@@ -83,10 +90,24 @@ Or by hand:
 npm install
 createdb foreman
 export DATABASE_URL=postgres://localhost/foreman
-export ANTHROPIC_API_KEY=sk-ant-...
 export TICK_MS=60000          # a minute, rather than the ten a server wants
 npm start                     # http://127.0.0.1:7777
 ```
+
+### Choosing where the thinking happens
+
+| Set | What runs | Costs |
+|---|---|---|
+| nothing | the built-in model, inside Foreman | nothing |
+| `FOREMAN_MODEL=hf:…` | a different set of built-in weights | nothing |
+| `FOREMAN_LOCAL_URL=http://127.0.0.1:11434/v1` | Ollama or LM Studio, if you already run one | nothing |
+| `ANTHROPIC_API_KEY=sk-ant-…` | Claude | per token |
+
+`FOREMAN_MODEL_PROVIDER` (`builtin`, `local`, `anthropic`) overrides all of it.
+Which weights the built-in engine picks depends on how much memory the machine
+has — 3B, 7B or 14B — because guessing too big does not make it slow, it makes
+it fail to start. The spend cap reads the same price table either way, so a
+local week genuinely reports zero rather than being exempted from the check.
 
 Open it, register a passkey, and **write down the recovery code** — it is shown once.
 
@@ -94,17 +115,24 @@ Booting prints exactly what is and is not connected, so you never have to guess:
 
 ```
 applied 4 migration(s): 001_init.sql, 002_auth.sql, 003_supervision.sql, 004_email.sql
-anthropic key: valid, and the API accepts our requests
+model: hf:bartowski/Qwen2.5-7B-Instruct-GGUF:Q4_K_M, running inside Foreman — no account, no key, nothing sent anywhere
 checkout: none at ~/.foreman/checkout — the developer cannot work until one exists
 email transport: recording (nothing will actually be sent)
 cubekrafts: not connected — sales has nothing to reply to
 origin: http://localhost:7777 (relying party localhost)
 foreman listening on http://127.0.0.1:7777
 staff: coo, content, sales, developer, marketing, finance
+  ready — the model answered, and nothing left this machine
 ```
 
+That last line is the model actually being asked to call a tool, not a probe of
+whether something is reachable. The difference is the whole point: a tool name
+the API would not accept once sat in every request for days behind a check that
+said `valid`, because a probe cannot see a malformed request and no test can
+either — the model is scripted in all of them.
+
 ```bash
-npm test          # 455 tests
+npm test          # 484 tests
 npm run typecheck
 ```
 
@@ -126,6 +154,7 @@ Foreman runs without any of these — it just does less. Each one turns somethin
 
 | To turn on | Set | Costs |
 |---|---|---|
+| Agents that think | nothing — the model is built in | — |
 | A public address, and passkeys on it | nothing — `fly.dev` is free and already configured | — |
 | Email that is actually delivered | `RESEND_API_KEY`, `EMAIL_FROM=Cubekrafts <info@cubekrafts.com>`, and two DNS records at GoDaddy | — you already own the domain |
 | Bounce and complaint handling | `EMAIL_WEBHOOK_SECRET`, pointed at `/api/webhooks/email` | — |
@@ -155,4 +184,14 @@ Without a checkout the git tools refuse plainly. Nothing pretends.
 
 ## Cost
 
-$5–10/month hosting, plus $45–90/month of model spend at normal load. Both capped.
+Nothing, on the built-in model: no key, no tokens, no bill. The machine you
+already own does the work.
+
+Hosted, it is $5–10/month for the Fly machine and volume. Running the agents on
+Claude instead adds $45–90/month at normal load, capped daily.
+
+Note the tension between the two: a laptop-sized model is free but the laptop
+has to be awake, and the reason to host this at all is that it keeps working
+overnight. A Fly machine small enough to be cheap is too small to run the
+weights well. So the honest pairing is built-in while it lives on your Mac, and
+a key once it lives on a server.

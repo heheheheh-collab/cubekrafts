@@ -12,8 +12,14 @@ RUN apt-get update \
 WORKDIR /app
 
 # Dependencies first, so a change to source does not reinstall the world.
+#
+# Optional ones are left out, so the built-in model engine is not in the image.
+# That is deliberate: it would add hundreds of megabytes in order to run weights
+# that a machine small enough to be cheap cannot hold anyway. A deployed Foreman
+# is the case for setting ANTHROPIC_API_KEY, and it says so at boot if you have
+# not.
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
+RUN npm ci --omit=dev --omit=optional
 
 COPY src ./src
 COPY web ./web

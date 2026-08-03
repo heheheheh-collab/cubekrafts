@@ -5,9 +5,8 @@ import { join } from 'node:path';
 import type { Sql } from '../db/sql.ts';
 import { migrate } from '../db/migrate.ts';
 import { setSetting, getSetting } from '../db/repo.ts';
-import { Claude, buildParams } from '../claude/client.ts';
-import { modelFor } from '../claude/catalog.ts';
-import { toolsFor } from '../tools/registry.ts';
+import { modelFor, providerFromEnv, type Provider } from '../claude/catalog.ts';
+import { checkProvider, modelClientFromEnv } from '../claude/provider.ts';
 import { DEFAULT_POLICY, type PolicyConfig } from '../domain/types.ts';
 import { stableSystemFor } from '../agents/charters.ts';
 import { EventBus } from './events.ts';
@@ -43,6 +42,13 @@ const TRUST_PROXY = process.env['FOREMAN_TRUST_PROXY'] === 'true';
 /** The two hostnames browsers treat as a secure context without TLS. */
 const isLocal = (host: string) => host === 'localhost' || host === '127.0.0.1';
 
+/** What the boot log says about where thinking happens. */
+const PROVIDER_LINE: Record<Provider, (model: string) => string> = {
+  builtin: (m) => `model: ${m}, running inside Foreman — no account, no key, nothing sent anywhere`,
+  local: (m) => `model: ${m} on this machine — nothing sent anywhere, and it costs nothing`,
+  anthropic: (m) => `model: Anthropic (${m})`,
+};
+
 /** Who is on the payroll, and on which model. */
 const STAFF = [
   { id: 'coo', tier: 'top', effort: 'high' },
@@ -54,59 +60,6 @@ const STAFF = [
   // and it runs often enough that the difference shows up on the bill.
   { id: 'finance', tier: 'cheap', effort: 'medium' },
 ] as const;
-
-/**
- * Never throws, never prints the key, never stops the app starting.
- *
- * This sends the *real* request shape — `buildParams` on a real role, with the
- * real tool block, the real model name and the real cache and thinking
- * settings — capped at a handful of tokens. Anything the API refuses about the
- * way we form a request then surfaces here, at boot, in the API's own words.
- *
- * A cheaper `GET /v1/models` used to live here. It proved the key was live and
- * nothing else: a tool name the API would not accept sat in every request for
- * days behind a check that said `valid`, because a key probe cannot see a
- * malformed request and no test can either — Claude is scripted in all of them.
- * The few hundred tokens this costs per boot buy the one thing tests cannot.
- */
-async function verifyKey(key: string | undefined): Promise<string> {
-  if (!key) return 'MISSING — every agent run will fail';
-  if (!key.startsWith('sk-ant-')) return "does not start with 'sk-ant-' — check it was pasted whole";
-  const params = buildParams(
-    {
-      stableSystem: stableSystemFor('developer'),
-      messages: [{ role: 'user', content: 'Reply with the single word: ok' }],
-      // The widest tool set of any role, so the check covers every tool.
-      tools: toolsFor('developer'),
-      model: modelFor('top'),
-      effort: 'low',
-    },
-    16,
-  );
-  try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': key,
-        'anthropic-version': '2023-06-01',
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify(params),
-      signal: AbortSignal.timeout(30_000),
-    });
-    if (res.ok) return 'valid, and the API accepts our requests';
-    if (res.status === 401) return 'REJECTED by Anthropic — the key is wrong or revoked';
-    if (res.status === 429) return 'valid, but rate limited right now';
-    // A 400 is our bug, not the user's. Print what the API actually said —
-    // that message is the whole value of doing this at boot.
-    const body = await res.text().catch(() => '');
-    if (res.status === 400) return `the key is fine but the API REFUSED our request shape: ${body.slice(0, 400)}`;
-    return `could not be checked (HTTP ${res.status}); carrying on`;
-  } catch {
-    // Offline, or the check itself is broken. Not a reason to refuse to boot.
-    return 'present, but could not be checked from here';
-  }
-}
 
 async function main(): Promise<void> {
   const pool = new Pool({ connectionString: process.env['DATABASE_URL'] });
@@ -141,15 +94,18 @@ async function main(): Promise<void> {
     await setSetting(sql, SETTINGS.dailyCapUsd, 5);
   }
 
-  // The key is read at boot and never stored, logged, or shown to an agent.
+  // Any key is read at boot and never stored, logged, or shown to an agent.
   //
-  // Checked rather than merely counted. "present" was technically true of an
-  // invalid key and told you nothing, so the first thing you learned was a
-  // 401 in the middle of a conversation. This is one free call to a list
-  // endpoint, it never blocks startup, and it never prints the key.
-  void verifyKey(process.env['ANTHROPIC_API_KEY']).then((line) =>
-    console.log(`anthropic key: ${line}`),
-  );
+  // Checked rather than merely counted, and checked by making the real
+  // request: "present" was technically true of an invalid key and told you
+  // nothing, so the first thing you learned was a 401 in the middle of a
+  // conversation. It never blocks startup and never prints the key.
+  const provider = providerFromEnv();
+  const claude = modelClientFromEnv();
+  console.log(PROVIDER_LINE[provider](modelFor('top').model));
+  // The same instance the app will use, so the check loads the weights once
+  // and the first real request finds them already warm.
+  void checkProvider(process.env, claude).then((line) => console.log(`  ${line}`));
 
   const policy: PolicyConfig = {
     ...DEFAULT_POLICY,
@@ -174,7 +130,6 @@ async function main(): Promise<void> {
   );
 
   const bus = new EventBus();
-  const claude = new Claude();
   const transport = transportFromEnv();
   console.log(`email transport: ${transport.name}${transport.name === 'recording' ? ' (nothing will actually be sent)' : ''}`);
 

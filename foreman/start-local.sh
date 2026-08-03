@@ -2,8 +2,9 @@
 # Run Foreman on this machine.
 #
 # Everything here is reversible and local: a database called `foreman`, a
-# node_modules, and a directory under ~/.foreman for drafts. Nothing is
-# deployed, nothing is sent, and no key is written to disk.
+# node_modules, and a directory under ~/.foreman for drafts and the model.
+# Nothing is deployed, nothing is sent, and no key is asked for or written to
+# disk — Foreman brings its own model.
 #
 #   ./start-local.sh
 #
@@ -82,34 +83,44 @@ then run this again."
   export DATABASE_URL="postgres://localhost/foreman"
 fi
 
-# ── the key ─────────────────────────────────────────────────────────────────
-# Read into the environment of this process only. Not echoed, not written to a
-# file, not added to your shell history.
-if [ -z "${ANTHROPIC_API_KEY:-}" ]; then
-  say "Anthropic API key"
-  echo "From console.anthropic.com. Set a spend limit there while you try this."
-  read -rsp "  Paste it (input hidden): " ANTHROPIC_API_KEY
-  echo
-  [ -n "$ANTHROPIC_API_KEY" ] || die "No key, no agents. Nothing else was changed."
-
-  # The input is hidden, so a paste that only half landed looks identical to
-  # one that worked. Checking the shape here turns that into a question you
-  # can answer now, rather than an invalid x-api-key the first time you speak
-  # to it. Trailing whitespace comes along for the ride surprisingly often.
+# ── the model ───────────────────────────────────────────────────────────────
+# No key is asked for and none is needed. Foreman runs its own model, so the
+# only thing this section does is warn you once about the download.
+#
+# A key in the environment is taken as saying you want it used, and is read
+# into this process only: not echoed, not written to a file, not added to your
+# shell history.
+if [ -n "${ANTHROPIC_API_KEY:-}" ]; then
   ANTHROPIC_API_KEY=$(printf '%s' "$ANTHROPIC_API_KEY" | tr -d '[:space:]')
   case "$ANTHROPIC_API_KEY" in
-    sk-ant-*) ;;
-    *) die "That does not look like an Anthropic key. They begin with 'sk-ant-'.
-You pasted ${#ANTHROPIC_API_KEY} characters starting '$(printf '%.7s' "$ANTHROPIC_API_KEY")'." ;;
+    sk-ant-*) export ANTHROPIC_API_KEY ;;
+    *) die "ANTHROPIC_API_KEY is set but does not begin with 'sk-ant-'.
+Fix it, or 'unset ANTHROPIC_API_KEY' to run on the built-in model instead." ;;
   esac
-  [ "${#ANTHROPIC_API_KEY}" -ge 40 ] || die "That key is only ${#ANTHROPIC_API_KEY} characters, which is too short.
-The paste probably did not all land — the prompt hides it, so it looks the
-same either way. Run this again and paste once more."
-  export ANTHROPIC_API_KEY
+  say "Using Anthropic, because ANTHROPIC_API_KEY is set."
+  echo "  unset it to run entirely on this machine instead."
 fi
 
 # ── dependencies ────────────────────────────────────────────────────────────
 [ -d node_modules ] || { say "Installing dependencies…"; npm install --no-audit --no-fund; }
+
+# Said before the wait rather than during it: the first start fetches several
+# gigabytes of weights, and an unexplained ten-minute pause reads as a hang.
+if [ -z "${ANTHROPIC_API_KEY:-}" ] && [ -z "${FOREMAN_LOCAL_URL:-}" ]; then
+  MODELS_DIR="${FOREMAN_HOME:-$HOME/.foreman}/models"
+  if [ -z "$(ls -A "$MODELS_DIR" 2>/dev/null)" ]; then
+    say "First start: downloading the model"
+    cat <<'DL'
+  Foreman runs its own model, so there is no account and no key. The weights
+  are a few gigabytes and are fetched once, into ~/.foreman/models. Later
+  starts skip this.
+
+  Which one is chosen by how much memory this machine has. Override with
+  FOREMAN_MODEL if you would rather pick.
+
+DL
+  fi
+fi
 
 # ── go ──────────────────────────────────────────────────────────────────────
 # A minute rather than ten: right for somebody sitting in front of it, wrong
@@ -126,6 +137,9 @@ cat <<'NEXT'
 
   Ctrl-C to stop. Email, git and Cubekrafts stay switched off until they are
   configured, and the boot lines below say so plainly.
+
+  The first reply is slow while the model loads into memory. After that it
+  settles.
 
 NEXT
 

@@ -1,3 +1,5 @@
+import { totalmem } from 'node:os';
+
 /**
  * Model catalog.
  *
@@ -26,8 +28,93 @@ export const CATALOG: Readonly<Record<Tier, ModelEntry>> = {
   cheap: { model: 'claude-haiku-4-5', in: 1.0, cachedIn: 0.1, out: 5.0, cacheMinTokens: 2048 },
 };
 
-export function modelFor(tier: Tier): ModelEntry {
-  return CATALOG[tier];
+/**
+ * The same three tiers, served from a model running on your own machine.
+ *
+ * One model by default rather than three. Tiers exist so roles can be cheap or
+ * careful, and when the marginal token is free that distinction stops paying
+ * for itself — while three separate pulls would cost twenty gigabytes and
+ * three chances to have not pulled the one a role happens to want.
+ *
+ * Prices are zero because they are. That is not a placeholder: the spend cap
+ * reads these numbers, so a local run genuinely cannot be stopped by it.
+ */
+export function localCatalog(
+  env: NodeJS.ProcessEnv = process.env,
+  fallback = 'qwen3:8b',
+): Readonly<Record<Tier, ModelEntry>> {
+  const base = env['FOREMAN_LOCAL_MODEL'] ?? fallback;
+  const free = (model: string): ModelEntry => ({
+    model,
+    in: 0,
+    cachedIn: 0,
+    out: 0,
+    // Nothing caches prefixes locally; claiming otherwise would make
+    // `cacheHitRate` read as a fault forever.
+    cacheMinTokens: Number.POSITIVE_INFINITY,
+  });
+  return {
+    top: free(env['FOREMAN_LOCAL_MODEL_TOP'] ?? base),
+    mid: free(env['FOREMAN_LOCAL_MODEL_MID'] ?? base),
+    cheap: free(env['FOREMAN_LOCAL_MODEL_CHEAP'] ?? base),
+  };
+}
+
+export type Provider =
+  /** Weights running inside this process. No account, no key, no network. */
+  | 'builtin'
+  /** Something already running on this machine that speaks the OpenAI shape. */
+  | 'local'
+  | 'anthropic';
+
+/**
+ * Which one is in force.
+ *
+ * Built-in unless told otherwise, so Foreman works the moment it starts and
+ * reaches the network only when you have deliberately given it the means to.
+ * An Anthropic key, if you have set one, is taken as saying you want it used.
+ */
+export function providerFromEnv(env: NodeJS.ProcessEnv = process.env): Provider {
+  const declared = env['FOREMAN_MODEL_PROVIDER'];
+  if (declared === 'anthropic' || declared === 'local' || declared === 'builtin') return declared;
+  if (env['ANTHROPIC_API_KEY']) return 'anthropic';
+  // An OpenAI-compatible server was pointed at explicitly; use it rather than
+  // downloading a second copy of a model this machine is already running.
+  if (env['FOREMAN_LOCAL_URL']) return 'local';
+  return 'builtin';
+}
+
+/**
+ * Which weights to fetch when nobody has said.
+ *
+ * Chosen by memory, because guessing too big does not produce a slow app — it
+ * produces one that cannot start. Every option here can call tools; most small
+ * models cannot, and picking one that cannot is the easiest way to end up with
+ * an organisation that never does anything.
+ */
+export function defaultModelUri(bytes: number = totalmem()): string {
+  const gb = bytes / 1024 ** 3;
+  if (gb >= 30) return 'hf:bartowski/Qwen2.5-14B-Instruct-GGUF:Q4_K_M';
+  if (gb >= 15) return 'hf:bartowski/Qwen2.5-7B-Instruct-GGUF:Q4_K_M';
+  return 'hf:bartowski/Qwen2.5-3B-Instruct-GGUF:Q4_K_M';
+}
+
+export function catalogFor(
+  provider: Provider,
+  env: NodeJS.ProcessEnv = process.env,
+): Readonly<Record<Tier, ModelEntry>> {
+  if (provider === 'anthropic') return CATALOG;
+  if (provider === 'builtin') {
+    // One set of weights is loaded into memory; asking for a second tier would
+    // mean loading it twice. The tiers stay so roles need not know that.
+    const model = env['FOREMAN_MODEL'] ?? defaultModelUri();
+    return localCatalog({ ...env, FOREMAN_LOCAL_MODEL: model });
+  }
+  return localCatalog(env);
+}
+
+export function modelFor(tier: Tier, env: NodeJS.ProcessEnv = process.env): ModelEntry {
+  return catalogFor(providerFromEnv(env), env)[tier];
 }
 
 export interface Usage {
