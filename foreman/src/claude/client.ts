@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { ToolSpec } from '../tools/registry.ts';
+import { resolveToolName, toWireName } from './wire-names.ts';
 import type { ToolCall } from '../domain/types.ts';
 import { type Effort, type ModelEntry, type Usage, NO_USAGE, costOf } from './catalog.ts';
 
@@ -147,7 +148,9 @@ export function buildParams(t: Turn, maxTokens: number): Record<string, unknown>
     tools: [...t.tools]
       .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
       .map((s) => ({
-        name: s.name,
+        // Dots are ours; the API only accepts [a-zA-Z0-9_-]. Translated here,
+        // at the boundary, and translated back in `interpret`.
+        name: toWireName(s.name),
         description: s.description,
         input_schema: s.input_schema,
         strict: true,
@@ -195,7 +198,9 @@ export function interpret(message: AnthropicMessage, model: ModelEntry): TurnRes
     .filter((b) => b['type'] === 'tool_use')
     .map((b) => ({
       id: String(b['id'] ?? ''),
-      name: String(b['name'] ?? ''),
+      // Back to the dotted name everything above this file is written in. A
+      // name we never sent resolves to itself and the classifier refuses it.
+      name: resolveToolName(String(b['name'] ?? '')),
       args: (b['input'] ?? {}) as Record<string, unknown>,
     }));
 

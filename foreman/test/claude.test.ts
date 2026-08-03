@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { buildParams, interpret, type Turn } from '../src/claude/client.ts';
 import { CATALOG, costOf, cacheHitRate, addUsage, type Usage } from '../src/claude/catalog.ts';
-import { toolsFor } from '../src/tools/registry.ts';
+import { TOOLS, toolsFor } from '../src/tools/registry.ts';
+import { WIRE_NAME_PATTERN, resolveToolName, toWireName } from '../src/claude/wire-names.ts';
 
 const turn = (over: Partial<Turn> = {}): Turn => ({
   stableSystem: ['tool preamble', 'charter', 'canon'],
@@ -175,5 +176,74 @@ describe('cost', () => {
   it('accumulates usage across the steps of a run', () => {
     const a: Usage = { input: 1, cachedInput: 2, cacheWrite: 3, output: 4 };
     expect(addUsage(a, a)).toEqual({ input: 2, cachedInput: 4, cacheWrite: 6, output: 8 });
+  });
+});
+
+// ── what the API will actually accept ───────────────────────────────────────
+
+describe('tool names on the wire', () => {
+  it('sends every tool under a name the API permits', () => {
+    // The bug this exists for: the API requires ^[a-zA-Z0-9_-]{1,128}$ and
+    // every one of our names has a dot in it. All 449 tests passed and the
+    // app could not talk to Claude at all, because Claude is scripted in
+    // every one of them and the wire format was never checked.
+    for (const tool of TOOLS) {
+      const wire = toWireName(tool.name);
+      expect({ tool: tool.name, ok: WIRE_NAME_PATTERN.test(wire) }).toEqual({
+        tool: tool.name,
+        ok: true,
+      });
+    }
+  });
+
+  it('checks the names in the request itself, not just the registry', () => {
+    const params = buildParams({
+      stableSystem: ['s'],
+      messages: [],
+      tools: toolsFor('developer'),
+      model: CATALOG.top,
+      effort: 'high',
+    }, 8000) as unknown as { tools: Array<{ name: string }> };
+
+    expect(params.tools.length).toBeGreaterThan(4);
+    for (const t of params.tools) {
+      expect({ name: t.name, ok: WIRE_NAME_PATTERN.test(t.name) }).toEqual({
+        name: t.name,
+        ok: true,
+      });
+    }
+  });
+
+  it('round-trips every name exactly, including the ones with underscores', () => {
+    // `org.look_up` is why the separator is a double underscore. A single one
+    // would come back as `org.look.up`.
+    for (const tool of TOOLS) {
+      expect(resolveToolName(toWireName(tool.name))).toBe(tool.name);
+    }
+    expect(toWireName('org.look_up')).toBe('org__look_up');
+    expect(resolveToolName('org__look_up')).toBe('org.look_up');
+  });
+
+  it('leaves a name it never sent alone, so the classifier can refuse it', () => {
+    // A hallucinated tool must not be transformed into something plausible.
+    expect(resolveToolName('delete_everything')).toBe('delete_everything');
+    expect(resolveToolName('fs__destroy')).toBe('fs__destroy');
+  });
+
+  it('maps a tool call in a real response back to its dotted name', () => {
+    const result = interpret(
+      {
+        content: [{ type: 'tool_use', id: 'tu1', name: 'org__look_up', input: { view: 'tasks' } }],
+        stop_reason: 'tool_use',
+        usage: { input_tokens: 1, output_tokens: 1 },
+      } as never,
+      CATALOG.cheap,
+    );
+    expect(result.toolCalls[0]).toMatchObject({ name: 'org.look_up', args: { view: 'tasks' } });
+  });
+
+  it('keeps the wire names unique, so the round trip cannot collide', () => {
+    const wire = TOOLS.map((t) => toWireName(t.name));
+    expect(new Set(wire).size).toBe(wire.length);
   });
 });
