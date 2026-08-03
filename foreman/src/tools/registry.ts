@@ -216,7 +216,7 @@ export const TOOLS: readonly ToolSpec[] = [
       },
       ['view'],
     ),
-    grantedTo: ['coo', 'concierge'],
+    grantedTo: ['coo', 'concierge', 'finance', 'marketing'],
     defaultAutonomy: 'auto',
   },
   {

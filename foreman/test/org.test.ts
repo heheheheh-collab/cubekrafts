@@ -6,7 +6,7 @@ import { PGlite } from '@electric-sql/pglite';
 import { migrate, defaultMigrationsDir } from '../src/db/migrate.ts';
 import { makeSinks } from '../src/tools/sinks.ts';
 import { classify } from '../src/tools/effects.ts';
-import { DEFAULT_POLICY } from '../src/domain/types.ts';
+import { DEFAULT_POLICY, ROLE_NAMES } from '../src/domain/types.ts';
 import { toolsFor } from '../src/tools/registry.ts';
 import { ask, situation } from '../src/concierge/ask.ts';
 import { stableSystemFor, CONCIERGE_PREAMBLE } from '../src/agents/charters.ts';
@@ -461,5 +461,46 @@ describe('the situation block', () => {
     expect(text).toContain('approvals waiting on the founder: 50');
     expect(text).toContain('ap_7');
     expect(text).not.toContain('ap_9');
+  });
+});
+
+// ── the whole payroll ───────────────────────────────────────────────────────
+
+describe('every role that can be given work can do it', () => {
+  it('has a charter for each role on the org chart', () => {
+    // The COO can dispatch to any of these. A role without a charter throws
+    // when the tick builds its prompt, so the task would sit blocked forever
+    // and nothing would say why.
+    for (const role of ROLE_NAMES) {
+      expect({ role, blocks: stableSystemFor(role).length }).toEqual({ role, blocks: 3 });
+    }
+  });
+
+  it('lets the COO dispatch to all of them and to nobody else', () => {
+    const base = { title: 't', spec: 's', definition_of_done: 'd' };
+    for (const role of ROLE_NAMES) {
+      const verdict = classify('coo', call('org.dispatch', { ...base, owner_role: role }), policy);
+      // The COO is the only one it cannot hand work to — it has no queue.
+      expect({ role, effect: verdict.effect }).toEqual({
+        role,
+        effect: role === 'coo' ? 'forbidden' : 'safe',
+      });
+    }
+  });
+
+  it('gives finance and marketing a way to read the numbers they report on', () => {
+    // A finance role that cannot see spend can only make things up.
+    for (const role of ['finance', 'marketing'] as const) {
+      expect({
+        role,
+        canRead: classify(role, call('org.look_up', { view: 'spend' }), policy).effect,
+      }).toEqual({ role, canRead: 'safe' });
+    }
+  });
+
+  it('still refuses each of them the tools they were never granted', () => {
+    expect(classify('finance', call('email.send', { draft_id: 'd' }), policy).effect).toBe('forbidden');
+    expect(classify('marketing', call('git.push', { title: 't', body: 'b' }), policy).effect).toBe('forbidden');
+    expect(classify('finance', call('fs.write', { path: 'x', content: 'y' }), policy).effect).toBe('forbidden');
   });
 });

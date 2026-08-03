@@ -48,6 +48,10 @@ const STAFF = [
   { id: 'content', tier: 'mid', effort: 'high' },
   { id: 'sales', tier: 'mid', effort: 'high' },
   { id: 'developer', tier: 'top', effort: 'high' },
+  { id: 'marketing', tier: 'mid', effort: 'high' },
+  // Cheapest tier: this is arithmetic over rows the database already has,
+  // and it runs often enough that the difference shows up on the bill.
+  { id: 'finance', tier: 'cheap', effort: 'medium' },
 ] as const;
 
 /** Never throws, never prints the key, never stops the app starting. */

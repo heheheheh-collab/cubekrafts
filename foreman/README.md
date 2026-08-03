@@ -2,7 +2,7 @@
 
 A whole organisation — COO, web developer, sales, marketing, content, finance — running as AI agents at a URL you sign into.
 
-**Built. 445 tests, typecheck clean. Read [PLAN.md](./PLAN.md) for the design.**
+**Built. 449 tests, typecheck clean. Read [PLAN.md](./PLAN.md) for the design.**
 
 ## What it is
 
@@ -94,17 +94,17 @@ Booting prints exactly what is and is not connected, so you never have to guess:
 
 ```
 applied 4 migration(s): 001_init.sql, 002_auth.sql, 003_supervision.sql, 004_email.sql
-anthropic key: present
+anthropic key: valid
 checkout: none at ~/.foreman/checkout — the developer cannot work until one exists
 email transport: recording (nothing will actually be sent)
 cubekrafts: not connected — sales has nothing to reply to
 origin: http://localhost:7777 (relying party localhost)
 foreman listening on http://127.0.0.1:7777
-staff: coo, content, sales, developer
+staff: coo, content, sales, developer, marketing, finance
 ```
 
 ```bash
-npm test          # 445 tests
+npm test          # 449 tests
 npm run typecheck
 ```
 
