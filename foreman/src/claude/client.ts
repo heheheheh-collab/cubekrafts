@@ -27,8 +27,6 @@ export interface Turn {
   model: ModelEntry;
   effort: Effort;
   maxTokens?: number;
-  /** Total tokens the model may spend across an agentic loop, if known. */
-  taskBudgetTokens?: number;
   signal?: AbortSignal;
 }
 
@@ -134,14 +132,16 @@ export function buildParams(t: Turn, maxTokens: number): Record<string, unknown>
   return {
     model: t.model.model,
     max_tokens: maxTokens,
-    // Adaptive thinking: no budget_tokens, which is rejected on current models.
-    thinking: { type: 'adaptive' },
-    output_config: {
-      effort: t.effort,
-      ...(t.taskBudgetTokens !== undefined
-        ? { task_budget: { type: 'tokens', total: t.taskBudgetTokens } }
-        : {}),
-    },
+    // Sent only to models that accept them, because the alternative is a 400
+    // rather than a degraded answer. Adaptive thinking and `effort` arrived
+    // together and are absent together: Haiku takes neither, so the concierge
+    // — the one role on the cheap tier — asks for neither and simply replies,
+    // which is what a front desk should do anyway.
+    //
+    // No `budget_tokens`: it is rejected on every model that takes adaptive.
+    ...(t.model.adaptiveThinking
+      ? { thinking: { type: 'adaptive' }, output_config: { effort: t.effort } }
+      : {}),
     system,
     // Sorted by name so the serialised tool block is byte-identical between
     // calls. An unstable tool order silently destroys the cache.

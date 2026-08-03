@@ -62,14 +62,27 @@ describe('the request uses the current API surface', () => {
     expect(p['effort']).toBeUndefined();
   });
 
-  it('includes a task budget only when one was asked for', () => {
-    expect((buildParams(turn(), 8000)['output_config'] as Record<string, unknown>)['task_budget'])
-      .toBeUndefined();
-    const withBudget = buildParams(turn({ taskBudgetTokens: 40_000 }), 8000);
-    expect((withBudget['output_config'] as Record<string, unknown>)['task_budget']).toEqual({
-      type: 'tokens',
-      total: 40_000,
-    });
+  it('asks a model that takes neither for neither, rather than being refused', () => {
+    // The live bug: the concierge runs on the cheap tier, the cheap tier is
+    // Haiku, and Haiku accepts neither adaptive thinking nor effort. Every
+    // agent worked; every conversation returned a 400.
+    const p = buildParams(turn({ model: CATALOG.cheap }), 8000);
+    expect(p['thinking']).toBeUndefined();
+    expect(p['output_config']).toBeUndefined();
+    // Still a usable request, not a stripped one.
+    expect(p['model']).toBe(CATALOG.cheap.model);
+    expect(p['messages']).toBeDefined();
+    expect((p['tools'] as unknown[]).length).toBeGreaterThan(0);
+  });
+
+  it('sends them to every model that does take them', () => {
+    for (const entry of [CATALOG.top, CATALOG.mid]) {
+      const p = buildParams(turn({ model: entry }), 8000);
+      expect({ model: entry.model, thinking: p['thinking'] }).toEqual({
+        model: entry.model,
+        thinking: { type: 'adaptive' },
+      });
+    }
   });
 
   it('marks every tool strict so arguments validate exactly', () => {

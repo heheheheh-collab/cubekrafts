@@ -2,7 +2,7 @@ import { Claude, buildParams } from './client.ts';
 import { LocalModel, buildLocalParams, DEFAULT_LOCAL_URL } from './local.ts';
 import { BuiltinModel } from './builtin.ts';
 import { PRESET_NAMES, presetFromEnv } from './presets.ts';
-import { modelFor, providerFromEnv } from './catalog.ts';
+import { modelFor, providerFromEnv, type Tier } from './catalog.ts';
 import { toolsFor } from '../tools/registry.ts';
 import { stableSystemFor } from '../agents/charters.ts';
 import type { Turn, TurnResult } from './client.ts';
@@ -59,17 +59,40 @@ export function modelClientFromEnv(env: NodeJS.ProcessEnv = process.env): ModelC
   }
 }
 
-/** The turn both checks send: real tools, real charter, a handful of tokens. */
-function preflightTurn(env: NodeJS.ProcessEnv): Turn {
+/** The turn every check sends: real tools, real charter, a handful of tokens. */
+function preflightTurn(env: NodeJS.ProcessEnv, tier: Tier = 'top'): Turn {
   return {
     stableSystem: stableSystemFor('developer'),
     messages: [{ role: 'user', content: 'Reply with the single word: ok' }],
     // The widest tool set of any role, so the check covers every tool.
     tools: toolsFor('developer'),
-    model: modelFor('top', env),
+    model: modelFor(tier, env),
     effort: 'low',
     maxTokens: 16,
   };
+}
+
+/**
+ * Every distinct model the staff actually runs on.
+ *
+ * Checking one model was the gap that let a live bug through: the request
+ * shape is per-model, the top tier accepted it, and the cheap tier — the one
+ * the concierge uses, and therefore the one every conversation goes
+ * through — refused it. A check that only ever asks the strongest model is a
+ * check that cannot see the parameter the weakest one rejects.
+ */
+const TIERS: readonly Tier[] = ['top', 'mid', 'cheap'];
+
+function distinctModels(env: NodeJS.ProcessEnv): Array<{ tier: Tier; model: string }> {
+  const seen = new Set<string>();
+  const out: Array<{ tier: Tier; model: string }> = [];
+  for (const tier of TIERS) {
+    const model = modelFor(tier, env).model;
+    if (seen.has(model)) continue;
+    seen.add(model);
+    out.push({ tier, model });
+  }
+  return out;
 }
 
 /**
@@ -128,7 +151,21 @@ async function checkAnthropic(env: NodeJS.ProcessEnv): Promise<string> {
   const key = env['ANTHROPIC_API_KEY'];
   if (!key) return 'no key — paste one under ⋯ → Model, and it takes effect immediately';
   if (!key.startsWith('sk-ant-')) return "does not start with 'sk-ant-' — check it was pasted whole";
-  const params = buildParams(preflightTurn(env), 16);
+
+  // Every model the staff runs on, not just the strongest. Sequential and
+  // tiny: three requests of sixteen tokens each, once, at boot.
+  const lines: string[] = [];
+  for (const { tier, model } of distinctModels(env)) {
+    const line = await checkOneModel(key, buildParams(preflightTurn(env, tier), 16));
+    if (line !== null) lines.push(`${model}: ${line}`);
+  }
+  return lines.length === 0
+    ? 'valid, and the API accepts our requests on every model the staff uses'
+    : lines.join('; ');
+}
+
+/** Null when the model accepted the request; otherwise what was wrong. */
+async function checkOneModel(key: string, params: Record<string, unknown>): Promise<string | null> {
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -140,19 +177,17 @@ async function checkAnthropic(env: NodeJS.ProcessEnv): Promise<string> {
       body: JSON.stringify(params),
       signal: AbortSignal.timeout(30_000),
     });
-    if (res.ok) return 'valid, and the API accepts our requests';
+    if (res.ok) return null;
     if (res.status === 401) return 'REJECTED by Anthropic — the key is wrong or revoked';
-    if (res.status === 429) return 'valid, but rate limited right now';
+    if (res.status === 429) return 'rate limited right now';
     const body = await res.text().catch(() => '');
     // A 400 is our bug, not the user's. Print what the API actually said —
     // that message is the whole value of doing this at boot.
-    if (res.status === 400) {
-      return `the key is fine but the API REFUSED our request shape: ${body.slice(0, 400)}`;
-    }
-    return `could not be checked (HTTP ${res.status}); carrying on`;
+    if (res.status === 400) return `the API REFUSED our request shape: ${body.slice(0, 300)}`;
+    return `could not be checked (HTTP ${res.status})`;
   } catch {
     // Offline, or the check itself is broken. Not a reason to refuse to boot.
-    return 'present, but could not be checked from here';
+    return 'could not be checked from here';
   }
 }
 

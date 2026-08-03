@@ -26,7 +26,7 @@ const turn = (over: Partial<Turn> = {}): Turn => ({
   stableSystem: ['preamble', 'charter', 'canon'],
   messages: [{ role: 'user', content: 'go' }],
   tools: toolsFor('content'),
-  model: { model: 'test-model', in: 0, cachedIn: 0, out: 0, cacheMinTokens: 0 },
+  model: { model: 'test-model', in: 0, cachedIn: 0, out: 0, cacheMinTokens: 0, adaptiveThinking: false },
   effort: 'high',
   ...over,
 });
@@ -342,7 +342,7 @@ describe('the OpenAI-shaped request', () => {
   });
 
   it('sends nothing only Anthropic understands', () => {
-    const body = JSON.stringify(buildLocalParams(turn({ volatileSystem: ['x'], taskBudgetTokens: 10 })));
+    const body = JSON.stringify(buildLocalParams(turn({ volatileSystem: ['x'] })));
     for (const key of ['cache_control', 'thinking', 'output_config', 'task_budget']) {
       expect({ key, present: body.includes(key) }).toEqual({ key, present: false });
     }

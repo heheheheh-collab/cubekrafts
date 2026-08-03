@@ -21,12 +21,43 @@ export interface ModelEntry {
   out: number;
   /** Minimum prefix length the model will cache at all, in tokens. */
   cacheMinTokens: number;
+  /**
+   * Whether `thinking: {type:'adaptive'}` and `output_config.effort` are
+   * accepted. Not decoration: sending either to a model that does not take it
+   * is a 400 that kills the request, and the two travel together — the models
+   * that gained adaptive thinking gained effort in the same generation.
+   *
+   * This is why the concierge broke while every other agent worked. It runs on
+   * the cheap tier, the cheap tier is Haiku, and Haiku takes neither.
+   */
+  adaptiveThinking: boolean;
 }
 
 export const CATALOG: Readonly<Record<Tier, ModelEntry>> = {
-  top: { model: 'claude-opus-5', in: 5.0, cachedIn: 0.5, out: 25.0, cacheMinTokens: 512 },
-  mid: { model: 'claude-sonnet-5', in: 3.0, cachedIn: 0.3, out: 15.0, cacheMinTokens: 1024 },
-  cheap: { model: 'claude-haiku-4-5', in: 1.0, cachedIn: 0.1, out: 5.0, cacheMinTokens: 2048 },
+  top: {
+    model: 'claude-opus-5',
+    in: 5.0,
+    cachedIn: 0.5,
+    out: 25.0,
+    cacheMinTokens: 512,
+    adaptiveThinking: true,
+  },
+  mid: {
+    model: 'claude-sonnet-5',
+    in: 3.0,
+    cachedIn: 0.3,
+    out: 15.0,
+    cacheMinTokens: 1024,
+    adaptiveThinking: true,
+  },
+  cheap: {
+    model: 'claude-haiku-4-5',
+    in: 1.0,
+    cachedIn: 0.1,
+    out: 5.0,
+    cacheMinTokens: 4096,
+    adaptiveThinking: false,
+  },
 };
 
 /**
@@ -53,6 +84,10 @@ export function localCatalog(
     // Nothing caches prefixes locally; claiming otherwise would make
     // `cacheHitRate` read as a fault forever.
     cacheMinTokens: Number.POSITIVE_INFINITY,
+    // Anthropic's parameters, and only Anthropic's. The local paths build
+    // their own request shape and never read this, but leaving it true would
+    // be a claim that is false.
+    adaptiveThinking: false,
   });
   return {
     top: free(env['FOREMAN_LOCAL_MODEL_TOP'] ?? base),
