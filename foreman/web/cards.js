@@ -117,20 +117,21 @@ const STATUS_TONE = {
 
 const RENDERERS = {
   approvals: (data, ctx) => {
-    if (data.items.length === 0) {
+    const items = data.items ?? [];
+    if (items.length === 0) {
       const empty = card('Approvals');
       empty.append(el('div', 'what', 'Nothing is waiting on you.'));
       return empty;
     }
     const wrap = document.createDocumentFragment();
-    for (const item of data.items) wrap.append(approval(item, ctx));
+    for (const item of items) wrap.append(approval(item, ctx));
     return wrap;
   },
 
   running: (data) => {
     const node = card('Running');
     node.append(
-      rows(data.items.map((r) => [`${r.role} · ${r.title}`, ago(r.runningMinutes)])),
+      rows((data.items ?? []).map((r) => [`${r.role} · ${r.title}`, ago(r.runningMinutes)])),
     );
     return node;
   },
@@ -139,7 +140,7 @@ const RENDERERS = {
     const node = card('Tasks');
     node.append(
       rows(
-        data.items
+        (data.items ?? [])
           .slice(0, 25)
           .map((t) => [t.title, t.status, STATUS_TONE[t.status] ?? '']),
       ),
@@ -149,14 +150,16 @@ const RENDERERS = {
 
   questions: (data) => {
     const node = card('Questions');
-    node.append(rows(data.items.map((q) => [`${q.role}: ${q.text}`, ago(q.waitingMinutes)])));
+    node.append(rows((data.items ?? []).map((q) => [`${q.role}: ${q.text}`, ago(q.waitingMinutes)])));
     return node;
   },
 
   spend: (data) => {
     const node = card('Spend today');
-    const spent = data.todayUsd ?? 0;
-    const cap = data.capUsd ?? 0;
+    // The menu says todayUsd/capUsd; the fast path says today/cap. Both are
+    // ours, both are correct at their own end, and this is the seam.
+    const spent = data.todayUsd ?? data.today ?? 0;
+    const cap = data.capUsd ?? data.cap ?? 0;
     node.append(
       rows([
         ['Spent', `$${spent.toFixed(2)}`],
@@ -175,7 +178,25 @@ const RENDERERS = {
 
   standup: (data) => {
     const node = card('Standup');
-    node.append(rows(data.rows ?? []));
+    if (data.rows?.length) node.append(rows(data.rows));
+    else if (data.standup) node.append(el('div', 'what', data.standup));
+    else node.append(el('div', 'what', 'No standup has been written yet today.'));
+    return node;
+  },
+
+  /* The fast path can answer "status" but nothing drew it, so the reply
+     arrived as a sentence with a card that silently vanished. */
+  status: (data) => {
+    const node = card('Status');
+    node.append(
+      rows([
+        ['Running', String(data.running ?? 0)],
+        ['Waiting on you', String(data.approvals ?? 0), (data.approvals ?? 0) > 0 ? 'bad' : 'good'],
+        ['Questions', String(data.questions ?? 0), (data.questions ?? 0) > 0 ? 'bad' : 'good'],
+        ['Spent today', `$${(data.spendTodayUsd ?? 0).toFixed(2)}`],
+        ...(data.paused ? [['State', 'PAUSED', 'bad']] : []),
+      ]),
+    );
     return node;
   },
 
@@ -279,7 +300,7 @@ const RENDERERS = {
 
   connections: (data, { act }) => {
     const wrap = document.createDocumentFragment();
-    for (const c of data.items) {
+    for (const c of data.items ?? []) {
       const node = card(c.title, c.connected ? '' : 'waiting');
       node.append(el('div', 'what', c.enables));
 
@@ -368,7 +389,7 @@ const RENDERERS = {
     const node = card('Recent activity');
     node.append(
       rows(
-        data.items
+        (data.items ?? [])
           .slice(0, 30)
           .map((a) => [`${a.actor} ${a.action}${a.subject ? ` · ${a.subject}` : ''}`, when(a.at)]),
       ),
@@ -379,7 +400,7 @@ const RENDERERS = {
   sessions: (data, { act }) => {
     const node = card('Signed-in devices');
     const list = el('div', 'rows');
-    for (const s of data.items) {
+    for (const s of data.items ?? []) {
       const row = el('div', 'row');
       row.append(
         el('span', 'k', `${s.device ?? 'Unknown'}${s.current ? ' · this one' : ''}`),
@@ -406,7 +427,7 @@ const RENDERERS = {
     const node = card('Sign-ins and attempts');
     node.append(
       rows(
-        data.items
+        (data.items ?? [])
           .slice(0, 30)
           .map((e) => [
             `${e.kind}${e.ip ? ` · ${e.ip}` : ''}`,
@@ -419,9 +440,39 @@ const RENDERERS = {
   },
 };
 
+/**
+ * The two shapes a card arrives in, reduced to one.
+ *
+ * The menu builds cards inline and passes the renderer's own props:
+ * `{ type: 'running', items: [...] }`. The concierge's fast path builds them
+ * on the server, where a card is `{ type, data }` and `data` is whatever that
+ * intent had to hand — sometimes an array, sometimes an object of fields.
+ *
+ * Both are reasonable at their own end, and nothing reconciled them, so every
+ * list card from the fast path reached a renderer that read `data.items` off
+ * an array and threw. This is that reconciliation, in one place, rather than
+ * a `?? []` in each renderer that would hide the next mismatch instead of
+ * fixing it.
+ */
+export function normaliseCard(card) {
+  if (!card || typeof card !== 'object' || !card.type) return null;
+  // Already renderer-shaped.
+  if (!('data' in card)) return card;
+
+  const { type, data } = card;
+  if (Array.isArray(data)) return { type, items: data };
+  if (data && typeof data === 'object') return { type, ...data };
+  return { type };
+}
+
+/** Every card shape this file can draw. Exported so a test can prove the
+ *  server never invents one that lands here with nothing to draw it. */
+export const CARD_TYPES = Object.freeze(Object.keys(RENDERERS));
+
 /** Draw a card, or nothing at all for a shape we do not know. */
-export function render(data, ctx = {}) {
-  const renderer = RENDERERS[data?.type];
+export function render(card, ctx = {}) {
+  const shaped = normaliseCard(card);
+  const renderer = shaped && RENDERERS[shaped.type];
   if (!renderer) return null;
-  return renderer(data, ctx);
+  return renderer(shaped, ctx);
 }

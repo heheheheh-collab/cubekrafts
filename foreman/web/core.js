@@ -265,7 +265,7 @@ class Core {
    * founder is the one condition worth changing colour for, because it is the
    * only one where the system is stopped and a person is the reason.
    */
-  update(snapshot, { online = true } = {}) {
+  update(snapshot, { link = 'open' } = {}) {
     if (!this.#root || !snapshot) return;
 
     const waiting = snapshot.approvals?.length ?? 0;
@@ -287,12 +287,17 @@ class Core {
       ['Today', `$${spent.toFixed(2)}`, overCap ? 'bad' : 'ok'],
       ['Cap', `$${cap.toFixed(2)}`, ''],
     ]);
+    const LINK = { open: ['OPEN', 'ok'], opening: ['OPENING', ''], lost: ['LOST', 'bad'] };
+    const [linkLabel, linkTone] = LINK[link] ?? LINK.open;
     this.#fill('link', [
-      ['Uplink', online ? 'OPEN' : 'LOST', online ? 'ok' : 'bad'],
+      ['Uplink', linkLabel, linkTone],
       ['Voice', this.tones.muted ? 'MUTED' : 'READY', ''],
     ]);
 
-    const alert = snapshot.paused || overCap || !online;
+    // Only a lost uplink is a fault. A stream that has not opened yet is the
+    // ordinary first second of every page load, and colouring that as an
+    // alarm teaches you to ignore the alarm.
+    const alert = snapshot.paused || overCap || link === 'lost';
     this.#root.classList.toggle('is-alert', Boolean(alert));
     this.#root.classList.toggle('is-waiting', waiting > 0 || asked > 0);
     this.#root.classList.toggle('is-live', running > 0);

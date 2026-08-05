@@ -18,6 +18,15 @@ const screens = { boot: $('boot'), gate: $('gate'), app: $('app') };
 
 let snapshot = null;
 let connected = false;
+/**
+ * The uplink has three states, not two.
+ *
+ * `refresh()` runs before the event stream is opened, so on every load there
+ * was a moment where "not connected yet" was reported as "connection lost" —
+ * and the orb went amber, which is the colour reserved for something being
+ * wrong. Nothing was wrong; the stream had simply not opened yet.
+ */
+let link = 'opening';
 let stopListening = null;
 
 // ── screens ─────────────────────────────────────────────────────────────────
@@ -121,12 +130,14 @@ async function refresh() {
   try {
     snapshot = await get('/api/snapshot');
     paintPills();
-    core.update(snapshot, { online: connected });
+    core.update(snapshot, { link });
   } catch (err) {
     if (err instanceof ApiError && err.status === 401) return toGate();
+    // A failed read is a lost uplink whatever the stream thinks.
     connected = false;
+    link = 'lost';
     paintPills();
-    core.update(snapshot, { online: false });
+    core.update(snapshot, { link });
   }
 }
 
@@ -267,11 +278,15 @@ function connect() {
   stopListening = listen({
     onOpen: () => {
       connected = true;
+      link = 'open';
       paintPills();
+      core.update(snapshot, { link });
     },
     onDrop: () => {
       connected = false;
+      link = 'lost';
       paintPills();
+      core.update(snapshot, { link });
     },
     onEvent: (event) => {
       // The one event worth interrupting for: something is waiting on you.
