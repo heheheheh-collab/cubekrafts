@@ -62,6 +62,41 @@ body {
   animation: breathe 1.6s ease-in-out infinite;
 }
 
+/* Holographic scanlines across the whole layer: fine, slow, and faint enough
+   that you notice the surface rather than the stripes. */
+.core-stage::after {
+  content: '';
+  position: absolute;
+  inset: -8%;
+  border-radius: 50%;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0 2px,
+    color-mix(in srgb, var(--core) 16%, transparent) 2px 3px
+  );
+  mask: radial-gradient(circle, #000 44%, transparent 72%);
+  -webkit-mask: radial-gradient(circle, #000 44%, transparent 72%);
+  opacity: 0.35;
+  animation: scan 7s linear infinite;
+  mix-blend-mode: screen;
+}
+
+@keyframes scan {
+  to { background-position: 0 24px; }
+}
+
+/* The projection flickers, the way a hologram does — barely, and irregularly,
+   so it never becomes a rhythm you can predict. */
+.core-stage {
+  animation: holo-flicker 9s steps(1, end) infinite;
+}
+
+@keyframes holo-flicker {
+  0%, 41%, 43%, 62%, 64%, 88%, 90%, 100% { opacity: 1; }
+  42%, 63%, 89% { opacity: 0.86; }
+}
+
 @keyframes breathe {
   0%,
   100% {
@@ -551,4 +586,476 @@ input:focus {
 
 .menu button.danger {
   color: var(--bad);
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * The core.
+ *
+ * A presence layer behind the conversation: orb, rings, floating panels. It
+ * sits under the thread rather than above it because the thread is what you
+ * actually use, and a hero that pushes the text off a phone is a worse app
+ * with a better screenshot.
+ *
+ * Everything cool is cyan; anything the founder is holding up goes violet;
+ * anything wrong goes amber-red. Three states, so each one means something.
+ * ────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  --cyan: #38d8ff;
+  --cyan-deep: #1f9dff;
+  --cyan-pale: #b7f4ff;
+  --amber: #ffc24d;
+  --core: var(--cyan);
+  --core-soft: rgba(56, 216, 255, 0.5);
+}
+
+.core-layer {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  z-index: 0;
+  /* Faint by default: it is a presence, not a subject. It brightens when it
+     has something to say. */
+  opacity: 0.62;
+  transition: opacity 600ms ease, filter 600ms ease;
+}
+
+.core-layer.is-busy,
+.core-layer.is-listening {
+  opacity: 0.92;
+}
+.core-layer.is-waiting {
+  /* Still cyan. "Something needs you" is the same system leaning in — brighter
+     and a touch faster — not a different colour taking over. Changing hue for
+     this would spend the one signal that should mean a fault. */
+  --core: var(--cyan);
+  --core-soft: rgba(56, 216, 255, 0.62);
+  opacity: 0.86;
+  filter: brightness(1.12);
+}
+
+.core-layer.is-waiting .orb {
+  animation-duration: 1.1s;
+}
+.core-layer.is-alert {
+  --core: var(--amber);
+  --core-soft: rgba(255, 194, 77, 0.5);
+  opacity: 0.85;
+}
+
+.core-stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: min(62vmin, 520px);
+  aspect-ratio: 1;
+}
+
+/* ── the orb ─────────────────────────────────────────────────────────────── */
+
+.orb {
+  position: absolute;
+  width: 48%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  animation: breathe 1.5s ease-in-out infinite;
+}
+
+/* Iridescence: a thin band of shifting colour riding the rim. It is what
+   separates "glass" from "a blue circle" — real glass splits the light it
+   catches, so the edge is never one flat hue. */
+.orb::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    color-mix(in srgb, var(--cyan-pale) 90%, #fff) 40deg,
+    color-mix(in srgb, var(--cyan-deep) 80%, transparent) 110deg,
+    transparent 170deg,
+    color-mix(in srgb, var(--cyan-pale) 70%, #fff) 250deg,
+    color-mix(in srgb, var(--cyan-deep) 70%, transparent) 310deg,
+    transparent 360deg
+  );
+  mask: radial-gradient(circle, transparent 92%, #000 96%, transparent 100%);
+  -webkit-mask: radial-gradient(circle, transparent 92%, #000 96%, transparent 100%);
+  opacity: 0.85;
+  animation: spin 12s linear infinite;
+  pointer-events: none;
+}
+
+/* Glass, not fog. The edge is the whole trick: a hard rim at 100%, a thin
+   bright meniscus just inside it, a dark belly, and a small specular highlight
+   up and left. Without the hard stop it reads as a cloud, however pretty the
+   gradients are. */
+.orb-shell {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--core) 75%, #fff);
+  background:
+    /* specular highlight */
+    radial-gradient(circle at 34% 27%, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.28) 4.5%, transparent 11%),
+    /* meniscus: bright just inside the rim, then clear */
+    radial-gradient(circle at 50% 50%, transparent 68%, color-mix(in srgb, var(--core) 55%, transparent) 88%, transparent 100%),
+    /* body: deep and cool, darker toward the bottom right */
+    radial-gradient(circle at 62% 76%, rgba(4, 10, 18, 0.92) 0%, rgba(6, 14, 24, 0.55) 46%, transparent 74%),
+    radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--core) 22%, transparent) 0%, transparent 70%);
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.35),
+    inset 0 0 30px color-mix(in srgb, var(--core) 30%, transparent),
+    0 0 18px color-mix(in srgb, var(--core) 55%, transparent),
+    0 0 70px color-mix(in srgb, var(--core) 22%, transparent);
+  backdrop-filter: blur(1px);
+}
+
+/* The filament at the heart. Small and hot, so the orb has a source rather
+   than being uniformly lit. */
+.orb-core {
+  width: 30%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff 0%, #fff 22%, var(--core) 52%, transparent 78%);
+  box-shadow: 0 0 26px var(--core), 0 0 60px color-mix(in srgb, var(--core) 45%, transparent);
+  opacity: 0.95;
+}
+
+/* Filaments: fine neon lines in the glass, banded tightly to the rim so they
+   read as structure inside a solid thing rather than a texture over a hole. */
+.orb-filaments {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: repeating-conic-gradient(
+    from 0deg,
+    transparent 0deg 5deg,
+    color-mix(in srgb, var(--core) 85%, #fff) 5deg 5.35deg
+  );
+  mask: radial-gradient(circle, transparent 62%, #000 82%, transparent 97%);
+  -webkit-mask: radial-gradient(circle, transparent 62%, #000 82%, transparent 97%);
+  opacity: 0.4;
+  animation: spin 26s linear infinite reverse;
+}
+
+/* Holographic scanlines across the whole layer: fine, slow, and faint enough
+   that you notice the surface rather than the stripes. */
+.core-stage::after {
+  content: '';
+  position: absolute;
+  inset: -8%;
+  border-radius: 50%;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0 2px,
+    color-mix(in srgb, var(--core) 16%, transparent) 2px 3px
+  );
+  mask: radial-gradient(circle, #000 44%, transparent 72%);
+  -webkit-mask: radial-gradient(circle, #000 44%, transparent 72%);
+  opacity: 0.35;
+  animation: scan 7s linear infinite;
+  mix-blend-mode: screen;
+}
+
+@keyframes scan {
+  to { background-position: 0 24px; }
+}
+
+/* The projection flickers, the way a hologram does — barely, and irregularly,
+   so it never becomes a rhythm you can predict. */
+.core-stage {
+  animation: holo-flicker 9s steps(1, end) infinite;
+}
+
+@keyframes holo-flicker {
+  0%, 41%, 43%, 62%, 64%, 88%, 90%, 100% { opacity: 1; }
+  42%, 63%, 89% { opacity: 0.86; }
+}
+
+@keyframes breathe {
+  0%, 100% { transform: scale(1); filter: brightness(1); }
+  50% { transform: scale(1.035); filter: brightness(1.25); }
+}
+
+/* The puff: one outward shove when a command lands. */
+.orb.puff {
+  animation: breathe 1.5s ease-in-out infinite, puff 620ms cubic-bezier(0.2, 0.9, 0.2, 1);
+}
+
+/* Latitude and longitude inside the sphere, so the glass contains structure
+   rather than just light. Masked to the middle so it never touches the rim. */
+.orb-shell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0 7px,
+      color-mix(in srgb, var(--core) 34%, transparent) 7px 8px
+    ),
+    repeating-linear-gradient(
+      to right,
+      transparent 0 7px,
+      color-mix(in srgb, var(--core) 22%, transparent) 7px 8px
+    );
+  mask: radial-gradient(circle, #000 0%, #000 52%, transparent 78%);
+  -webkit-mask: radial-gradient(circle, #000 0%, #000 52%, transparent 78%);
+  opacity: 0.3;
+  mix-blend-mode: screen;
+}
+
+@keyframes puff {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--core) 55%, transparent); }
+  70% { box-shadow: 0 0 0 46px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+.core-layer.is-busy .orb {
+  animation-duration: 0.85s;
+}
+
+/* ── the rings ───────────────────────────────────────────────────────────── */
+
+.core-rings {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.core-rings circle {
+  stroke: color-mix(in srgb, var(--core) 62%, transparent);
+}
+
+.core-rings .arc {
+  stroke: var(--cyan-pale);
+  filter: drop-shadow(0 0 7px var(--core)) drop-shadow(0 0 16px var(--core-soft));
+}
+
+.core-rings .ring {
+  transform-origin: 200px 200px;
+  animation: spin var(--dur) linear infinite;
+}
+
+/* The middle ring turns the other way. Counter-rotation is what stops three
+   concentric circles reading as one thick circle. */
+.core-rings .ring-1 {
+  animation-direction: reverse;
+}
+
+.core-layer.is-busy .core-rings .ring-0 { animation-duration: calc(var(--dur) / 2); }
+.core-layer.is-busy .core-rings .ring-1 { animation-duration: calc(var(--dur) / 2.5); }
+.core-layer.is-busy .core-rings .ring-2 { animation-duration: calc(var(--dur) / 3); }
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Data flow: sparks leaving the centre, staggered so one is always in flight. */
+.core-rings .spark {
+  fill: var(--core);
+  opacity: 0;
+  transform-origin: 200px 200px;
+  animation: travel 2.6s ease-out infinite;
+  filter: drop-shadow(0 0 5px var(--core));
+}
+.core-rings .spark-0 { animation-delay: 0s; --angle: 28deg; }
+.core-rings .spark-1 { animation-delay: 0.85s; --angle: 152deg; }
+.core-rings .spark-2 { animation-delay: 1.7s; --angle: 268deg; }
+
+@keyframes travel {
+  0% { opacity: 0; transform: rotate(var(--angle)) translateX(0); }
+  12% { opacity: 1; }
+  85% { opacity: 0.9; }
+  100% { opacity: 0; transform: rotate(var(--angle)) translateX(176px); }
+}
+
+.core-layer.is-busy .core-rings .spark { animation-duration: 1.1s; }
+
+/* ── the waveform ────────────────────────────────────────────────────────── */
+
+.wave {
+  position: absolute;
+  bottom: -6%;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 26px;
+  opacity: 0;
+  transition: opacity 240ms ease;
+}
+
+.core-layer.is-listening .wave {
+  opacity: 1;
+}
+
+.wave-bar {
+  width: 3px;
+  height: 6px;
+  border-radius: 2px;
+  background: var(--core);
+  box-shadow: 0 0 8px var(--core-soft);
+}
+
+.core-layer.is-listening .wave-bar {
+  animation: speak 900ms ease-in-out infinite;
+  animation-delay: calc(var(--i) * 70ms);
+}
+
+@keyframes speak {
+  0%, 100% { height: 5px; }
+  50% { height: 24px; }
+}
+
+/* ── the floating panels ─────────────────────────────────────────────────── */
+
+.panels {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.panel {
+  position: absolute;
+  width: 168px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--core) 38%, transparent);
+  border-radius: 10px;
+  background:
+    linear-gradient(
+      160deg,
+      color-mix(in srgb, var(--cyan) 10%, rgba(12, 22, 32, 0.5)),
+      rgba(6, 12, 20, 0.34)
+    );
+  backdrop-filter: blur(10px) saturate(1.2);
+  box-shadow:
+    0 0 24px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 color-mix(in srgb, var(--cyan-pale) 45%, transparent),
+    inset 0 0 22px color-mix(in srgb, var(--core) 12%, transparent);
+  pointer-events: auto;
+  animation: drift 11s ease-in-out infinite;
+  transition: border-color 300ms ease, transform 300ms ease;
+}
+
+.panel:hover {
+  border-color: color-mix(in srgb, var(--core) 60%, transparent);
+  transform: translateY(-2px);
+}
+
+.panel h4 {
+  margin: 0 0 6px;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--core) 80%, #fff);
+  font-weight: 600;
+}
+
+.panel-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  line-height: 1.7;
+  font-variant-numeric: tabular-nums;
+}
+
+.panel-k { color: var(--faint); }
+.panel-v { color: var(--text); }
+.panel-v.ok { color: color-mix(in srgb, var(--good) 85%, #fff); }
+.panel-v.live { color: var(--cyan); }
+.panel-v.warn { color: var(--waiting); }
+.panel-v.bad {
+  color: var(--bad);
+  animation: alarm 1.2s ease-in-out infinite;
+}
+
+@keyframes alarm {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+/* Placed at the corners, drifting on different phases so the grid never looks
+   pinned. Percentages rather than pixels so it holds at any window size. */
+.panel-queue { top: 14%; left: 6%; animation-delay: 0s; }
+.panel-work { top: 22%; right: 6%; animation-delay: 2.4s; }
+.panel-spend { bottom: 20%; left: 8%; animation-delay: 4.8s; }
+.panel-link { bottom: 14%; right: 8%; animation-delay: 7.2s; }
+
+.panel::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0 3px,
+    color-mix(in srgb, var(--cyan) 10%, transparent) 3px 4px
+  );
+  opacity: 0.5;
+}
+
+@keyframes drift {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(0, -9px, 0); }
+}
+
+/* ── failure ─────────────────────────────────────────────────────────────── */
+
+.core-layer.flash-bad {
+  animation: flash-bad 700ms ease-out;
+}
+
+@keyframes flash-bad {
+  0% { filter: none; }
+  20% { filter: drop-shadow(0 0 30px var(--bad)) hue-rotate(-40deg) saturate(1.6); }
+  100% { filter: none; }
+}
+
+/* ── fitting around the app ──────────────────────────────────────────────── */
+
+/* The conversation rides above the core, and the bar and composer get a glassy
+   backing so text never sits directly on the glow. */
+#app .bar,
+#app .composer,
+#app .thread,
+#app .menu {
+  position: relative;
+  z-index: 1;
+}
+
+#app .bar,
+#app .composer {
+  background: linear-gradient(rgba(10, 11, 13, 0.86), rgba(10, 11, 13, 0.72));
+  backdrop-filter: blur(10px);
+}
+
+/* Panels are the first thing to go when there is no room for them. */
+@media (max-width: 900px) {
+  .panels { display: none; }
+  .core-layer { opacity: 0.38; }
+  .core-stage { width: min(72vmin, 340px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orb,
+  .orb-filaments,
+  .core-rings .ring,
+  .core-rings .spark,
+  .panel,
+  .wave-bar,
+  .panel-v.bad {
+    animation: none !important;
+  }
+  .core-rings .spark { opacity: 0.6; }
 }

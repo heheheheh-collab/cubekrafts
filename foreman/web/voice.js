@@ -18,14 +18,17 @@ class Voice {
   #button = null;
   #listening = false;
   #spoken = false;
+  #onState = null;
+  #voice = null;
 
   get available() {
     return Boolean(Recognition);
   }
 
-  attach({ button, onHeard }) {
+  attach({ button, onHeard, onState }) {
     if (!button) return;
     this.#button = button;
+    this.#onState = onState ?? null;
     if (!this.available) return;
 
     button.hidden = false;
@@ -46,19 +49,18 @@ class Voice {
     // that is always on, which is not a thing to leave running by default.
     recogniser.continuous = false;
 
+    const state = (on) => {
+      this.#listening = on;
+      this.#button?.classList.toggle('listening', on);
+      this.#onState?.(on);
+    };
+
     recogniser.onstart = () => {
-      this.#listening = true;
       this.#spoken = true;
-      this.#button?.classList.add('listening');
+      state(true);
     };
-    recogniser.onend = () => {
-      this.#listening = false;
-      this.#button?.classList.remove('listening');
-    };
-    recogniser.onerror = () => {
-      this.#listening = false;
-      this.#button?.classList.remove('listening');
-    };
+    recogniser.onend = () => state(false);
+    recogniser.onerror = () => state(false);
     recogniser.onresult = (event) => {
       const text = event.results?.[0]?.[0]?.transcript?.trim();
       if (text) onHeard(text);
@@ -68,14 +70,41 @@ class Voice {
     recogniser.start();
   }
 
+  /**
+   * The voice it answers in.
+   *
+   * British and even, because that is the register this thing is written in —
+   * the charters say things plainly and a bright American default undercuts
+   * them. Resolved once and cached: the list is empty on first call in some
+   * browsers, so this is retried until it is not.
+   */
+  #pick() {
+    if (this.#voice) return this.#voice;
+    const voices = speechSynthesis.getVoices?.() ?? [];
+    if (voices.length === 0) return null;
+    const british = voices.filter((v) => v.lang === 'en-GB');
+    // Named preferences first: these are the calm ones. Anything en-GB beats
+    // the platform default, and the default beats nothing.
+    this.#voice =
+      british.find((v) => /daniel|arthur|oliver|serena|kate/i.test(v.name)) ??
+      british.find((v) => !/novelty|whisper|bad news|bells/i.test(v.name)) ??
+      null;
+    return this.#voice;
+  }
+
   /** Read an answer aloud, but only to someone who spoke to it first. */
   say(text) {
     if (!this.#spoken || !text) return;
     if (typeof speechSynthesis === 'undefined') return;
     speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = navigator.language || 'en-GB';
-    utterance.rate = 1.05;
+    const chosen = this.#pick();
+    if (chosen) utterance.voice = chosen;
+    utterance.lang = chosen?.lang ?? 'en-GB';
+    // A shade under natural pace and slightly low: unhurried reads as
+    // competent, hurried reads as a notification.
+    utterance.rate = 0.98;
+    utterance.pitch = 0.92;
     speechSynthesis.speak(utterance);
   }
 

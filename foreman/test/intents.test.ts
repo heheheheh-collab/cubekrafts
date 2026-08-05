@@ -179,3 +179,47 @@ describe('answer() is exhaustive over the intent union', () => {
     }
   });
 });
+
+describe('walking in the door', () => {
+  it('recognises the phrase, however it is said', () => {
+    for (const said of [
+      'daddy is home',
+      "daddy's home",
+      'dad is back',
+      "I'm home",
+      'im back',
+      'what have you been up to',
+      'what did you do today',
+      'Jordan, daddy is home',
+    ]) {
+      expect({ said, intent: recognise(said) }).toEqual({ said, intent: 'homecoming' });
+    }
+  });
+
+  it('leads with the work, then what is waiting', () => {
+    const a = answer('homecoming', snap({
+      standup: 'Wrote the August post and replied to two enquiries.',
+      running: [{ id: 'r1', title: 'x', role: 'content', runningMinutes: 4 }],
+      approvals: [
+        { id: 'a1', kind: 'email.send', summary: 'Reply to Sharma', role: 'sales', waitingMinutes: 12 },
+      ],
+      spendTodayUsd: 1.4,
+    }));
+    // What it did comes before what it needs, because that is the question
+    // being asked when somebody walks in.
+    expect(a.speech.indexOf('August post')).toBeLessThan(a.speech.indexOf('waiting on you'));
+    expect(a.speech).toContain('$1.40');
+    expect(a.card.type).toBe('homecoming');
+  });
+
+  it('says what it can when no standup has been written yet', () => {
+    const a = answer('homecoming', snap({ spendTodayUsd: 0 }));
+    expect(a.speech).toMatch(/\$0\.00 spent today/);
+    expect(a.speech).not.toContain('undefined');
+  });
+
+  it('does not fire on a sentence that merely mentions home', () => {
+    expect(recognise('draft an email about our home office range')).toBeNull();
+    expect(recognise('is the home page done')).toBeNull();
+  });
+});

@@ -21,6 +21,7 @@ export type IntentName =
   | 'questions'
   | 'standup'
   | 'status'
+  | 'homecoming'
   | 'pause'
   | 'resume';
 
@@ -79,6 +80,13 @@ const PATTERNS: ReadonlyArray<readonly [IntentName, RegExp]> = [
 
   ['status', /^(status|how are we doing|where are we|how(?:'s| is) it going|sitrep)$/],
 
+  // Walking in the door. Not a status check — the question behind it is "what
+  // did you get done while I was out", so it answers with the work first and
+  // the queue second, and greets you rather than reciting a table.
+  ['homecoming', /^(daddy|dad|papa|mummy|mum|mama|the boss)('?s| is)? (home|back)$/],
+  ['homecoming', /^(i'?m|im) (home|back)$/],
+  ['homecoming', /^(what have you (been up to|done)|what did you do)(\s+(today|while i was out|all day))?$/],
+
   ['pause', /^(pause|stop|halt|freeze)(\s+(everything|all|everyone|the agents?))?$/],
   ['resume', /^(resume|unpause|continue|carry on|go)(\s+(everything|all|everyone))?$/],
 ];
@@ -89,7 +97,10 @@ export function normalise(input: string): string {
     .toLowerCase()
     .trim()
     .replace(/[.!?]+$/g, '')
-    .replace(/^(hey|hi|ok|okay|so|and|um|uh)[\s,]+/g, '')
+    // The name comes off the front like any other salutation, so "Jordan,
+    // what's pending" is the same utterance as "what's pending".
+    .replace(/^(hey|hi|hello|ok|okay|so|and|um|uh|jordan)[\s,]+/g, '')
+    .replace(/^(jordan)[\s,]+/g, '')
     .replace(/[\s,]+(please|mate|thanks|thank you)$/g, '')
     .replace(/\s+/g, ' ')
     .trim();
@@ -187,6 +198,43 @@ export function answer(intent: IntentName, s: Snapshot): Answer {
             approvals: s.approvals.length,
             questions: s.questions.length,
             spendTodayUsd: s.spendTodayUsd,
+          },
+        },
+      };
+    }
+
+    case 'homecoming': {
+      const hour = new Date().getHours();
+      const greeting = hour < 12 ? 'Morning' : hour < 18 ? 'Welcome back' : 'Evening';
+
+      // What it did comes first, because that is the actual question. The
+      // standup is the written record of it when one exists; otherwise the
+      // honest answer is what is running and what it cost.
+      const did = s.standup?.trim();
+      const bits: string[] = [];
+      if (s.running.length > 0) bits.push(`${plural(s.running.length, 'task')} still running`);
+      if (s.approvals.length > 0) bits.push(`${plural(s.approvals.length, 'approval')} waiting on you`);
+      if (s.questions.length > 0) bits.push(`${plural(s.questions.length, 'question')} for you`);
+      if (s.paused) bits.push('everything is paused');
+      bits.push(`${money(s.spendTodayUsd)} spent today`);
+
+      const speech = did
+        ? `${greeting}. ${did} ${bits.join(', ')}.`
+        : `${greeting}. ${bits.join(', ')}.`;
+
+      return {
+        intent,
+        speech,
+        card: {
+          type: intent,
+          data: {
+            greeting,
+            standup: s.standup ?? null,
+            running: s.running,
+            approvals: s.approvals,
+            questions: s.questions,
+            spendTodayUsd: s.spendTodayUsd,
+            paused: s.paused,
           },
         },
       };

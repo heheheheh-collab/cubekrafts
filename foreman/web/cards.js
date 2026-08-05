@@ -240,6 +240,43 @@ const RENDERERS = {
     return node;
   },
 
+  /**
+   * Walking in the door. The work comes first because that is the question,
+   * and the queue second because that is the ask.
+   */
+  homecoming: (data, ctx) => {
+    const wrap = document.createDocumentFragment();
+
+    if (data.standup) {
+      const brief = card('While you were out');
+      brief.append(el('div', 'what', data.standup));
+      wrap.append(brief);
+    }
+
+    const node = card('Right now');
+    node.append(
+      rows([
+        ['Running', String(data.running?.length ?? 0), (data.running?.length ?? 0) > 0 ? '' : 'good'],
+        [
+          'Waiting on you',
+          String(data.approvals?.length ?? 0),
+          (data.approvals?.length ?? 0) > 0 ? 'bad' : 'good',
+        ],
+        ['Questions', String(data.questions?.length ?? 0), (data.questions?.length ?? 0) > 0 ? 'bad' : 'good'],
+        ['Spent today', `$${(data.spendTodayUsd ?? 0).toFixed(2)}`, ''],
+        ...(data.paused ? [['State', 'PAUSED', 'bad']] : []),
+      ]),
+    );
+    wrap.append(node);
+
+    // The approvals themselves, so the answer to "anything for me" is the
+    // buttons rather than a number you then have to go and find.
+    if (data.approvals?.length > 0) {
+      for (const item of data.approvals) wrap.append(approval(item, ctx));
+    }
+    return wrap;
+  },
+
   connections: (data, { act }) => {
     const wrap = document.createDocumentFragment();
     for (const c of data.items) {

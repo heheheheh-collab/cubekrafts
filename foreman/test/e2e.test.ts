@@ -331,7 +331,7 @@ describe('the API refuses bad input plainly', () => {
     expect(res.headers.get('content-type')).toMatch(/text\/html/);
     // A cached shell after a deploy is an old app talking to a new API.
     expect(res.headers.get('cache-control')).toBe('no-store');
-    expect(await res.text()).toContain('Foreman');
+    expect(await res.text()).toContain('Jordan');
   });
 
   it('serves the shell for a path the client routes itself', async () => {

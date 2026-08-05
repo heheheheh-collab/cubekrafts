@@ -2,6 +2,7 @@ import { get, post, listen, ApiError } from './api.js';
 import * as passkey from './webauthn.js';
 import { render } from './cards.js';
 import { voice } from './voice.js';
+import { core } from './core.js';
 
 /**
  * The whole front end.
@@ -120,10 +121,12 @@ async function refresh() {
   try {
     snapshot = await get('/api/snapshot');
     paintPills();
+    core.update(snapshot, { online: connected });
   } catch (err) {
     if (err instanceof ApiError && err.status === 401) return toGate();
     connected = false;
     paintPills();
+    core.update(snapshot, { online: false });
   }
 }
 
@@ -136,6 +139,10 @@ async function ask(text) {
   if (!trimmed) return;
   said(trimmed);
   say.value = '';
+  // Typing is a gesture, so this is the point at which sound is allowed to
+  // exist at all. The orb puffs on the same tick the message leaves.
+  core.tones.unlock();
+  const done = core.begin();
 
   try {
     const reply = await post('/api/talk', { text: trimmed });
@@ -146,10 +153,14 @@ async function ask(text) {
       return;
     }
     answered(reply.speech, reply.card ? render(reply.card, { act }) : null);
+    core.succeeded();
     await refresh();
   } catch (err) {
     if (err instanceof ApiError && err.status === 401) return toGate();
+    core.failed();
     answered(`That didn't work: ${err.message}`, null, { speak: false });
+  } finally {
+    done();
   }
 }
 
@@ -163,14 +174,17 @@ async function ask(text) {
  */
 async function escalate(text) {
   const thinking = turn('it', 'Thinking…');
+  const done = core.begin();
   try {
     const reply = await post('/api/ask', { text });
     thinking.remove();
     answered(reply.speech, reply.card ? render(reply.card, { act }) : null);
+    core.succeeded();
     for (const line of reply.did ?? []) noted(line);
     await refresh();
   } catch (err) {
     thinking.remove();
+    core.failed();
     if (err instanceof ApiError && err.status === 404) {
       // The model path is not wired up in this build. Say so plainly rather
       // than inventing an answer.
@@ -182,6 +196,8 @@ async function escalate(text) {
       return;
     }
     answered(`That didn't work: ${err.message}`, null, { speak: false });
+  } finally {
+    done();
   }
 }
 
@@ -260,6 +276,9 @@ function connect() {
     onEvent: (event) => {
       // The one event worth interrupting for: something is waiting on you.
       if (event.type === 'approval.pending') {
+        // Something stopped and is waiting on a person: the one event worth
+        // making a noise about when nobody is looking at the screen.
+        core.succeeded();
         answered(`${event.tool} needs you: ${event.summary}`, null, { speak: true });
       } else if (event.type === 'paused') {
         noted(event.paused ? 'paused' : 'running again');
@@ -500,6 +519,7 @@ async function recover(event) {
 
 async function enter() {
   show('app');
+  core.attach($('core'));
   await refresh();
   connect();
   await greet();
@@ -518,7 +538,9 @@ async function greet() {
   if (snapshot?.paused) bits.push('everything is paused');
 
   answered(
-    bits.length === 0 ? `${part}. Nothing needs you.` : `${part}. ${bits.join(', ')}.`,
+    bits.length === 0
+      ? `${part}. Jordan here — nothing needs you.`
+      : `${part}. Jordan here — ${bits.join(', ')}.`,
     waiting > 0 && snapshot ? render({ type: 'approvals', items: snapshot.approvals }, { act }) : null,
     { speak: false },
   );
@@ -577,6 +599,9 @@ document.addEventListener('visibilitychange', () => {
 voice.attach({
   button: $('mic'),
   onHeard: (text) => ask(text),
+  // The waveform is the whole feedback that it is hearing you, so it is
+  // driven by the recogniser's own events rather than by a guess.
+  onState: (on) => core.listening(on),
 });
 
 // ── boot ────────────────────────────────────────────────────────────────────

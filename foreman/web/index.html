@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="color-scheme" content="dark" />
-    <title>Foreman</title>
+    <title>Jordan</title>
     <link rel="stylesheet" href="/app.css" />
     <link rel="icon" href="/favicon.svg" />
     <script type="module" src="/app.js"></script>
@@ -18,7 +18,7 @@
 
     <main id="gate" class="screen center" hidden>
       <div class="gate-card">
-        <h1 class="wordmark">Foreman</h1>
+        <h1 class="wordmark">Jordan</h1>
         <p id="gate-lede" class="lede"></p>
         <button id="gate-primary" class="primary"></button>
         <p id="gate-error" class="error" hidden></p>
@@ -40,8 +40,12 @@
     </main>
 
     <main id="app" class="screen" hidden>
+      <!-- The presence layer: orb, rings, panels. Drawn by core.js, and
+           hidden until it is built so nothing flashes an empty frame. -->
+      <div id="core" class="core-layer" aria-hidden="true" hidden></div>
+
       <header class="bar">
-        <span class="wordmark small">Foreman</span>
+        <span class="wordmark small">Jordan</span>
         <div id="pills" class="pills"></div>
         <button id="menu-button" class="icon" aria-label="Settings" aria-expanded="false">⋯</button>
       </header>
@@ -53,7 +57,7 @@
         <input
           id="say"
           type="text"
-          placeholder="Ask, or tell it what to do"
+          placeholder="Ask Jordan, or say daddy is home"
           autocomplete="off"
           spellcheck="false"
           enterkeyhint="send"

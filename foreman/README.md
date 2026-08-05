@@ -2,7 +2,7 @@
 
 A whole organisation — COO, web developer, sales, marketing, content, finance — running as AI agents at a URL you sign into.
 
-**Built. 506 tests, typecheck clean. Read [PLAN.md](./PLAN.md) for the design.**
+**Built. 510 tests, typecheck clean. Read [PLAN.md](./PLAN.md) for the design.**
 
 ## What it is
 
@@ -132,7 +132,7 @@ said `valid`, because a probe cannot see a malformed request and no test can
 either — the model is scripted in all of them.
 
 ```bash
-npm test          # 506 tests
+npm test          # 510 tests
 npm run typecheck
 ```
 
