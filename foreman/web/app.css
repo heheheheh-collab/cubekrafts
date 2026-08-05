@@ -1059,3 +1059,455 @@ input:focus {
   }
   .core-rings .spark { opacity: 0.6; }
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * Polish: one material, everywhere.
+ *
+ * The first pass built the orb and left the content as opaque slabs, which
+ * put a dark card over a glowing sphere and made two apps in one window —
+ * and dropped loose text straight onto the glow, where it could not be read.
+ *
+ * The fix is a single rule: everything that carries words is the same
+ * holographic glass — translucent, hairline cyan edge, scanlines, corner
+ * ticks. Content then floats over the orb instead of hiding it, and every
+ * character sits on a substrate rather than on light.
+ * ══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* Geometric first, because the brief asks for instrument type and because
+     round shapes read as engineered next to a circular orb. */
+  --font: "Avenir Next", Avenir, "Century Gothic", "URW Gothic", Futura,
+    "Segoe UI Variable Display", ui-rounded, ui-sans-serif, system-ui, sans-serif;
+  --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+  --glass: color-mix(in srgb, #0b1a26 62%, transparent);
+  --edge: color-mix(in srgb, var(--cyan) 32%, transparent);
+  --edge-lit: color-mix(in srgb, var(--cyan) 70%, transparent);
+}
+
+body {
+  font-family: var(--font);
+  letter-spacing: 0.01em;
+}
+
+/* Figures line up in columns, always. A spend number that shifts by a pixel
+   as it ticks is the kind of thing you feel before you notice. */
+.row .v,
+.panel-v,
+.pill,
+.letter .meta,
+code {
+  font-variant-numeric: tabular-nums;
+}
+
+/* One focus ring, on everything, and it is visible. */
+:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* ── the glass material ──────────────────────────────────────────────────── */
+
+.card,
+.turn > .body,
+.gate-card,
+.menu {
+  position: relative;
+  background: linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--cyan) 7%, var(--glass)),
+    color-mix(in srgb, #060d16 72%, transparent)
+  );
+  border: 1px solid var(--edge);
+  backdrop-filter: blur(14px) saturate(1.15);
+  -webkit-backdrop-filter: blur(14px) saturate(1.15);
+  box-shadow:
+    0 8px 30px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 color-mix(in srgb, var(--cyan-pale) 32%, transparent);
+}
+
+/* Scanlines on every glass surface, so the material is obviously one thing.
+   Fine enough that at a glance it reads as sheen rather than stripes. */
+.card::before,
+.gate-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0 3px,
+    color-mix(in srgb, var(--cyan) 7%, transparent) 3px 4px
+  );
+}
+
+/* Corner ticks: two hairlines at opposite corners. The detail that makes a
+   rectangle read as an instrument panel rather than a div. */
+.card::after {
+  content: '';
+  position: absolute;
+  inset: 6px;
+  border-radius: 4px;
+  pointer-events: none;
+  border: 1px solid transparent;
+  border-image: none;
+  background:
+    linear-gradient(var(--edge-lit), var(--edge-lit)) top left / 14px 1px no-repeat,
+    linear-gradient(var(--edge-lit), var(--edge-lit)) top left / 1px 14px no-repeat,
+    linear-gradient(var(--edge-lit), var(--edge-lit)) bottom right / 14px 1px no-repeat,
+    linear-gradient(var(--edge-lit), var(--edge-lit)) bottom right / 1px 14px no-repeat;
+  opacity: 0.7;
+}
+
+.card {
+  border-radius: 12px;
+  max-width: 620px;
+}
+
+.card.waiting {
+  border-color: color-mix(in srgb, var(--waiting) 55%, transparent);
+  box-shadow:
+    0 8px 30px rgba(0, 0, 0, 0.45),
+    0 0 0 1px color-mix(in srgb, var(--waiting) 18%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--waiting) 28%, transparent);
+  animation: attention 2.4s ease-in-out infinite;
+}
+
+/* Something waiting on a person breathes, so it keeps asking without a badge. */
+@keyframes attention {
+  0%, 100% { border-color: color-mix(in srgb, var(--waiting) 55%, transparent); }
+  50% { border-color: color-mix(in srgb, var(--waiting) 90%, transparent); }
+}
+
+/* Headings are instrument labels: small, tracked, upper. */
+.card h3,
+.panel h4 {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--cyan) 70%, #fff);
+}
+
+.card .what {
+  color: var(--text);
+}
+
+.row {
+  border-bottom-color: color-mix(in srgb, var(--cyan) 12%, transparent);
+}
+
+.row .k {
+  color: color-mix(in srgb, var(--dim) 80%, var(--cyan));
+}
+
+/* ── the conversation ────────────────────────────────────────────────────── */
+
+/* Every turn is a glass chip. This is the legibility fix: no sentence ever
+   sits on the orb's glow, and the thread reads as panels floating over the
+   core rather than as text spilled across it.
+   Direct child only — an email body nested inside a card is not a turn, and
+   styling it as one puts a box inside a box. */
+.turn > .body {
+  border-radius: 12px;
+  padding: 10px 14px;
+  /* Hug the words. A one-line answer stretched across the column reads as a
+     banner rather than as something said. */
+  width: fit-content;
+  max-width: min(620px, 100%);
+}
+
+.turn.it > .body {
+  border-color: var(--edge);
+}
+
+.turn.event {
+  display: flex;
+  justify-content: center;
+}
+
+.turn.you > .body {
+  background: linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--cyan) 16%, var(--glass)),
+    color-mix(in srgb, #071019 70%, transparent)
+  );
+  border-color: var(--edge-lit);
+  color: #fff;
+}
+
+.turn.event > .body {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--cyan) 62%, var(--dim));
+  border-color: color-mix(in srgb, var(--cyan) 16%, transparent);
+  padding: 5px 10px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* A readable column. Full-bleed cards next to a centred orb look accidental. */
+.thread {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--cyan) 35%, transparent) transparent;
+}
+
+.thread::-webkit-scrollbar {
+  width: 6px;
+}
+
+.thread::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--cyan) 30%, transparent);
+  border-radius: 3px;
+}
+
+/* ── buttons ─────────────────────────────────────────────────────────────── */
+
+.card button,
+.gate-card .primary {
+  border-radius: 9px;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  transition: box-shadow 200ms ease, background 200ms ease, border-color 200ms ease;
+}
+
+/* Approve is cyan, not green. One accent family, or the eye stops trusting it
+   to mean anything. */
+.card button.approve,
+.gate-card .primary {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--cyan) 88%, #fff),
+    color-mix(in srgb, var(--cyan-deep) 92%, #000)
+  );
+  border: 1px solid color-mix(in srgb, var(--cyan-pale) 70%, transparent);
+  color: #04121b;
+  box-shadow: 0 0 18px color-mix(in srgb, var(--cyan) 40%, transparent);
+}
+
+.card button.approve:hover,
+.gate-card .primary:hover {
+  box-shadow: 0 0 26px color-mix(in srgb, var(--cyan) 65%, transparent);
+}
+
+.card button.reject {
+  background: color-mix(in srgb, var(--bad) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--bad) 45%, transparent);
+  color: color-mix(in srgb, var(--bad) 85%, #fff);
+}
+
+.card button.reject:hover {
+  background: color-mix(in srgb, var(--bad) 18%, transparent);
+}
+
+/* ── chrome: bar, pills, composer, menu ──────────────────────────────────── */
+
+.bar,
+.composer {
+  border-color: color-mix(in srgb, var(--cyan) 14%, transparent);
+}
+
+.wordmark {
+  letter-spacing: 0.34em;
+  text-shadow: 0 0 18px color-mix(in srgb, var(--cyan) 55%, transparent);
+}
+
+.pill {
+  border-radius: 7px;
+  border: 1px solid var(--edge);
+  background: color-mix(in srgb, var(--cyan) 8%, rgba(8, 16, 24, 0.6));
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.pill.waiting {
+  border-color: color-mix(in srgb, var(--waiting) 55%, transparent);
+}
+.pill.moving {
+  border-color: var(--edge-lit);
+}
+.pill.bad {
+  border-color: color-mix(in srgb, var(--bad) 60%, transparent);
+}
+
+.composer input,
+.card input,
+.gate-card input {
+  background: color-mix(in srgb, #06111a 72%, transparent);
+  border: 1px solid var(--edge);
+  border-radius: 10px;
+  color: var(--text);
+  font-family: var(--font);
+}
+
+.composer input:focus,
+.card input:focus,
+.gate-card input:focus {
+  border-color: var(--edge-lit);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--cyan) 14%, transparent);
+  outline: none;
+}
+
+.icon {
+  border-radius: 9px;
+  border: 1px solid var(--edge);
+  background: color-mix(in srgb, var(--cyan) 6%, rgba(8, 16, 24, 0.55));
+  transition: border-color 200ms ease, box-shadow 200ms ease;
+}
+
+.icon:hover {
+  border-color: var(--edge-lit);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--cyan) 28%, transparent);
+}
+
+.icon.mic.listening {
+  border-color: var(--cyan-pale);
+  box-shadow: 0 0 22px var(--core-soft);
+}
+
+.menu {
+  border-radius: 12px;
+  border-color: var(--edge);
+}
+
+.menu button {
+  letter-spacing: 0.08em;
+  border-radius: 7px;
+}
+
+.menu button:hover {
+  background: color-mix(in srgb, var(--cyan) 12%, transparent);
+  color: #fff;
+}
+
+/* ── the gate ────────────────────────────────────────────────────────────── */
+
+/* The first screen anyone sees. It used to be a plain card in front of a
+   plain background, which made the sign-in look like a different product. */
+.gate-card {
+  border-radius: 16px;
+  padding: 30px 28px;
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.6),
+    0 0 60px color-mix(in srgb, var(--cyan) 12%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--cyan-pale) 30%, transparent);
+}
+
+#gate::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--cyan) 12%, transparent) 0%, transparent 55%);
+}
+
+#gate .wordmark {
+  font-size: 24px;
+}
+
+.recovery code {
+  font-family: var(--mono);
+  border: 1px solid var(--edge-lit);
+  background: color-mix(in srgb, var(--cyan) 8%, rgba(6, 14, 22, 0.7));
+  letter-spacing: 0.12em;
+}
+
+/* The boot pulse in the house colour rather than the old flat blue. */
+#boot .pulse {
+  background: var(--cyan);
+  box-shadow: 0 0 30px var(--core-soft);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card.waiting { animation: none; }
+}
+
+/* The spend bar was the last green thing on screen. */
+.bar-fill {
+  background: linear-gradient(90deg, var(--cyan-deep), var(--cyan));
+  box-shadow: 0 0 12px color-mix(in srgb, var(--cyan) 45%, transparent);
+}
+
+.bar-fill.warm {
+  background: linear-gradient(90deg, var(--cyan), var(--waiting));
+}
+
+.bar-fill.hot {
+  background: linear-gradient(90deg, var(--waiting), var(--bad));
+}
+
+.bar-track {
+  background: color-mix(in srgb, var(--cyan) 10%, rgba(0, 0, 0, 0.4));
+  border: 1px solid color-mix(in srgb, var(--cyan) 16%, transparent);
+}
+
+/* Values that mean "good" should not be a different family from everything
+   else on screen; cyan is the healthy colour here. */
+.row .v.good,
+.panel-v.ok {
+  color: color-mix(in srgb, var(--cyan) 78%, #fff);
+}
+
+/* The orb behind the sign-in, drawn in CSS alone.
+ *
+ * The gate is the first thing anyone sees and it was a card on a black field —
+ * true to the app but not recognisably it. This is the same sphere, dimmed and
+ * inert: no JS, no second instance of the core to keep in step, just the
+ * material saying what this is before you have signed into anything. */
+#gate::after {
+  content: '';
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  width: min(52vmin, 440px);
+  aspect-ratio: 1;
+  /* The independent `translate` property, not `transform` — `breathe`
+     animates `transform: scale()`, which would replace a transform-based
+     centring outright and throw the orb into the corner. */
+  translate: -50% -50%;
+  border-radius: 50%;
+  pointer-events: none;
+  border: 1px solid color-mix(in srgb, var(--cyan) 55%, transparent);
+  background:
+    radial-gradient(circle at 34% 27%, rgba(255, 255, 255, 0.55) 0%, transparent 9%),
+    radial-gradient(circle at 50% 50%, transparent 68%, color-mix(in srgb, var(--cyan) 40%, transparent) 88%, transparent 100%),
+    repeating-linear-gradient(to bottom, transparent 0 7px, color-mix(in srgb, var(--cyan) 16%, transparent) 7px 8px),
+    radial-gradient(circle at 62% 76%, rgba(4, 10, 18, 0.9) 0%, transparent 72%),
+    radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--cyan) 18%, transparent) 0%, transparent 70%);
+  box-shadow:
+    inset 0 0 40px color-mix(in srgb, var(--cyan) 22%, transparent),
+    0 0 60px color-mix(in srgb, var(--cyan) 18%, transparent);
+  opacity: 0.4;
+  animation: breathe 1.5s ease-in-out infinite;
+}
+
+/* The card floats over it, and needs to win the stacking order to do that. */
+.gate-card {
+  position: relative;
+  z-index: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #gate::after { animation: none; }
+}
+
+/* On a phone the wordmark, the pills and the menu button compete for one row,
+ * and the pills lose — they were cut off mid-word against the button, which
+ * reads as broken rather than as scrollable. */
+@media (max-width: 520px) {
+  .wordmark.small {
+    display: none;
+  }
+
+  .pills {
+    /* Fade the trailing edge so a row that continues looks like it continues. */
+    mask-image: linear-gradient(to right, #000 0 88%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, #000 0 88%, transparent 100%);
+  }
+}
