@@ -196,6 +196,13 @@ describe('walking in the door', () => {
     }
   });
 
+  it('greets you by title, whatever the hour', () => {
+    const a = answer('homecoming', snap());
+    expect(a.speech).toMatch(/^(Morning|Welcome back|Evening), sir\./);
+    // Once, at the front. A title in every clause is a tic, not deference.
+    expect(a.speech.match(/sir/gi)).toHaveLength(1);
+  });
+
   it('leads with the work, then what is waiting', () => {
     const a = answer('homecoming', snap({
       standup: 'Wrote the August post and replied to two enquiries.',

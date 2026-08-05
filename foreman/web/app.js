@@ -294,7 +294,7 @@ function connect() {
         // Something stopped and is waiting on a person: the one event worth
         // making a noise about when nobody is looking at the screen.
         core.succeeded();
-        answered(`${event.tool} needs you: ${event.summary}`, null, { speak: true });
+        answered(`Sir — ${event.tool} needs you: ${event.summary}`, null, { speak: true });
       } else if (event.type === 'paused') {
         noted(event.paused ? 'paused' : 'running again');
       } else if (event.type === 'tick' && event.ran) {
@@ -554,8 +554,8 @@ async function greet() {
 
   answered(
     bits.length === 0
-      ? `${part}. Jordan here — nothing needs you.`
-      : `${part}. Jordan here — ${bits.join(', ')}.`,
+      ? `${part}, sir. Nothing needs you.`
+      : `${part}, sir. ${bits.join(', ')}.`,
     waiting > 0 && snapshot ? render({ type: 'approvals', items: snapshot.approvals }, { act }) : null,
     { speak: false },
   );

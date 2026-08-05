@@ -205,7 +205,7 @@ export function answer(intent: IntentName, s: Snapshot): Answer {
 
     case 'homecoming': {
       const hour = new Date().getHours();
-      const greeting = hour < 12 ? 'Morning' : hour < 18 ? 'Welcome back' : 'Evening';
+      const greeting = hour < 12 ? 'Morning, sir' : hour < 18 ? 'Welcome back, sir' : 'Evening, sir';
 
       // What it did comes first, because that is the actual question. The
       // standup is the written record of it when one exists; otherwise the
