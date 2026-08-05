@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { readFile, readdir } from 'node:fs/promises';
+import { PassThrough } from 'node:stream';
 import { join } from 'node:path';
-import { resolveAsset, defaultWebDir } from '../src/server/static.ts';
+import { resolveAsset, defaultWebDir, etagFor, serveAsset } from '../src/server/static.ts';
 import { contentSecurityPolicy } from '../src/server/security.ts';
 
 /**
@@ -73,5 +74,71 @@ describe('the pages obey their own CSP', () => {
         unsafe: false,
       });
     }
+  });
+});
+
+/**
+ * A fix that is deployed and still broken in the browser is the worst kind,
+ * because everything you can check says it is fine. That is what a cached
+ * script buys you, so the caching rules are pinned here.
+ */
+describe('nothing is used from cache without asking first', () => {
+  /**
+   * A real writable, because the 200 path pipes the file into it. A hand-made
+   * object with an `end()` is not a stream and `pipe` will not talk to one.
+   */
+  const collect = () => {
+    const headers: Record<string, unknown> = {};
+    let status = 0;
+    const sink = new PassThrough() as PassThrough & {
+      writeHead: (code: number, h: Record<string, unknown>) => unknown;
+    };
+    sink.resume();
+    sink.writeHead = (code, h) => {
+      status = code;
+      Object.assign(headers, h);
+      return sink;
+    };
+    return { res: sink, headers, get status() { return status; } };
+  };
+
+  it('tells the browser to revalidate a script rather than reusing it', async () => {
+    const sink = collect();
+    await serveAsset(sink.res as never, root, '/cards.js');
+    // Not `max-age`: any window at all is a window in which a new API is
+    // talking to an old front end.
+    expect(sink.headers['cache-control']).toBe('no-cache');
+    expect(String(sink.headers['etag'])).toMatch(/^W\/"/);
+  });
+
+  it('never stores the shell', async () => {
+    const sink = collect();
+    await serveAsset(sink.res as never, root, '/index.html');
+    expect(sink.headers['cache-control']).toBe('no-store');
+  });
+
+  it('answers an unchanged file with 304 and no body', async () => {
+    const first = collect();
+    await serveAsset(first.res as never, root, '/app.css');
+    const tag = String(first.headers['etag']);
+
+    const second = collect();
+    await serveAsset(second.res as never, root, '/app.css', tag);
+    expect(second.status).toBe(304);
+    // A 304 carries no body, so it must not claim a length.
+    expect(second.headers['content-length']).toBeUndefined();
+  });
+
+  it('sends the file again when it has changed', async () => {
+    const sink = collect();
+    await serveAsset(sink.res as never, root, '/app.css', 'W/"0-0"');
+    expect(sink.status).toBe(200);
+  });
+
+  it('changes the validator when the file does', () => {
+    const before = etagFor({ size: 100, mtimeMs: 1 });
+    expect(etagFor({ size: 100, mtimeMs: 2 })).not.toBe(before);
+    expect(etagFor({ size: 101, mtimeMs: 1 })).not.toBe(before);
+    expect(etagFor({ size: 100, mtimeMs: 1 })).toBe(before);
   });
 });

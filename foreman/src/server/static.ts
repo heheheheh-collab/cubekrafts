@@ -47,10 +47,22 @@ export interface StaticResult {
   served: boolean;
 }
 
+/**
+ * A weak validator built from what the file system already knows.
+ *
+ * Size and modification time, so nothing has to be read or hashed to answer
+ * a conditional request. A deploy rewrites the files and both change, which
+ * is exactly when the browser must be told to fetch again.
+ */
+export function etagFor(info: { size: number; mtimeMs: number }): string {
+  return `W/"${info.size.toString(16)}-${Math.floor(info.mtimeMs).toString(16)}"`;
+}
+
 export async function serveAsset(
   res: ServerResponse,
   root: string,
   urlPath: string,
+  ifNoneMatch?: string | undefined,
 ): Promise<StaticResult> {
   const path = resolveAsset(root, urlPath);
   if (!path) return { served: false };
@@ -63,12 +75,37 @@ export async function serveAsset(
   }
   if (!info.isFile()) return { served: false };
 
+  const etag = etagFor(info);
+
+  /*
+   * Nothing is served from cache without asking first.
+   *
+   * This used to keep scripts for five minutes, on the reasoning that only the
+   * shell must be fresh after a deploy. That was backwards: the shell is a
+   * dozen lines of markup and the scripts *are* the app, so a five-minute
+   * window was five minutes in which a new API could be talking to an old
+   * front end. It cost a real bug — a fix shipped, deployed, and still
+   * throwing in the browser, with nothing wrong in the code.
+   *
+   * `no-cache` does not mean "do not store"; it means "revalidate before
+   * using". With an ETag that is one conditional request per file per load,
+   * answered by a 304 with no body whenever nothing has changed.
+   */
+  const headers: Record<string, string | number> = {
+    'cache-control': path.endsWith('.html') ? 'no-store' : 'no-cache',
+    etag,
+  };
+
+  if (ifNoneMatch && ifNoneMatch.split(',').some((tag) => tag.trim() === etag)) {
+    res.writeHead(304, headers);
+    res.end();
+    return { served: true };
+  }
+
   res.writeHead(200, {
+    ...headers,
     'content-type': TYPES[extname(path).toLowerCase()] ?? 'application/octet-stream',
     'content-length': info.size,
-    // The shell must not be cached, or a deploy leaves an old app talking to
-    // a new API. Everything else is fine to keep for a few minutes.
-    'cache-control': path.endsWith('.html') ? 'no-store' : 'public, max-age=300',
   });
   await new Promise<void>((done, fail) => {
     createReadStream(path).on('error', fail).on('end', done).pipe(res);

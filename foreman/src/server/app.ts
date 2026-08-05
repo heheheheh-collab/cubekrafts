@@ -548,7 +548,8 @@ export function createApp(deps: AppDeps): Server {
     if (webDir !== null && (method === 'GET' || method === 'HEAD')) {
       if (!url.pathname.startsWith('/api/')) {
         try {
-          if ((await serveAsset(res, webDir, url.pathname)).served) return;
+          const inm = req.headers['if-none-match'];
+          if ((await serveAsset(res, webDir, url.pathname, inm)).served) return;
           // An unknown path that is not a file is a client-side route, so the
           // shell answers it and the browser sorts out what to draw.
           if ((await serveAsset(res, webDir, '/index.html')).served) return;
