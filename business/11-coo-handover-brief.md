@@ -17,6 +17,7 @@ Cubekrafts is a **two-sided platform for India's modular furniture trade** (kitc
 4. Broadened from kitchens-only to **everything modular** (founder decision) — platform is category-agnostic; **GTM still leads with kitchens** (highest search volume + ticket).
 5. Revenue model v1 (free leads + 1% honor-system fee) diagnosed **unsustainable** → replaced by **v2: credits + Pro + flat fees** (doc 08).
 6. Brand: "Kraft Seal" Ck monogram logo → full **Royal Plum rebrand** (aubergine #2E1F35 / champagne #F5EEE1 / old gold #D8B577, Fraunces + Manrope) after the original green/brass proved generic.
+7. **Multi-language (Aug 2026, founder call):** English + all 22 scheduled languages of India, switchable site-wide. Rationale is supply-side — Tier-2 fabricators run their business in Marathi/Gujarati/Hindi/Tamil and every quoting tool they have ever been shown was English-only; Livspace/HomeLane do not bother. Two hard rules baked in: the **printed quote document stays English** (GST/terms mistranslation is a real liability — rule #2), and **trade jargon is not over-translated** (the trade code-switches: "shutter", "laminate", "soft-close hinge", "18mm ply", "sq ft" stay English even in fluent Marathi; forced literal translation reads as alien and costs trust).
 
 ## 3. What exists today (inventory)
 
@@ -65,7 +66,9 @@ Cubekrafts is a **two-sided platform for India's modular furniture trade** (kitc
 
 ## 7. Daily/weekly operating rhythm (the assistant's checklist)
 
-- **Daily (~30 min):** admin → unrouted/verification queue (24h SLA — call/WhatsApp each homeowner, verify, route); check anomaly flags; reply to dealer WhatsApps; check lead reports (approve/reject; approval auto-refunds). Form emails to info@cubekrafts.com are pings only — always work leads from the admin queue (the DB is the source of truth for allocation, dedup, credits, and the audit log; the inbox is not).
+- **Daily (~30 min):** admin → unrouted/verification queue (24h SLA — call/WhatsApp each homeowner, verify, route); check anomaly flags; reply to dealer WhatsApps; check lead reports (approve/reject; approval auto-refunds); clear info@cubekrafts.com.
+  - **Inbox rule:** info@ notifies, the admin queue decides. Every enquiry is already a row in `leads`/`unrouted_requests` — work them from the admin portal, never from the inbox, or allocation, dedup, credits and the audit log silently stop matching reality.
+  - **Email setup to verify once:** if info@ forwards into Gmail, configure Gmail "Send mail as" so replies go out FROM info@cubekrafts.com, not the personal address — a personal-Gmail reply to a cubekrafts.com enquiry undercuts the verified-platform positioning we charge for. Add SPF, DKIM and DMARC records on cubekrafts.com before pilots; a spam-foldered quote link is a lost deal. Form emails to info@cubekrafts.com are pings only — always work leads from the admin queue (the DB is the source of truth for allocation, dedup, credits, and the audit log; the inbox is not).
 - **Weekly:** follow-ups queue (30/60-day homeowner check-ins — this is win-detection AND review collection); CRM update in the doc 05 tracker (new→contacted→signed_up→activated→paying); metrics pull (leads routed, activation, junk rate <5%, free→paid %); one social batch session.
 - **Monthly:** grant Pro credits happen automatically (lazy accrual); reconcile manual billing; review allocation fairness (no dealer >40% of a city's leads).
 
@@ -90,6 +93,7 @@ Cubekrafts is a **two-sided platform for India's modular furniture trade** (kitc
 | Latest build preview | id-preview--3dbffddc-a846-4d1e-bfb9-764809b65fbb.lovable.app |
 | App editor + publish button | lovable.dev/projects/3dbffddc-a846-4d1e-bfb9-764809b65fbb |
 | Database/auth | Supabase (via Lovable project; admin = mittaltarun962@gmail.com in admin_emails) |
+| Official inbox | **info@cubekrafts.com** — form/enquiry notifications land here; the public-facing address for site, WhatsApp Business, Google Business Profile, social bios, deck and dealer agreements. Notification channel only, never the system of record (see §7). |
 | Official inbox | **info@cubekrafts.com** — form/enquiry notifications route here; the public-facing address on the site, WhatsApp Business, Google Business Profile, social bios, deck, and dealer agreements. **Notification channel only — never the system of record (see §7).** |
 | Docs + legacy backend repo | github.com/heheheheh-collab/cubekrafts (branch claude/startup-business-agents-ngl5yw, PR #1 open) |
 | Legacy Express backend | Same repo — NOT the live product; keep for reference; env fail-fast requires ADMIN_* secrets if ever run |
